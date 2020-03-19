@@ -4,8 +4,6 @@
 int main(int argc, char **argv)
 {
 	if ( argc < 2 ) { printf("Usage: %s -help for help\n", argv[0]); exit(1); }
-
-  sleep(2);
 	if ( VERBOSE >= 2 ) {
      for (int a = 0; a < argc; a++) printf("%s ", argv[a]); printf("\n");
   }
@@ -57,9 +55,7 @@ void read_input(tspinstance *inst) // simplified CVRP parser, not all SECTIONs d
 		if ( VERBOSE >= 2000 ) { printf("%s",line); fflush(NULL); }
 		if ( strlen(line) <= 1 ) continue; // skip empty lines
 	  par_name = strtok(line, " :");
-	  sleep(5);
-		printf("%s\n", par_name);
-	  sleep(5);
+		printf("[INFO] %s\n", par_name);
 		if ( VERBOSE >= 3000 ) { printf("parameter \"%s\" ",par_name); fflush(NULL); }
 
 		if ( strncmp(par_name, "NAME", 4) == 0 )
