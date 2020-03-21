@@ -4,13 +4,13 @@
 
 #include <stdio.h>
 #include <math.h>
-// #include <stdlib.h>
+#include <stdlib.h>
 #include <string.h>
-//
-// #include <cplex.h>
-// #include <pthread.h>
 
-#define VERBOSE				    50		// printing level  (=10 only incumbent,
+#include <cplex.h>
+#include <pthread.h>
+
+#define VERBOSE				    10		// printing level  (=10 only incumbent,
                                 //    =20 little output, =50-60 good,
                                 //    =70 verbose, >=100 cplex log)
 
@@ -61,23 +61,6 @@ typedef struct {
 	// int fstart;
 	// int zstart;
 } tspinstance;
-
-void printtsp(tspinstance *inst)
-{
-
-  printf("******  TSP  ******\n\nnnodes: %d\n", inst->nnodes);
-  for (int i = 0; i < inst->nnodes; i++)
-    printf("\t%d\t(%d,%d)\n", i, inst->xcoord[i], inst->ycoord[i]);
-  printf("model_type: %d\n", inst->model_type);
-  printf("randomseed: %d\n", inst->randomseed);
-  printf("timelimit: %d\n", inst->timelimit);
-  printf("input_file: %s\n", inst->input_file);
-  printf("available_memory: %d\n", inst->available_memory);
-  printf("max_nodes: %d\n", inst->max_nodes);
-  printf("integer_costs: %d\n", inst->integer_costs);
-
-  printf("\n*******************\n");
-}
 
 //inline
 inline int imax(int i1, int i2) { return ( i1 > i2 ) ? i1 : i2; }
