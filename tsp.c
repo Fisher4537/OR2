@@ -264,3 +264,21 @@ void parse_command_line(int argc, char** argv, tspinstance *inst)
 	if ( help ) exit(1);
 
 }
+
+void plot_problem_input(tspinstance *inst)
+{
+
+  FILE *gnuplot = popen("gnuplot", "w");
+
+	fprintf(gnuplot,"set style line 1 \
+							    lc rgb '#0060ad' \
+									pointtype 7 \
+									pointsize 1.0");
+
+	fprintf(gnuplot, "set title \"Input data\"\n");
+  fprintf(gnuplot, "plot '-' w p ls 1 \n");
+  for (size_t i = 0; i < inst->nnodes; i++)
+      fprintf(gnuplot, "%f %f\n", inst->xcoord[i], inst->ycoord[i]);
+  fprintf(gnuplot, "e\n");
+  fflush(gnuplot);
+}
