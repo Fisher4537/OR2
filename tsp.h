@@ -43,11 +43,12 @@ typedef struct {
 	int integer_costs;
 
 	//global data
-	// double	tstart;
-	// double zbest;							// best sol. available
-	// double tbest;							// time for the best sol. available
-	// double *best_sol;						// best sol. available
-	// double	best_lb;						// best lower bound available
+	double	tstart;
+	double zbest;							// best sol. available
+	double tbest;							// time for the best sol. available
+	double *best_sol;						// best sol. available
+	double	best_lb;						// best lower bound available
+	int nedges;									// number of edges in best_sol
 	// double *load_min;						// minimum load when leaving a node
 	// double *load_max;						// maximum load when leaving a node
 

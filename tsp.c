@@ -18,22 +18,33 @@ int TSPopt(tspinstance *inst)
 {
 
 	// open cplex model
+
 	int error;
 	CPXENVptr env = CPXopenCPLEX(&error);
 	CPXLPptr lp = CPXcreateprob(env, &error, "TSP");
 
 	build_model(inst, env, lp);
 
+	inst->nedges = CPXgetnumcols(env, lp);
+	inst->best_sol = (double *) calloc(inst->nedges, sizeof(double)); 	// all entries to zero
+	inst->zbest = CPX_INFBOUND;
+
 	// Cplex's parameter setting
+
+	// compute cplex
 	CPXmipopt(env,lp);
 
-	// use the optimal solution found by CPLEX
+	// get best solution
+	// CPXgetbestobjval(env, lp, &inst->best_lb);
+	CPXsolution(env, lp, &error, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
 
+	// use the optimal solution found by CPLEX
 
 	// free and close cplex model
 	CPXfreeprob(env, &lp);
 	CPXcloseCPLEX(&env);
-	return error;
+
+	return !error;
 }
 
 int xpos(int i, int j, tspinstance *inst)      // to be verified
@@ -42,6 +53,20 @@ int xpos(int i, int j, tspinstance *inst)      // to be verified
 	if ( i > j ) return xpos(j,i,inst);
 	int pos = i * inst->nnodes + j - (( i + 1 ) * ( i + 2 )) / 2;
 	return pos;
+}
+
+int xpostoi(int xpos, int n)
+{
+	if (xpos < 0 || n < 2) print_error("xpos < 0 in xpostoi.\n");
+	if (xpos < n-1) return 0;
+	return xpostoi(xpos-n+1, n-1)+1;
+}
+
+int xpostoj(int xpos, int n)
+{
+	if (xpos < 0|| n < 2) print_error("xpos < 0 in xpostoi.\n");
+	if (xpos < n-1) return xpos+1;
+	return xpostoj(xpos-n+1, n-1)+1;
 }
 
 void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp)
@@ -74,7 +99,7 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp)
 	{
 		int lastrow = CPXgetnumrows(env,lp);
 		double rhs = 2.0;
-		char sense = 'E';                            // 'E' for equality constraint
+		char sense = 'E';											// 'E' for equality constraint
 		sprintf(cname[0], "degree(%d)", h+1);
 		if ( CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname) )
 			print_error(" wrong CPXnewrows [degree]");
@@ -120,6 +145,7 @@ void read_input(tspinstance *inst) // simplified CVRP parser, not all SECTIONs d
 	if ( fin == NULL ) print_error(" input file not found!");
 
 	inst->nnodes = -1;
+	inst->nedges = -1;
 
 	char line[180];
 	char *par_name;
@@ -273,12 +299,37 @@ void plot_problem_input(tspinstance *inst)
 	fprintf(gnuplot,"set style line 1 \
 							    lc rgb '#0060ad' \
 									pointtype 7 \
-									pointsize 1.0");
+									pointsize 1.0\n");
+
+	fprintf(gnuplot,"set style line 2 \
+							    lc rgb '#0060ad' \
+									linetype 1 linewidth 2 \
+									pointtype 7 pointsize 1.0\n");
 
 	fprintf(gnuplot, "set title \"Input data\"\n");
-  fprintf(gnuplot, "plot '-' w p ls 1 \n");
+  fprintf(gnuplot, "plot '-' w p ls 1\n");
   for (size_t i = 0; i < inst->nnodes; i++)
-      fprintf(gnuplot, "%f %f\n", inst->xcoord[i], inst->ycoord[i]);
-  fprintf(gnuplot, "e\n");
+    fprintf(gnuplot, "%f %f\n", inst->xcoord[i], inst->ycoord[i]);
+	fprintf(gnuplot, "e\n");
+	// plot edges
+	if (inst->nedges > 0)
+	{
+		// printf("getbestobjval(env, lp, &inst->best_lb);\n");
+		int n1;
+		int n2;
+		fprintf(gnuplot, "plot '-' w linespoints linestyle 2\n");
+		for (int i = 0; i < inst->nedges; i++)
+		{
+			if (0.99999 < inst->best_sol[i] && inst->best_sol[i] < 1.00001)
+			{
+				n1 = xpostoi(i, inst->nnodes);
+				n2 = xpostoj(i, inst->nnodes);
+				fprintf(gnuplot, "%f %f\n%f %f\n\n",
+							 		inst->xcoord[n1], inst->ycoord[n1],
+									inst->xcoord[n2], inst->ycoord[n2]);
+			}
+		}
+		fprintf(gnuplot, "e\n");
+	}
   fflush(gnuplot);
 }

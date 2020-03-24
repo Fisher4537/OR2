@@ -19,8 +19,9 @@ int main(int argc, char **argv)
 	//printf(" file %s has %d non-empty lines\n", inst.input_file, number_of_nonempty_lines(inst.input_file)); exit(1);
 
 	read_input(&inst);
-	if ( VERBOSE >= 10 ) plot_problem_input(&inst);
+	//if ( VERBOSE >= 10 ) plot_problem_input(&inst);
 	if ( TSPopt(&inst) ) print_error(" error within VRPopt()");
+	if ( VERBOSE >= 10 ) plot_problem_input(&inst);
 	time_t t2 = time(NULL);
 
 	if ( VERBOSE >= 1 )
