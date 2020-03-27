@@ -55,20 +55,6 @@ int xpos(int i, int j, tspinstance *inst)      // to be verified
 	return pos;
 }
 
-int xpostoi(int xpos, int n)
-{
-	if (xpos < 0 || n < 2) print_error("xpos < 0 in xpostoi.\n");
-	if (xpos < n-1) return 0;
-	return xpostoi(xpos-n+1, n-1)+1;
-}
-
-int xpostoj(int xpos, int n)
-{
-	if (xpos < 0|| n < 2) print_error("xpos < 0 in xpostoi.\n");
-	if (xpos < n-1) return xpos+1;
-	return xpostoj(xpos-n+1, n-1)+1;
-}
-
 void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp)
 {
 
@@ -314,19 +300,18 @@ void plot_problem_input(tspinstance *inst)
 	// plot edges
 	if (inst->nedges > 0)
 	{
-		// printf("getbestobjval(env, lp, &inst->best_lb);\n");
-		int n1;
-		int n2;
+
 		fprintf(gnuplot, "plot '-' w linespoints linestyle 2\n");
-		for (int i = 0; i < inst->nedges; i++)
+		for (int i = 0; i < inst->nnodes; i++)
 		{
-			if (0.99999 < inst->best_sol[i] && inst->best_sol[i] < 1.00001)
+			for (int j = i+1; j < inst->nnodes; j++)
 			{
-				n1 = xpostoi(i, inst->nnodes);
-				n2 = xpostoj(i, inst->nnodes);
-				fprintf(gnuplot, "%f %f\n%f %f\n\n",
-							 		inst->xcoord[n1], inst->ycoord[n1],
-									inst->xcoord[n2], inst->ycoord[n2]);
+				if (0.5 < inst->best_sol[xpos(i,j,inst)] ) // && inst->best_sol[i] < 1.00001)
+				{
+					fprintf(gnuplot, "%f %f\n%f %f\n\n",
+								 		inst->xcoord[i], inst->ycoord[i],
+										inst->xcoord[j], inst->ycoord[j]);
+				}
 			}
 		}
 		fprintf(gnuplot, "e\n");
