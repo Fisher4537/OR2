@@ -18,13 +18,14 @@ int TSPopt(tspinstance *inst)
 {
 
 	// open cplex model
+	int status;
+	CPXENVptr env = CPXopenCPLEX(&status);
+	CPXLPptr lp = CPXcreateprob(env, &status, "TSP");
 
-	int error;
-	CPXENVptr env = CPXopenCPLEX(&error);
-	CPXLPptr lp = CPXcreateprob(env, &error, "TSP");
-
+	// set input data in CPX structure
 	build_model(inst, env, lp);
 
+	// setup struct to save solution
 	inst->nedges = CPXgetnumcols(env, lp);
 	inst->best_sol = (double *) calloc(inst->nedges, sizeof(double)); 	// all entries to zero
 	inst->zbest = CPX_INFBOUND;
@@ -36,7 +37,7 @@ int TSPopt(tspinstance *inst)
 
 	// get best solution
 	// CPXgetbestobjval(env, lp, &inst->best_lb);
-	CPXsolution(env, lp, &error, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
+	CPXsolution(env, lp, &status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
 
 	// use the optimal solution found by CPLEX
 
@@ -44,15 +45,14 @@ int TSPopt(tspinstance *inst)
 	CPXfreeprob(env, &lp);
 	CPXcloseCPLEX(&env);
 
-	return !error;
+	return !status; // status 0 is ok
 }
 
-int xpos(int i, int j, tspinstance *inst)      // to be verified
+int xpos(int i, int j, tspinstance *inst)
 {
 	if ( i == j ) print_error(" i == j in xpos" );
-	if ( i > j ) return xpos(j,i,inst);
-	int pos = i * inst->nnodes + j - (( i + 1 ) * ( i + 2 )) / 2;
-	return pos;
+	if ( i > j ) return xpos(j,i,inst);								// simplify returned formula
+	return i*inst->nnodes + j - ((i + 1)*(i + 2))/2; 	// default case
 }
 
 void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp)
@@ -279,9 +279,12 @@ void parse_command_line(int argc, char** argv, tspinstance *inst)
 
 void plot_problem_input(tspinstance *inst)
 {
-
+	// TODO: consider to use a gnuplot interface if things become complicated
+	// open gnuplot process
   FILE *gnuplot = popen("gnuplot", "w");
+	char *pngname = "plot/fig.png";
 
+	// set up line and point style
 	fprintf(gnuplot,"set style line 1 \
 							    lc rgb '#0060ad' \
 									pointtype 7 \
@@ -292,29 +295,36 @@ void plot_problem_input(tspinstance *inst)
 									linetype 1 linewidth 2 \
 									pointtype 7 pointsize 1.0\n");
 
+	// set title
 	fprintf(gnuplot, "set title \"Input data\"\n");
+
+	// start plotting points
   fprintf(gnuplot, "plot '-' w p ls 1\n");
   for (size_t i = 0; i < inst->nnodes; i++)
     fprintf(gnuplot, "%f %f\n", inst->xcoord[i], inst->ycoord[i]);
 	fprintf(gnuplot, "e\n");
-	// plot edges
-	if (inst->nedges > 0)
+
+	// start plotting edges
+	if (inst->nedges > 0) // check if solution is available
 	{
+
+		// save png into FILE
+		if (VERBOSE < 1000) // save plot in file
+			fprintf(gnuplot, "set terminal png\n\
+												set output '%s'\n", pngname);
 
 		fprintf(gnuplot, "plot '-' w linespoints linestyle 2\n");
 		for (int i = 0; i < inst->nnodes; i++)
-		{
 			for (int j = i+1; j < inst->nnodes; j++)
-			{
 				if (0.5 < inst->best_sol[xpos(i,j,inst)] ) // && inst->best_sol[i] < 1.00001)
-				{
 					fprintf(gnuplot, "%f %f\n%f %f\n\n",
 								 		inst->xcoord[i], inst->ycoord[i],
 										inst->xcoord[j], inst->ycoord[j]);
-				}
-			}
-		}
 		fprintf(gnuplot, "e\n");
 	}
+
+	// show plot or save in file and close
   fflush(gnuplot);
+	if (VERBOSE >= 1000) getchar(); // pause execution to see the plot
+	fclose(gnuplot);
 }

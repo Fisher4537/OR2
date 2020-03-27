@@ -25,3 +25,11 @@ clean:
 
 cleanlog:
 	rm log/*
+
+cleanmodel:
+	rm *.lp
+
+cleanplot:
+	rm *.png
+
+cleanall: clean cleanlog cleanmodel cleanplot
