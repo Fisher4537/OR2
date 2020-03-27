@@ -10,7 +10,7 @@
 #include <cplex.h>
 #include <pthread.h>
 
-#define VERBOSE				    100		// printing level  (=10 only incumbent,
+#define VERBOSE				    1000		// printing level  (=10 only incumbent,
                                 //    =20 little output, =50-60 good,
                                 //    =70 verbose, >=100 cplex log)
 

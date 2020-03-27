@@ -11,7 +11,7 @@ run: debug $(EXE)
 
 debug:
 	@echo "compiling with debugging options..."
-	gcc $(INC) -g mainTSP.c -o mainTSP.x
+	gcc $(INC) -g mainTSP.c -o mainTSP.x $(LIBS)
 
 $(EXE): $(OBJ)
 	gcc -o $(EXE) $(OBJ) $(LIBS)

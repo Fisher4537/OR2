@@ -7,6 +7,7 @@
 int TSPopt(tspinstance *inst);
 int xpos(int i, int j, tspinstance *inst);
 void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp);
+void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp);
 void parse_command_line(int argc, char** argv, tspinstance *inst);
 void free_instance(tspinstance *inst);
 void read_input(tspinstance *inst);
@@ -40,6 +41,10 @@ int TSPopt(tspinstance *inst)
 	CPXsolution(env, lp, &status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
 
 	// use the optimal solution found by CPLEX
+	int *succ = (int*) calloc(inst->nnodes, sizeof(int));
+	int *comp = (int*) calloc(inst->nnodes, sizeof(int));
+	int *ncomp = (int*) calloc(1, sizeof(int));
+	build_sol(inst, succ, comp, ncomp);
 
 	// free and close cplex model
 	CPXfreeprob(env, &lp);
@@ -101,6 +106,96 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp)
 
 	free(cname[0]);
 	free(cname);
+}
+
+
+#define DEBUG    // da commentare se non ci vuole il debugging
+#define EPS 1e-5
+
+void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp) // build succ() and comp() wrt xstar()...
+{
+
+	// check if nodes degree is 2 for each node
+#ifdef DEBUG
+
+	int *degree = (int *) calloc(inst->nnodes, sizeof(int));
+	for ( int i = 0; i < inst->nnodes; i++ )
+	{
+		for ( int j = i+1; j < inst->nnodes; j++ )
+		{
+			int k = xpos(i,j,inst);
+			if ( fabs(inst->best_sol[k]) > EPS && fabs(inst->best_sol[k]-1.0) > EPS ) print_error(" wrong inst->best_sol in build_sol()");
+			if ( inst->best_sol[k] > 0.5 )
+			{
+				++degree[i];
+				++degree[j];
+			}
+		}
+	}
+	for ( int i = 0; i < inst->nnodes; i++ )
+	{
+		if ( degree[i] != 2 ) print_error("wrong degree in build_sol()");
+	}
+	free(degree);
+#endif
+
+	// initialization of succ, comp and ncomp
+	*ncomp = 0;
+	for ( int i = 0; i < inst->nnodes; i++ )
+	{
+		succ[i] = -1;
+		comp[i] = -1;
+	}
+
+	// tour
+	for ( int start = 0; start < inst->nnodes; start++ )
+	{
+		if ( comp[start] >= 0 ) continue;  // node "start" has already been setted
+
+		// a new component is found
+		(*ncomp)++;
+		comp[start] = *ncomp;
+
+		int i = start;
+		//int done = 0;
+		while ( succ[i] == -1  )//!done )  // go and visit the current component
+		{
+			comp[i] = *ncomp;
+			// done = 1;
+			for ( int j = 0; j < inst->nnodes; j++ )
+			{
+				if (j == i) continue;
+
+				if ( inst->best_sol[xpos(i,j,inst)] > 0.5) // the edge [i,j] is selected in inst->best_sol and j was not visited before
+				{
+					// intern edge of the cycle
+					if (comp[j] == -1)
+					{
+						succ[i] = j;
+						i = j;
+						break;
+					}
+					// last edge of the cycle
+					if (start == j)
+					{
+						succ[i] = j;
+					}
+				}
+			}
+		}	// while
+	// go to the next component...
+	}
+
+	// print succ, comp and ncomp
+#ifdef DEBUG
+	printf("\ni:      ");
+	for (int i = 0; i < inst->nnodes; i++) printf("%6d", i);
+	printf("\nsucc:   ");
+	for (int i = 0; i < inst->nnodes; i++) printf("%6d", succ[i]);
+	printf("\ncomp:   ");
+	for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
+	printf("\n")
+#endif
 }
 
 double dist(int i, int j, tspinstance *inst)
