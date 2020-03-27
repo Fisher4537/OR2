@@ -4,3 +4,8 @@
 *.blg
 *.bbl
 *.pdf
+*.o
+*.x
+mainTSP
+gnuplot*
+plot/*
