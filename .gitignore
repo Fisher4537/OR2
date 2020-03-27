@@ -9,3 +9,4 @@
 mainTSP
 gnuplot*
 plot/*
+.gitignore
