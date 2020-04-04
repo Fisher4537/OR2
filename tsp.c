@@ -3,10 +3,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 int TSPopt(tspinstance *inst);
 int xpos(int i, int j, tspinstance *inst);
-void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp);
+void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp); // interface
+void build_sym_std(tspinstance *inst, CPXENVptr env, CPXLPptr lp); // sym, std
+void build_mtz(tspinstance *inst, CPXENVptr env, CPXLPptr lp); // asym, MTZ
 void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp);
 void parse_command_line(int argc, char** argv, tspinstance *inst);
 void free_instance(tspinstance *inst);
@@ -22,6 +25,7 @@ int TSPopt(tspinstance *inst)
 	int status;
 	CPXENVptr env = CPXopenCPLEX(&status);
 	CPXLPptr lp = CPXcreateprob(env, &status, "TSP");
+	CPXsetintparam(env,CPXPARAM_Threads, 3);		// allow executing N parallel threads
 
 	// set input data in CPX structure
 	build_model(inst, env, lp);
@@ -32,9 +36,14 @@ int TSPopt(tspinstance *inst)
 	inst->zbest = CPX_INFBOUND;
 
 	// Cplex's parameter setting
+	printf("build model succesfully.\n");
+	getchar();
+	printf("optimizing model...\n");
 
 	// compute cplex
+	time_t init_time = time(NULL);
 	CPXmipopt(env,lp);
+	inst->opt_time = init_time - time(NULL);
 
 	// get best solution
 	// CPXgetbestobjval(env, lp, &inst->best_lb);
@@ -60,16 +69,47 @@ int xpos(int i, int j, tspinstance *inst)
 	return i*inst->nnodes + j - ((i + 1)*(i + 2))/2; 	// default case
 }
 
+int asym_xpos(int i, int j, tspinstance *inst)
+{
+	if ( i == j ) print_error(" i == j in asym_upos" );
+	return i*(inst->nnodes - 1) + ( i < j ? j-1 : j );
+}
+
+int asym_upos(int i, tspinstance *inst)
+{
+	if ( i < 1 ) print_error(" i < 1 in asym_upos" );
+	return inst->nnodes*(inst->nnodes - 1) + i - 1;
+}
+
 void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp)
 {
 
+	switch (inst->model_type)
+	{
+		case 0 :		// basic model with asymmetric x and q
+			build_sym_std(inst, env,lp);
+			break;
+
+		case 1 :		// MTZ contraints
+		 	build_mtz(inst, env,lp);
+			break;
+
+		default:
+			print_error(" model type unknown!!");
+			break;
+	}
+}
+
+void build_sym_std(tspinstance *inst, CPXENVptr env, CPXLPptr lp)
+{
+
 	// double zero = 0.0;
-	char binary = 'B';
+	char xctype = CPX_BINARY;
 
 	char **cname = (char **) calloc(1, sizeof(char *));		// (char **) required by cplex...
 	cname[0] = (char *) calloc(100, sizeof(char));
 
-	// add binary var.s x(i,j) for i < j
+	// add xctype var.s x(i,j) for i < j
 	for ( int i = 0; i < inst->nnodes; i++ )
 	{
 		for ( int j = i+1; j < inst->nnodes; j++ )
@@ -78,7 +118,7 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp)
 			double obj = dist(i,j,inst); // cost == distance
 			double lb = 0.0;
 			double ub = 1.0;
-			if ( CPXnewcols(env, lp, 1, &obj, &lb, &ub, &binary, cname) )
+			if ( CPXnewcols(env, lp, 1, &obj, &lb, &ub, &xctype, cname) )
 				print_error(" wrong CPXnewcols on x var.s");
   		if ( CPXgetnumcols(env,lp)-1 != xpos(i,j, inst) )
 				print_error(" wrong position for x var.s");
@@ -108,8 +148,127 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp)
 	free(cname);
 }
 
+void build_mtz(tspinstance *inst, CPXENVptr env, CPXLPptr lp)
+{
 
-#define DEBUG    // da commentare se non ci vuole il debugging
+	char xctype = CPX_BINARY;	// type of variable
+	double obj; // objective function constant
+	double lb;	// lower bound
+	double ub;	// upper bound
+
+	char **cname = (char **) calloc(1, sizeof(char *));	// (char **) required by cplex...
+	cname[0] = (char *) calloc(100, sizeof(char));			// name of the variable
+
+	// add binary constraints and objective const x(i,j) for i < j
+	for ( int i = 0; i < inst->nnodes; i++ )
+	{
+		for ( int j = 0; j < inst->nnodes; j++ )
+		{
+			if (i != j)
+			{
+				sprintf(cname[0], "x(%d,%d)", i+1,j+1);
+				obj = dist(i,j,inst); // cost == distance
+				lb = 0.0;
+				ub = i == j ? 0.0 : 1.0;
+				if ( CPXnewcols(env, lp, 1, &obj, &lb, &ub, &xctype, cname) )
+					print_error(" wrong CPXnewcols on x var.s");
+				if ( CPXgetnumcols(env,lp)-1 != asym_xpos(i,j, inst) )
+					print_error(" wrong position for x var.s");
+			}
+		}
+	}
+
+	// add nodes index in the circuits
+	xctype = CPX_INTEGER;		// maybe not necessary
+	obj = 0.0;
+	lb = 0.0;
+	ub = inst->nnodes-2;
+
+	for ( int i = 1; i < inst->nnodes; i++)
+	{
+		sprintf(cname[0], "u(%d)", i+1);
+		if ( CPXnewcols(env, lp, 1, &obj, &lb, &ub, &xctype, cname) )
+			print_error(" wrong CPXnewcols on u var.s");
+		if ( CPXgetnumcols(env,lp)-1 != asym_upos(i, inst) )
+			print_error(" wrong position for u var.s");
+	}
+
+
+	// add the degree constraints
+	int lastrow;	// the number of rows
+	double rhs;		// right head size
+	char sense;		// 'L', 'E' or 'G'
+	int big_M = inst->nnodes - 1;
+	for ( int h = 0; h < inst->nnodes; h++ )  // degree constraints
+	{
+		lastrow = CPXgetnumrows(env,lp);
+		rhs = 1.0;
+		sense = 'E';	// 'E' for equality constraint
+		sprintf(cname[0], "income_d(%d)", h+1);
+
+		// create a new row
+		if ( CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname) )
+			print_error(" wrong CPXnewrows [degree]");
+
+		// income vertex
+		for ( int i = 0; i < inst->nnodes; i++ )
+		{
+			if ( i == h ) continue;
+			if ( CPXchgcoef(env, lp, lastrow, asym_xpos(i,h, inst), 1.0) ) // income vertex
+				print_error(" wrong CPXchgcoef [degree]");
+		}
+
+
+		// outcome vertex
+		lastrow = CPXgetnumrows(env,lp);
+		rhs = 1.0;
+		sense = 'E';	// 'E' for equality constraint
+		sprintf(cname[0], "outcome_d(%d)", h+1);
+
+		// create a new row
+		if ( CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname) )
+			print_error(" wrong CPXnewrows [degree]");
+		for ( int i = 0; i < inst->nnodes; i++ )
+		{
+			if ( i == h ) continue;
+			if ( CPXchgcoef(env, lp, lastrow, asym_xpos(h,i, inst), 1.0) ) // income vertex
+				print_error(" wrong CPXchgcoef [degree]");
+		}
+
+
+		// u constraints: nodes index
+		if (h == 0) continue;	// skip when i == 0
+		for ( int i = 0; i < inst->nnodes; i++ )
+		{
+			if ( i != h && i != 0 )
+			{
+				lastrow = CPXgetnumrows(env,lp);
+				rhs = big_M -2;
+				sense = 'L';	// 'L' for lower of equal
+				sprintf(cname[0], "mtz_i(%d, %d)", h+1, i+1);
+
+				// create a new row
+				if ( CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname) )	// new row
+					print_error(" wrong CPXnewrows [degree]");
+
+				if ( CPXchgcoef(env, lp, lastrow, asym_upos(h, inst), 1.0) ) // u constraints
+					print_error(" wrong CPXchgcoef [degree]");
+				if ( CPXchgcoef(env, lp, lastrow, asym_upos(i, inst), -1.0) ) // u constraints
+					print_error(" wrong CPXchgcoef [degree]");
+				if ( CPXchgcoef(env, lp, lastrow, asym_xpos(h,i, inst), big_M) ) // u constraints
+					print_error(" wrong CPXchgcoef [degree]");
+			}
+		}
+	}
+
+	if ( VERBOSE >= -100 ) CPXwriteprob(env, lp, "model/asym_model.lp", NULL);
+
+	free(cname[0]);
+	free(cname);
+}
+
+
+// #define DEBUG    // da commentare se non ci vuole il debugging
 #define EPS 1e-5
 
 void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp) // build succ() and comp() wrt xstar()...
@@ -194,7 +353,7 @@ void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp) // build suc
 	for (int i = 0; i < inst->nnodes; i++) printf("%6d", succ[i]);
 	printf("\ncomp:   ");
 	for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
-	printf("\n")
+	printf("\n");
 #endif
 }
 
@@ -422,4 +581,26 @@ void plot_problem_input(tspinstance *inst)
   fflush(gnuplot);
 	if (VERBOSE >= 1000) getchar(); // pause execution to see the plot
 	fclose(gnuplot);
+}
+
+int save_results(tspinstance *inst, char *f_name)
+{
+	FILE *outfile;
+	outfile = fopen(f_name, "a");
+	char dataToAppend[200];
+	snprintf(dataToAppend, sizeof dataToAppend, "%s; %d; %d; %d; %lf ;\n",
+	 			inst->input_file, inst->nnodes, inst->model_type, 3, inst->opt_time ); // 3 is number of thread
+	/* fopen() return NULL if unable to open file in given mode. */
+	if (outfile == NULL)
+	{
+		/* Unable to open file hence exit */
+		printf("\nUnable to open '%s' file.\n", f_name);
+		printf("Please check whether file exists and you have write privilege.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	/* Append data to file */
+	fputs(dataToAppend, outfile);
+
+	fclose(outfile);
 }

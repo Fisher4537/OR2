@@ -14,24 +14,22 @@ int main(int argc, char **argv)
 	time_t t1 = time(NULL);
 	tspinstance inst;
 
+	// parse input args
 	parse_command_line(argc, argv, &inst);
 
-	//printf(" file %s has %d non-empty lines\n", inst.input_file, number_of_nonempty_lines(inst.input_file)); exit(1);
-
+	// read input files
 	read_input(&inst);
-	//if ( VERBOSE >= 10 ) plot_problem_input(&inst);
+
+	// TSP optimization
 	if ( TSPopt(&inst) ) print_error(" error within VRPopt()");
 	if ( VERBOSE >= 10 ) plot_problem_input(&inst);
+
 	time_t t2 = time(NULL);
-
-	if ( VERBOSE >= 1 )
-	{
-		printf("... VRP problem solved in %lf sec.s\n", difftime(t2,t1));
-	}
-
+	if ( VERBOSE >= 1 ) printf("... TSP solved in %lf s.\n", difftime(t2,t1));
+	save_results(&inst, "res.csv");
 	free_instance(&inst);
 
 	printf("END OF mainTSP, press Return to exit...");
-  getchar();
+  // getchar(); // pause execution
 	return 0;
 }

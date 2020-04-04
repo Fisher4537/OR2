@@ -43,6 +43,7 @@ typedef struct {
 	int integer_costs;
 
 	//global data
+	double opt_time;					// optimization time
 	double	tstart;
 	double zbest;							// best sol. available
 	double tbest;							// time for the best sol. available
