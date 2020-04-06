@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <time.h>
 
+#define  VERBOSE 2
+
+
 
 int main(int argc, char **argv)
 {
@@ -11,7 +14,6 @@ int main(int argc, char **argv)
 		 printf("\n");
   }
 
-	time_t t1 = time(NULL);
 	tspinstance inst;
 
 	// parse input args
@@ -24,12 +26,11 @@ int main(int argc, char **argv)
 	if ( TSPopt(&inst) ) print_error(" error within VRPopt()");
 	if ( VERBOSE >= 10 ) plot_problem_input(&inst);
 
-	time_t t2 = time(NULL);
-	if ( VERBOSE >= 1 ) printf("... TSP solved in %lf s.\n", difftime(t2,t1));
+	if ( VERBOSE >= 1 ) printf("TSP solved in %lf s.\n\n", (&inst)->opt_time);
 	save_results(&inst, "res.csv");
 	free_instance(&inst);
 
-	printf("END OF mainTSP, press Return to exit...");
+	// printf("END OF mainTSP, press Return to exit...");
   // getchar(); // pause execution
 	return 0;
 }

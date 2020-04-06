@@ -10,3 +10,7 @@ mainTSP
 gnuplot*
 plot/*
 .gitignore
+
+Latex/Report.fdb_latexmk
+
+Latex/Report.synctex(busy)

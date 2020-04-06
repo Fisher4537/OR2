@@ -10,14 +10,13 @@
 #include <cplex.h>
 #include <pthread.h>
 
-#define VERBOSE				    1000		// printing level  (=10 only incumbent,
                                 //    =20 little output, =50-60 good,
                                 //    =70 verbose, >=100 cplex log)
 
 //hard-wired parameters
 #define XSMALL		  		  1e-5 		    // 1e-4*	// tolerance used to decide
                                       //    ingerality of 0-1 var.s
-#define EPSILON		  		  1e-9		    // 1e-9		// very small numerical tolerance
+#define EPS 1e-5
 #define TICKS_PER_SECOND 	  1000.0  	// cplex's ticks on Intel Core i7 quadcore
                                       //@2.3GHZ
 
@@ -29,12 +28,13 @@ typedef struct {
 	int nnodes;
 	double *xcoord;
 	double *ycoord;
+	int verbose;
 
 	// parameters
 	int model_type;         // TSP
 	int randomseed;
 	double timelimit;				// overall time limit, in sec.s
-	char input_file[1000];	// input file
+	char input_file[100];	// input file
 	char node_file[1000];		// cplex node file
 	int available_memory;
 	int max_nodes; 					// max n. of branching nodes in the final run

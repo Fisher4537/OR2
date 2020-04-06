@@ -9,7 +9,7 @@ MODELS = 0 1
 test: $(EXE)
 	for file in data/*.tsp; do \
 		for model in $(MODELS); do \
-		  echo "./$(EXE) -input $$file -model_type $$model"; \
+		  ./$(EXE) -input $$file -model_type $$model -v 100; \
 		done \
 	done
 
