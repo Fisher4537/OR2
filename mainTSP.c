@@ -26,8 +26,8 @@ int main(int argc, char **argv)
 	if ( TSPopt(&inst) ) print_error(" error within VRPopt()");
 	if ( VERBOSE >= 10 ) plot_problem_input(&inst);
 
-	if ( VERBOSE >= 1 ) printf("TSP solved in %lf s.\n\n", (&inst)->opt_time);
-	save_results(&inst, "res.csv");
+	if ( VERBOSE >= 1 ) printf("TSP solved in %lf s. (CPS=%lf)\n\n", (&inst)->opt_time, (double)CLOCKS_PER_SEC);
+	if ( (&inst)->verbose < 1000) save_results(&inst, "res.csv");
 	free_instance(&inst);
 
 	// printf("END OF mainTSP, press Return to exit...");

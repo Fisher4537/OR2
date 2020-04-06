@@ -4,12 +4,13 @@ INC = -I. -I${CPLEX_HOME}/include/ilcplex
 ARGS = -input data/att12.tsp -model_type 0 -max_nodes 10000
 EXE = mainTSP
 OBJ = mainTSP.o
-MODELS = 0 1
+MODELS = 0
+TEST_FILES = ls data/*.tsp
 
 test: $(EXE)
-	for file in data/*.tsp; do \
+	for file in $(TEST_FILES); do \
 		for model in $(MODELS); do \
-		  ./$(EXE) -input $$file -model_type $$model -v 100; \
+			./$(EXE) -input $$file -model_type $$model -v 100; \
 		done \
 	done
 

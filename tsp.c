@@ -15,6 +15,8 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp); 		// interface
 void build_sym_std(tspinstance *inst, CPXENVptr env, CPXLPptr lp); 	// sym, std
 void build_mtz(tspinstance *inst, CPXENVptr env, CPXLPptr lp); 			// asym, MTZ
 
+void mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
+
 void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp);
 void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp);
 void build_sol_mtz(tspinstance *inst, int *succ, int *comp, int *ncomp);
@@ -39,7 +41,7 @@ int TSPopt(tspinstance *inst)
 	int status;
 	CPXENVptr env = CPXopenCPLEX(&status);
 	CPXLPptr lp = CPXcreateprob(env, &status, "TSP");
-	//CPXsetintparam(env,CPXPARAM_Threads, 3);		// allow executing N parallel threads
+	CPXsetintparam(env,CPXPARAM_Threads, 1);		// allow executing N parallel threads
 
 	// set input data in CPX structure
 	build_model(inst, env, lp);
@@ -56,8 +58,8 @@ int TSPopt(tspinstance *inst)
 
 	// compute cplex
 	clock_t init_time = clock();
-	CPXmipopt(env,lp);
-	inst->opt_time = ((double)(clock() - init_time))/CLOCKS_PER_SEC;
+	mip_optimization(env, lp, inst, &status);
+	inst->opt_time = (double)(clock() - init_time)/CLOCKS_PER_SEC;
 	printf("optimization complete!\n");
 
 	// get best solution
@@ -96,6 +98,8 @@ int asym_upos(int i, tspinstance *inst)
 	return inst->nnodes*(inst->nnodes - 1) + i - 1;
 }
 
+
+// build_model methods add the constraints to OPTIMIZER structures
 void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp)
 {
 
@@ -282,6 +286,85 @@ void build_mtz(tspinstance *inst, CPXENVptr env, CPXLPptr lp)
 	free(cname);
 }
 
+
+// optimization methods run the problem optimization
+void mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status)
+{
+	int *succ = (int*) calloc(inst->nnodes, sizeof(int));
+	int *comp = (int*) calloc(inst->nnodes, sizeof(int));
+	int *ncomp = (int*) calloc(1, sizeof(int));
+	char sense = 'L';
+	double rhs;
+	int first;
+	int lastrow;
+
+	char **cname = (char **) calloc(1, sizeof(char *));	// (char **) required by cplex...
+	cname[0] = (char *) calloc(100, sizeof(char));			// name of the variable
+	switch (inst->model_type)
+	{
+
+		case 0:
+
+			CPXmipopt(env,lp);
+			CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
+			build_sol(inst, succ, comp, ncomp);
+			while (*ncomp >= 2)
+			{
+				if (inst->verbose >= 1000) plot_problem_input(inst);
+				// subtour elimination constraints
+				for ( int comp_i = 1; comp_i <= *ncomp; comp_i++)
+				{
+					// create a new row
+					sprintf(cname[0], "subtour_comp(%d)", comp_i); // constraint name
+
+					// calculate rhs in O(nedges)
+					rhs = 0.0;
+					for (int i = 0; i < inst->nnodes; i++)
+						if (comp_i == comp[i])
+							rhs++;
+
+					rhs--; // rhs = |S| -1
+
+					lastrow = CPXgetnumrows(env,lp);
+					if ( CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname) )
+						print_error(" wrong CPXnewrows [degree]");
+					// printf("added row %d with constraint %s %f\n", CPXgetnumrows(env,lp)-1, "<=",rhs);
+
+					for (int i = 0; i < inst->nnodes; i++)
+					{
+						if (comp[i] == comp_i)
+						{
+							for (int j = i+1; j < inst->nnodes; j++)
+							{
+								if (comp[j] == comp_i)
+								{
+									if ( *status = CPXchgcoef(env, lp, lastrow, xpos(i,j, inst), 1.0) ) // income vertex
+										print_error(" wrong CPXchgcoef [degree]");
+								}
+							}
+						}
+					}
+				}
+
+				CPXmipopt(env,lp);
+				CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
+				build_sol(inst, succ, comp, ncomp);
+			}
+			printf("best solution found. ncomp = %d\n",*ncomp );
+			break;
+
+		case 1:
+			CPXmipopt(env,lp);
+			break;
+
+		default:
+			print_error("model ì_type not implemented in optimization method");
+			break;
+	} // switch
+}
+
+
+// build_sol methods use the optimized solution to plot
 void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp)
 {
 
@@ -308,6 +391,7 @@ void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) // build
 	if (inst->verbose >= 1000)
 	{
 		int *degree = (int *) calloc(inst->nnodes, sizeof(int));
+		printf("nnodes=%d\n", inst->nnodes );
 		for ( int i = 0; i < inst->nnodes; i++ )
 		{
 			for ( int j = i+1; j < inst->nnodes; j++ )
@@ -316,9 +400,13 @@ void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) // build
 				if ( fabs(inst->best_sol[k]) > EPS && fabs(inst->best_sol[k]-1.0) > EPS ) print_error(" wrong inst->best_sol in build_sol()");
 				if ( inst->best_sol[k] > 0.5 )
 				{
+					printf("x[%d,%d] = 1\n", i, j );
 					++degree[i];
 					++degree[j];
+				} else {
+					printf("x[%d,%d] = 0\n", i, j );
 				}
+
 			}
 		}
 		for ( int i = 0; i < inst->nnodes; i++ )
@@ -326,7 +414,7 @@ void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) // build
 			if ( degree[i] != 2 )
 			{
 				char msg[40];
-				snprintf(msg, sizeof msg, "wrong degree in build_sol_sym(%d)", i);
+				snprintf(msg, sizeof msg, "wrong degree[%d] = %d in build_sol_sym", i, degree[i]);
 				print_error(msg);
 			}
 		}
@@ -579,7 +667,8 @@ void read_input(tspinstance *inst) // simplified CVRP parser, not all SECTIONs d
 		if ( strncmp(par_name, "EDGE_WEIGHT_TYPE", 16) == 0 )
 		{
 			token1 = strtok(NULL, " :");
-			if ( strncmp(token1, "ATT", 3) != 0 ) print_error(" format error:  only EDGE_WEIGHT_TYPE == EUC_2D implemented so far!!!!!!");
+			if ( strncmp(token1, "ATT", 3) != 0 && strncmp(token1, "EUC_2D", 6) != 0 )
+				print_error(" format error:  only EDGE_WEIGHT_TYPE == EUC_2D implemented so far!!!!!!");
 			active_section = 0;
 			continue;
 		}
