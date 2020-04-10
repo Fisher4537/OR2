@@ -14,3 +14,11 @@ plot/*
 Latex/Report.fdb_latexmk
 
 Latex/Report.synctex(busy)
+
+Latex/Report.fls
+
+data/
+
+model/
+
+res.csv
