@@ -6,6 +6,10 @@
 #include <time.h>
 #include <math.h>
 
+/**
+	TODO: a way to get CPLEX error code: status?
+*/
+
 int TSPopt(tspinstance *inst);
 int xpos(int i, int j, tspinstance *inst);
 int asym_xpos(int i, int j, tspinstance *inst);
@@ -16,23 +20,30 @@ void build_sym_std(tspinstance *inst, CPXENVptr env, CPXLPptr lp); 	// sym, std
 void build_mtz(tspinstance *inst, CPXENVptr env, CPXLPptr lp); 			// asym, MTZ
 
 void mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
+int subtour_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
 
 void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp);
 void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp);
 void build_sol_mtz(tspinstance *inst, int *succ, int *comp, int *ncomp);
+void build_flowchart(tspinstance *inst, CPXENVptr env, CPXLPptr lp);
 
 void parse_command_line(int argc, char** argv, tspinstance *inst);
 void read_input(tspinstance *inst);
 void free_instance(tspinstance *inst);
-void print_error(const char *err);
+
 double dist(int i, int j, tspinstance *inst);		// get distance between two nodes
+
 int save_results(tspinstance *inst, char *f_name);	// Save model performance
 
-void plot_problem_input(tspinstance *inst);
+void plot_instance(tspinstance *inst);
+char * get_file_name(char *path);
 void setup_style(FILE *gnuplot, tspinstance *inst);
 void plot_points(FILE *gnuplot, char *pngname, tspinstance *inst);
 void plot_edges(FILE *gnuplot, char *pngname, tspinstance *inst);
 
+// Debug functions
+void pause_execution();
+void print_error(const char *err);
 
 int TSPopt(tspinstance *inst)
 {
@@ -41,7 +52,12 @@ int TSPopt(tspinstance *inst)
 	int status;
 	CPXENVptr env = CPXopenCPLEX(&status);
 	CPXLPptr lp = CPXcreateprob(env, &status, "TSP");
+
+	// Cplex's parameter setting
 	CPXsetintparam(env,CPXPARAM_Threads, 1);		// allow executing N parallel threads
+	CPXsetintparam(env,CPX_PARAM_RANDOMSEED, inst->randomseed);		// avoid performace variability
+	CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit);		// set time limit
+	if (inst->verbose >= 1000) CPXsetintparam(env, CPX_PARAM_SCRIND, inst->nthread);	// show CPLEX log
 
 	// set input data in CPX structure
 	build_model(inst, env, lp);
@@ -51,18 +67,18 @@ int TSPopt(tspinstance *inst)
 	inst->best_sol = (double *) calloc(inst->nedges, sizeof(double)); 	// all entries to zero
 	inst->zbest = CPX_INFBOUND;
 
-	// Cplex's parameter setting
-	printf("build model succesfully.\n");
-	if (inst->verbose >= 1000) getchar();
-	printf("optimizing model...\n");
+	if (inst->verbose >= 100) printf("build model succesfully.\n");
+	if (inst->verbose >= 1000) pause_execution();
+	if (inst->verbose >= 100) printf("optimizing model...\n");
 
 	// compute cplex
 	clock_t init_time = clock();
 	mip_optimization(env, lp, inst, &status);
 	inst->opt_time = (double)(clock() - init_time)/CLOCKS_PER_SEC;
-	printf("optimization complete!\n");
+	if (inst->verbose >= 100) printf("optimization complete!\n");
 
 	// get best solution
+	if (inst->verbose >= 100) printf("getting succ and comp...\n");
 	// CPXgetbestobjval(env, lp, &inst->best_lb);
 	CPXsolution(env, lp, &status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
 
@@ -71,6 +87,7 @@ int TSPopt(tspinstance *inst)
 	int *comp = (int*) calloc(inst->nnodes, sizeof(int));
 	int *ncomp = (int*) calloc(1, sizeof(int));
 	build_sol(inst, succ, comp, ncomp);
+	if (inst->verbose >= 100) printf("free instance object...\n");
 
 	// free and close cplex model
 	CPXfreeprob(env, &lp);
@@ -111,6 +128,10 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp)
 
 		case 1 :		// MTZ contraints
 		 	build_mtz(inst, env,lp);
+			break;
+
+		case 2 : 		// FLOW chart
+			build_flowchart(inst, env, lp);
 			break;
 
 		default:
@@ -286,10 +307,130 @@ void build_mtz(tspinstance *inst, CPXENVptr env, CPXLPptr lp)
 	free(cname);
 }
 
+void build_flowchart(tspinstance *inst, CPXENVptr env, CPXLPptr lp)
+{
+	char xctype = 'B';	// type of variable
+	double obj; // objective function constant
+	double lb;	// lower bound
+	double ub;	// upper bound
+
+	char **cname = (char **) calloc(1, sizeof(char *));	// (char **) required by cplex...
+	cname[0] = (char *) calloc(100, sizeof(char));			// name of the variable
+
+	// add binary constraints and objective
+	for ( int i = 0; i < inst->nnodes; i++ )
+	{
+		for ( int j = 0; j < inst->nnodes; j++ )
+		{
+			if (i != j)
+			{
+				sprintf(cname[0], "x(%d,%d)", i+1,j+1);
+				obj = dist(i,j,inst); // cost == distance
+				lb = 0.0;
+				ub = i == j ? 0.0 : 1.0;
+				if ( CPXnewcols(env, lp, 1, &obj, &lb, &ub, &xctype, cname) )
+					print_error(" wrong CPXnewcols on x var.s");
+				if ( CPXgetnumcols(env,lp)-1 != asym_xpos(i,j, inst) )
+					print_error(" wrong position for x var.s");
+			}
+		}
+	}
+
+	// add nodes index in the circuits
+	xctype = 'I';		// maybe not necessary
+	obj = 0.0;
+	lb = 0.0;
+	ub = inst->nnodes-1;
+
+	for ( int i = 0; i < inst->nnodes; i++)
+	{
+		for (int j = 0; j < inst->nnodes; j++)
+		{
+			if ( i != j )
+			{
+				sprintf(cname[0], "y(%d,%d)", i+1, j+1);
+				if (j == 0)	// y_i1
+				{
+					if ( CPXnewcols(env, lp, 1, &obj, &lb, &lb, &xctype, cname) )
+						print_error(" wrong CPXnewcols on u var.s");
+				}
+				else				// y_ij
+				{
+					if ( CPXnewcols(env, lp, 1, &obj, &lb, &ub, &xctype, cname) )
+						print_error(" wrong CPXnewcols on u var.s");
+				}
+
+				if ( CPXgetnumcols(env,lp)-1 != asym_upos(i, inst) )
+						print_error(" wrong position for u var.s");
+			}
+		}
+	}
+
+
+	// add the degree constraints
+	int lastrow;	// the number of rows
+	double rhs;		// right head size
+	char sense;		// 'L', 'E' or 'G'
+	int big_M = inst->nnodes;
+	for ( int h = 0; h < inst->nnodes; h++ )  // degree constraints
+	{
+		lastrow = CPXgetnumrows(env,lp);
+		rhs = 1.0;
+		sense = 'E';	// 'E' for equality constraint
+		sprintf(cname[0], "income_d(%d)", h+1);
+
+		// income vertex
+		if ( CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname) ) // create a new row
+			print_error(" wrong CPXnewrows [degree]");
+		for ( int i = 0; i < inst->nnodes; i++ )
+		{
+			if ( i == h ) continue;
+			if ( CPXchgcoef(env, lp, lastrow, asym_xpos(i,h, inst), 1.0) ) // income vertex
+				print_error(" wrong CPXchgcoef [degree]");
+		}
+
+		// outcome vertex
+		lastrow = CPXgetnumrows(env,lp);
+		rhs = 1.0;
+		sense = 'E';	// 'E' for equality constraint
+		sprintf(cname[0], "outcome_d(%d)", h+1);
+
+		if ( CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname) ) // create a new row
+			print_error(" wrong CPXnewrows [degree]");
+		for ( int i = 0; i < inst->nnodes; i++ )
+		{
+			if ( i == h ) continue;
+			if ( CPXchgcoef(env, lp, lastrow, asym_xpos(h,i, inst), 1.0) ) // income vertex
+				print_error(" wrong CPXchgcoef [degree]");
+		}
+	}
+}
 
 // optimization methods run the problem optimization
 void mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status)
 {
+
+	switch (inst->model_type)
+	{
+
+		case 0:
+			subtour_iter_opt(env, lp, inst, status);
+			break;
+
+		case 1:
+			*status = CPXmipopt(env,lp);
+			break;
+
+		default:
+			print_error("model ì_type not implemented in optimization method");
+			break;
+	} // switch
+}
+
+int subtour_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status)
+{
+
+	// structure init
 	int *succ = (int*) calloc(inst->nnodes, sizeof(int));
 	int *comp = (int*) calloc(inst->nnodes, sizeof(int));
 	int *ncomp = (int*) calloc(1, sizeof(int));
@@ -300,67 +441,59 @@ void mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status
 
 	char **cname = (char **) calloc(1, sizeof(char *));	// (char **) required by cplex...
 	cname[0] = (char *) calloc(100, sizeof(char));			// name of the variable
-	switch (inst->model_type)
+	*ncomp = inst->nnodes;
+	int subtour_counter = 0;
+
+	CPXmipopt(env,lp);
+	CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
+	build_sol(inst, succ, comp, ncomp);
+	if (inst->verbose >= 100) printf("Iter %3d partial solution, ncomp = %d\n", subtour_counter,*ncomp );
+	if (inst->verbose >= 1000) plot_instance(inst);
+	while (*ncomp >= 2)
 	{
 
-		case 0:
+		// subtour elimination constraints, one for each component
+		for ( int comp_i = 1; comp_i <= *ncomp; comp_i++)
+		{
+			// create a new row
+			sprintf(cname[0], "subtour_comp(%d)", comp_i); // constraint name
 
-			CPXmipopt(env,lp);
-			CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
-			build_sol(inst, succ, comp, ncomp);
-			while (*ncomp >= 2)
+			// calculate rhs in O(nedges)
+			rhs = 0.0;
+			for (int i = 0; i < inst->nnodes; i++)
+				if (comp_i == comp[i])
+					rhs++;
+
+			rhs--; // rhs = |S| -1
+
+			lastrow = CPXgetnumrows(env,lp);
+			if ( CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname) )
+				print_error(" wrong CPXnewrows [degree]");
+			// printf("added row %d with constraint %s %f\n", CPXgetnumrows(env,lp)-1, "<=",rhs);
+
+			for (int i = 0; i < inst->nnodes; i++)
 			{
-				if (inst->verbose >= 1000) plot_problem_input(inst);
-				// subtour elimination constraints
-				for ( int comp_i = 1; comp_i <= *ncomp; comp_i++)
+				if (comp[i] == comp_i)
 				{
-					// create a new row
-					sprintf(cname[0], "subtour_comp(%d)", comp_i); // constraint name
-
-					// calculate rhs in O(nedges)
-					rhs = 0.0;
-					for (int i = 0; i < inst->nnodes; i++)
-						if (comp_i == comp[i])
-							rhs++;
-
-					rhs--; // rhs = |S| -1
-
-					lastrow = CPXgetnumrows(env,lp);
-					if ( CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname) )
-						print_error(" wrong CPXnewrows [degree]");
-					// printf("added row %d with constraint %s %f\n", CPXgetnumrows(env,lp)-1, "<=",rhs);
-
-					for (int i = 0; i < inst->nnodes; i++)
+					for (int j = i+1; j < inst->nnodes; j++)
 					{
-						if (comp[i] == comp_i)
+						if (comp[j] == comp_i)
 						{
-							for (int j = i+1; j < inst->nnodes; j++)
-							{
-								if (comp[j] == comp_i)
-								{
-									if ( *status = CPXchgcoef(env, lp, lastrow, xpos(i,j, inst), 1.0) ) // income vertex
-										print_error(" wrong CPXchgcoef [degree]");
-								}
-							}
+							if ( *status = CPXchgcoef(env, lp, lastrow, xpos(i,j, inst), 1.0) ) // income vertex
+								print_error(" wrong CPXchgcoef [degree]");
 						}
 					}
 				}
-
-				CPXmipopt(env,lp);
-				CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
-				build_sol(inst, succ, comp, ncomp);
 			}
-			printf("best solution found. ncomp = %d\n",*ncomp );
-			break;
-
-		case 1:
-			CPXmipopt(env,lp);
-			break;
-
-		default:
-			print_error("model ì_type not implemented in optimization method");
-			break;
-	} // switch
+		}
+		subtour_counter++; //update subtour counter
+		CPXmipopt(env,lp);
+		CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
+		build_sol(inst, succ, comp, ncomp);
+		if (inst->verbose >= 100) printf("Iter %3d partial solution, ncomp = %d\n", subtour_counter, *ncomp);
+		if (inst->verbose >= 1000) plot_instance(inst);
+	}
+	if (inst->verbose >= 100) printf("best solution found. ncomp = %d\n", *ncomp);
 }
 
 
@@ -585,6 +718,8 @@ void build_sol_mtz(tspinstance *inst, int *succ, int *comp, int *ncomp) // build
 	}
 }
 
+
+// distance functions
 double dist(int i, int j, tspinstance *inst)
 {
 	double dx = inst->xcoord[i] - inst->xcoord[j];
@@ -594,18 +729,8 @@ double dist(int i, int j, tspinstance *inst)
 	return dis+0.0;
 }
 
-void print_error(const char *err)
-{ printf("\n\n ERROR: %s \n\n", err); fflush(NULL); exit(1); }
 
-void free_instance(tspinstance *inst)
-{
-
-	free(inst->xcoord);
-	free(inst->ycoord);
-	// free(inst->load_min);
-	// free(inst->load_max);
-}
-
+// User input
 void read_input(tspinstance *inst) // simplified CVRP parser, not all SECTIONs detected
 {
 
@@ -624,11 +749,11 @@ void read_input(tspinstance *inst) // simplified CVRP parser, not all SECTIONs d
 
 	while ( fgets(line, sizeof(line), fin) != NULL )
 	{
-		if ( inst->verbose >= 2000 ) { printf("[2000] line: %s",line); fflush(NULL); }
+		if ( inst->verbose >= 2000 ) { printf("read_input: line: %s",line); fflush(NULL); }
 		if ( strlen(line) <= 1 ) continue; // skip empty lines
 
 	  par_name = strtok(line, " :");
-		if ( inst->verbose >= 3000 ) { printf("[3000] parameter: \"%s\" ",par_name); fflush(NULL); }
+		if ( inst->verbose >= 2000 ) { printf("read_input: parameter: \"%s\" ",par_name); fflush(NULL); }
 
 		if ( strncmp(par_name, "NAME", 4) == 0 )
 		{
@@ -640,7 +765,7 @@ void read_input(tspinstance *inst) // simplified CVRP parser, not all SECTIONs d
 		{
 			active_section = 0;
 			token1 = strtok(NULL, "");
-			if ( inst->verbose >= 10 ) printf("solving instance: %s\b with model %d...\n", token1, inst->model_type);
+			if ( inst->verbose >= 2000 ) printf("read_input: solving instance: %s\b with model %d...\n", token1, inst->model_type);
 			continue;
 		}
 
@@ -657,7 +782,7 @@ void read_input(tspinstance *inst) // simplified CVRP parser, not all SECTIONs d
 			if ( inst->nnodes >= 0 ) print_error(" repeated DIMENSION section in input file");
 			token1 = strtok(NULL, " :");
 			inst->nnodes = atoi(token1);
-			if ( inst->verbose >= 1000 ) printf("\tnnodes: %d\n", inst->nnodes);
+			if ( inst->verbose >= 2000 ) printf("\tnnodes: %d\n", inst->nnodes);
 			inst->xcoord = (double *) calloc(inst->nnodes, sizeof(double)*inst->nnodes);
 			inst->ycoord = (double *) calloc(inst->nnodes, sizeof(double)*inst->nnodes);
 			active_section = 0;
@@ -700,8 +825,8 @@ void read_input(tspinstance *inst) // simplified CVRP parser, not all SECTIONs d
 			continue;
 		}
 
-		printf(" final active section %d\n", active_section);
-		print_error(" ... wrong format for the current simplified parser!!!!");
+		printf("read_input: final active section %d\n", active_section);
+		print_error("... wrong format for the current simplified parser!!!!");
 	}
 
 	fclose(fin);
@@ -710,13 +835,11 @@ void read_input(tspinstance *inst) // simplified CVRP parser, not all SECTIONs d
 void parse_command_line(int argc, char** argv, tspinstance *inst)
 {
 
-	if ( inst->verbose >= 100 )
-    printf(" running %s with %d parameters \n", argv[0], argc-1);
-
 	// default
 	inst->model_type = 0;
 	inst->randomseed = 0;
-	inst->timelimit = 20.; // CPX_INFBOUND;
+	inst->nthread = 1;
+	inst->timelimit = 300.; 	// CPX_INFBOUND;
 	strcpy(inst->input_file, "NULL");
 
 	inst->available_memory = 12000;   // available memory, in MB, for Cplex execution (e.g., 12000)
@@ -733,7 +856,8 @@ void parse_command_line(int argc, char** argv, tspinstance *inst)
 		if ( strcmp(argv[i],"-time_limit") == 0 ) { inst->timelimit = atof(argv[++i]); continue; }		// total time limit
 		if ( strcmp(argv[i],"-model_type") == 0 ) { inst->model_type = atoi(argv[++i]); continue; } 	// model type
 		if ( strcmp(argv[i],"-model") == 0 ) { inst->model_type = atoi(argv[++i]); continue; } 			// model type
-		if ( strcmp(argv[i],"-seed") == 0 ) { inst->randomseed = abs(atoi(argv[++i])); continue; } 		// random seed
+		if ( strcmp(argv[i],"-randomseed") == 0 ) { inst->randomseed = abs(atoi(argv[++i])); continue; } 		// random seed
+		if ( strcmp(argv[i],"-nthread") == 0 ) { inst->nthread = abs(atoi(argv[++i])); continue; } 		// random seed
 		if ( strcmp(argv[i],"-memory") == 0 ) { inst->available_memory = atoi(argv[++i]); continue; }	// available memory (in MB)
 		if ( strcmp(argv[i],"-node_file") == 0 ) { strcpy(inst->node_file,argv[++i]); continue; }		// cplex's node file
 		if ( strcmp(argv[i],"-max_nodes") == 0 ) { inst->max_nodes = atoi(argv[++i]); continue; } 		// max n. of nodesfile
@@ -750,7 +874,7 @@ void parse_command_line(int argc, char** argv, tspinstance *inst)
 		printf("-file %s\n", inst->input_file);
 		printf("-time_limit %f\n", inst->timelimit);
 		printf("-model_type %d\n", inst->model_type);
-		printf("-seed %d\n", inst->randomseed);
+		printf("-randomseed %d\n", inst->randomseed);
 		printf("-max_nodes %d\n", inst->max_nodes);
 		printf("-memory %d\n", inst->available_memory);
 		printf("-int %d\n", inst->integer_costs);
@@ -762,13 +886,24 @@ void parse_command_line(int argc, char** argv, tspinstance *inst)
 
 }
 
-void plot_problem_input(tspinstance *inst)
+void free_instance(tspinstance *inst)
 {
-	// TODO: consider to use a gnuplot interface if things become complicated
+
+	free(inst->xcoord);
+	free(inst->ycoord);
+	// free(inst->load_min);
+	// free(inst->load_max);
+}
+
+
+// Plot functions
+void plot_instance(tspinstance *inst)
+{
+
 	// open gnuplot process
   FILE *gnuplot = popen("gnuplot", "w");
 	char pngname[sizeof(inst->input_file)+20+sizeof(inst->model_type)];
-	snprintf(pngname, sizeof pngname, "plot/%s_%d.png", inst->input_file, inst->model_type);
+	snprintf(pngname, sizeof pngname, "plot/%s_%d.png", get_file_name(inst->input_file), inst->model_type);  // TODO: input_file check
 
 	// set up line and point style
 	setup_style(gnuplot, inst);
@@ -782,8 +917,7 @@ void plot_problem_input(tspinstance *inst)
 	//plot_points(gnuplot, pngname, inst);
 
 	// save png into FILE
-	if (inst->verbose < 1000) // save plot in file
-		fprintf(gnuplot, "set terminal png\nset output '%s'\n", pngname);
+	if (inst->verbose < 1000) fprintf(gnuplot, "set terminal png\nset output '%s'\n", pngname);
 
 	// start plotting edges
 	plot_edges(gnuplot, pngname, inst);
@@ -870,19 +1004,32 @@ void setup_style(FILE *gnuplot, tspinstance *inst)
 
 		default:
 			fclose(gnuplot);
-			print_error(" model type unknown!!");
+			print_error(" Model type unknown!!\n");
 			break;
 	}
 
 }
 
+char * get_file_name(char *path)
+{
+    int start_name = 0;
+		for (int i = 0; path[i] != '\0'; i++)
+		    if (path[i] == '/') start_name = i+1;
+
+		return path+start_name;
+}
+
+
+// Saving data
 int save_results(tspinstance *inst, char *f_name)
 {
 	FILE *outfile;
 	outfile = fopen(f_name, "a");
-	char dataToAppend[sizeof(inst->input_file)+sizeof(inst->nnodes)*3+ sizeof(inst->opt_time) + 20];
-	snprintf(dataToAppend, sizeof dataToAppend, "%s; %d; %d; %d; %lf ;\n",
-	 			inst->input_file, inst->nnodes, inst->model_type, 3, inst->opt_time ); // 3 is number of thread
+	char dataToAppend[sizeof(inst->input_file)+sizeof(inst->nnodes)*4+ sizeof(inst->opt_time) + 20];
+	snprintf(dataToAppend, sizeof dataToAppend, "%s; %d; %d; %d; %d; %lf;\n",
+	 												inst->input_file, inst->nnodes,
+													inst->model_type, inst->randomseed,
+													inst->nthread, inst->opt_time );
 	/* fopen() return NULL if unable to open file in given mode. */
 	if (outfile == NULL)
 	{
@@ -897,3 +1044,11 @@ int save_results(tspinstance *inst, char *f_name)
 
 	fclose(outfile);
 }
+
+
+// DEBUG only
+void pause_execution()
+{ printf("Paused execution. Return to restart: "); getchar(); printf("\n"); }
+
+void print_error(const char *err)
+{ printf("\n\n ERROR: %s \n\n", err); fflush(NULL); exit(1); }

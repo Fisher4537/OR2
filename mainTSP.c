@@ -4,14 +4,12 @@
 
 #define  VERBOSE 2
 
-
-
 int main(int argc, char **argv)
 {
 	if ( argc < 2 ) { printf("Usage: %s -help for help\n", argv[0]); exit(1); }
 	if ( VERBOSE >= 2 ) {
      for (int a = 0; a < argc; a++) printf("%s ", argv[a]);
-		 printf("\n");
+		 //printf("\n");
   }
 
 	tspinstance inst;
@@ -24,10 +22,12 @@ int main(int argc, char **argv)
 
 	// TSP optimization
 	if ( TSPopt(&inst) ) print_error(" error within VRPopt()");
-	if ( VERBOSE >= 10 ) plot_problem_input(&inst);
+	if ( (&inst)->verbose >= 1) printf(" ... Executed in %6.3lf s\n", (&inst)->opt_time);
 
-	if ( VERBOSE >= 1 ) printf("TSP solved in %lf s. (CPS=%lf)\n\n", (&inst)->opt_time, (double)CLOCKS_PER_SEC);
-	if ( (&inst)->verbose < 1000) save_results(&inst, "res.csv");
+	if ( (&inst)->verbose >= 1 ) plot_instance(&inst);
+	if ( (&inst)->verbose <= 1) save_results(&inst, "res.csv");
+	else if ( (&inst)->verbose <= 10 ) save_results(&inst, "res_trainset.csv");
+
 	free_instance(&inst);
 
 	// printf("END OF mainTSP, press Return to exit...");

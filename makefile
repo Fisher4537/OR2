@@ -4,13 +4,26 @@ INC = -I. -I${CPLEX_HOME}/include/ilcplex
 ARGS = -input data/att12.tsp -model_type 0 -max_nodes 10000
 EXE = mainTSP
 OBJ = mainTSP.o
-MODELS = 0
-TEST_FILES = ls data/*.tsp
+MODELS = 0 1
+TEST_FILES = `ls data/*.tsp`
+TRAINSET_FILES = data/att12.tsp data/att48.tsp data/pr76.tsp data/rat99.tsp data/kroB100.tsp data/a280.tsp
+SEED = 0 123456 666 777 1995
 
 test: $(EXE)
 	for file in $(TEST_FILES); do \
 		for model in $(MODELS); do \
-			./$(EXE) -input $$file -model_type $$model -v 100; \
+			for seed in $(SEED); do \
+				./$(EXE) -input $$file -model_type $$model -randomseed $$seed -v 1; \
+			done \
+		done \
+	done
+
+trainset: $(EXE)
+	for file in $(TRAINSET_FILES); do \
+		for model in $(MODELS); do \
+			for seed in $(SEED); do \
+				./$(EXE) -input $$file -model_type $$model -randomseed $$seed -v 10; \
+			done \
 		done \
 	done
 
