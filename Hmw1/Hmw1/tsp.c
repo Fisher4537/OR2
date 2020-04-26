@@ -73,7 +73,7 @@ int xpos(int i, int j, tspInstance* inst){
 	if (i == j) 
 		print_error(" i == j in xpos");
 	if (i > j) 
-		return xpos(j, i, inst);									// simplify returned formula
+		return xpos(j, i, inst);									// recall xpos with correct indexes
 	return i * inst->nnodes + j - ((i + 1) * (i + 2)) / 2; 			// default case
 }
 
@@ -115,8 +115,8 @@ void switch_model(tspInstance* inst, CPXENVptr env, CPXLPptr lp) {
 
 /******************************************************************************************************/
 void build_model_std(tspInstance* inst, CPXENVptr env, CPXLPptr lp){
-	double zero = 0.0;
-	char binary = 'B';
+
+	char binary = CPX_BINARY;								// Binary 0,1
 
 	char** cname = (char**)calloc(1, sizeof(char*));		// (char **) required by cplex...
 	cname[0] = (char*)calloc(100, sizeof(char));
@@ -124,8 +124,8 @@ void build_model_std(tspInstance* inst, CPXENVptr env, CPXLPptr lp){
 	// add binary var.s x(i,j) for i < j
 	for (int i = 0; i < inst->nnodes; i++) {
 		for (int j = i + 1; j < inst->nnodes; j++) {
-			sprintf(cname[0], "x(%d,%d)", i + 1, j + 1);
-			double obj = dist(i, j, inst);					// cost == distance
+			sprintf(cname[0], "x(%d,%d)", i + 1, j + 1);	// save names of variables
+			double obj = dist(i, j, inst);					// cost object function == distance
 			double lb = 0.0;
 			double ub = 1.0;
 			if (CPXnewcols(env, lp, 1, &obj, &lb, &ub, &binary, cname))
@@ -136,21 +136,22 @@ void build_model_std(tspInstance* inst, CPXENVptr env, CPXLPptr lp){
 	}
 
 	// add the degree constraints
-	for (int h = 0; h < inst->nnodes; h++) {				// degree constraints
-		int lastrow = CPXgetnumrows(env, lp);
-		double rhs = 2.0;
-		char sense = 'E';									// 'E' for equality constraint
+	for (int h = 0; h < inst->nnodes; h++) {							// degree constraints
+		int lastrow = CPXgetnumrows(env, lp);	
+		double rhs = 2.0;												// right hand side = termine noto
+		char sense = 'E';												// 'E' for equality constraint
 		sprintf(cname[0], "degree(%d)", h + 1);
-		if (CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname))
+		if (CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname))			// add empty row
 			print_error(" wrong CPXnewrows [degree]");
 		for (int i = 0; i < inst->nnodes; i++) {
-			if (i == h) continue;
-			if (CPXchgcoef(env, lp, lastrow, xpos(i, h, inst), 1.0))
+			if (i == h) 
+				continue;
+			if (CPXchgcoef(env, lp, lastrow, xpos(i, h, inst), 1.0))	// change coef to 1.0 of the row
 				print_error(" wrong CPXchgcoef [degree]");
 		}
 	}
 
-	if (inst->verbose >= -100) 
+	if (inst->verbose >= 100) 
 		CPXwriteprob(env, lp, "model/std_model.lp", NULL);
 
 	free(cname[0]);
@@ -160,7 +161,7 @@ void build_model_std(tspInstance* inst, CPXENVptr env, CPXLPptr lp){
 /******************************************************************************************************/
 void build_model_mtz(tspInstance* inst, CPXENVptr env, CPXLPptr lp) {
 
-	char xctype = CPX_BINARY;		// type of variable
+	char xctype = CPX_BINARY;		// Binary 0,1
 	double obj;						// objective function constant
 	double lb;						// lower bound
 	double ub;						// upper bound
@@ -168,12 +169,12 @@ void build_model_mtz(tspInstance* inst, CPXENVptr env, CPXLPptr lp) {
 	char** cname = (char**)calloc(1, sizeof(char*));		// (char **) required by cplex...
 	cname[0] = (char*)calloc(100, sizeof(char));			// name of the variable
 
-	// add binary constraints and objective const x(i,j) for i < j
+	// add binary constraints and objective const x(i,j)
 	for (int i = 0; i < inst->nnodes; i++) {
 		for (int j = 0; j < inst->nnodes; j++) {
 			if (i != j) {
 				sprintf(cname[0], "x(%d,%d)", i + 1, j + 1);
-				obj = dist(i, j, inst); // cost == distance
+				obj = dist(i, j, inst);							// cost == distance
 				lb = 0.0;
 				ub = i == j ? 0.0 : 1.0;
 				if (CPXnewcols(env, lp, 1, &obj, &lb, &ub, &xctype, cname))
@@ -184,13 +185,13 @@ void build_model_mtz(tspInstance* inst, CPXENVptr env, CPXLPptr lp) {
 		}
 	}
 
-	// add nodes index in the circuits
-	xctype = CPX_INTEGER;		// maybe not necessary
+	// add nodes index 'ui' in the circuits
+	xctype = CPX_INTEGER;						// Integer values
 	obj = 0.0;
 	lb = 0.0;
-	ub = (double)	inst->nnodes - 2;
+	ub = (double) inst->nnodes - 2;
 
-	for (int i = 1; i < inst->nnodes; i++) {
+	for (int i = 1; i < inst->nnodes; i++) {			// i=0 -> ui=0	useless 
 		sprintf(cname[0], "u(%d)", i + 1);
 		if (CPXnewcols(env, lp, 1, &obj, &lb, &ub, &xctype, cname))
 			print_error(" wrong CPXnewcols on u var.s");
@@ -202,9 +203,9 @@ void build_model_mtz(tspInstance* inst, CPXENVptr env, CPXLPptr lp) {
 	int lastrow;	// the number of rows
 	double rhs;		// right head size
 	char sense;		// 'L', 'E' or 'G'
-	double big_M = inst->nnodes - 1.0;
-
-	for (int h = 0; h < inst->nnodes; h++) {  // degree constraints
+	double big_M = inst->nnodes - 1.0;				// we can do better? -2.0?	 look pdf compact mtz
+ 
+	for (int h = 0; h < inst->nnodes; h++) {  
 		lastrow = CPXgetnumrows(env, lp);
 		rhs = 1.0;
 		sense = 'E';	// 'E' for equality constraint
@@ -223,19 +224,17 @@ void build_model_mtz(tspInstance* inst, CPXENVptr env, CPXLPptr lp) {
 		}
 
 
-		// outcome vertex
-		lastrow = CPXgetnumrows(env, lp);
-		rhs = 1.0;
-		sense = 'E';	// 'E' for equality constraint
 		sprintf(cname[0], "outcome_d(%d)", h + 1);
 
 		// create a new row
 		if (CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname))
 			print_error(" wrong CPXnewrows [degree]");
+
+		// outcome vertex
 		for (int i = 0; i < inst->nnodes; i++) {
 			if (i == h) 
 				continue;
-			if (CPXchgcoef(env, lp, lastrow, asymmetric_xpos(h, i, inst), 1.0)) // income vertex
+			if (CPXchgcoef(env, lp, lastrow, asymmetric_xpos(h, i, inst), 1.0)) // outcome vertex
 				print_error(" wrong CPXchgcoef [degree]");
 		}
 
@@ -243,11 +242,11 @@ void build_model_mtz(tspInstance* inst, CPXENVptr env, CPXLPptr lp) {
 		// u constraints: nodes index
 		if (h == 0) 	// skip when i == 0
 			continue;
-		for (int i = 0; i < inst->nnodes; i++) {
-			if (i != h && i != 0) {
+		for (int i = 1; i < inst->nnodes; i++) {
+			if (i != h) {
 				lastrow = CPXgetnumrows(env, lp);
-				rhs = big_M - 1.0;
-				sense = 'L';	// 'L' for lower of equal
+				rhs = big_M - 1.0;					
+				sense = 'L';						// 'L' for lower-equal
 				sprintf(cname[0], "mtz_i(%d, %d)", h + 1, i + 1);
 
 				// create a new row
@@ -264,7 +263,7 @@ void build_model_mtz(tspInstance* inst, CPXENVptr env, CPXLPptr lp) {
 		}
 	}
 
-	if (inst->verbose >= -100) 
+	if (inst->verbose >= 10) 
 		CPXwriteprob(env, lp, "model/mtz_model.lp", NULL);
 
 	free(cname[0]);
@@ -370,14 +369,15 @@ void build_sol(tspInstance* inst, result* res, int* succ, int* comp, int* ncomp)
 }
 
 /******************************************************************************************************/	
-void build_sol_std(tspInstance* inst, result* res, int* succ, int* comp, int* ncomp){		// build succ() and comp() wrt res->best_sol()
+void build_sol_std(tspInstance* inst, const result* res, int* succ, int* comp, int* ncomp){		// build succ() and comp() wrt res->best_sol()
 
-	// check if nodes degree is 2 for each node
 	if (inst->verbose >= 100) {
 		int* degree = (int*)calloc(inst->nnodes, sizeof(int));
 		printf("nnodes=%d\n", inst->nnodes);
+
 		for (int i = 0; i < inst->nnodes; i++) {
 			for (int j = i + 1; j < inst->nnodes; j++) {
+				
 				int k = xpos(i, j, inst);
 				if (fabs(res->best_sol[k]) > EPS && fabs(res->best_sol[k] - 1.0) > EPS)
 					print_error(" wrong inst -> best_sol in build_sol()");
@@ -391,6 +391,7 @@ void build_sol_std(tspInstance* inst, result* res, int* succ, int* comp, int* nc
 				}
 			}
 		}
+		// check if nodes degree is 2 for each node
 		for (int i = 0; i < inst->nnodes; i++) {
 			if (degree[i] != 2) {
 				char msg[40];
@@ -402,7 +403,7 @@ void build_sol_std(tspInstance* inst, result* res, int* succ, int* comp, int* nc
 	}
 
 	// initialization of succ, comp and ncomp
-	* ncomp = 0;
+	*ncomp = 0;
 	for (int i = 0; i < inst->nnodes; i++){
 		succ[i] = -1;
 		comp[i] = -1;
@@ -482,29 +483,26 @@ void build_sol_std(tspInstance* inst, result* res, int* succ, int* comp, int* nc
 void build_sol_mtz(tspInstance* inst, result* res, int* succ, int* comp, int* ncomp) {		// build succ() and comp() wrt res->best_sol()
 
 	// check if nodes degree is 2 for each node
-	if (inst->verbose >= 1000){
+	if (inst->verbose >= 100){
 		printf("debugging sym mtz solution...\n");
 
-		if (inst->verbose >= 1000){
+		printf("Solution:\n      ");
+		for (int i = 0; i < inst->nnodes; i++) 
+			printf("%5d|", i);
+		printf("\n");
 
-			printf("Solution:\n      ");
-			for (int i = 0; i < inst->nnodes; i++) 
-				printf("%5d|", i);
+		for (int i = 0; i < inst->nnodes; i++){
+			printf("%5d)", i);
+			for (int j = 0; j < inst->nnodes; j++)
+				if (i == j) 
+					printf("      ");
+				else 
+					printf("%6.1f", round(res->best_sol[asymmetric_xpos(i, j, inst)]));
 			printf("\n");
-
-			for (int i = 0; i < inst->nnodes; i++){
-				printf("%5d)", i);
-				for (int j = 0; j < inst->nnodes; j++)
-					if (i == j) 
-						printf("      ");
-					else 
-						printf("%6.1f", round(res->best_sol[asymmetric_xpos(i, j, inst)]));
-				printf("\n");
-			}
-			printf("\n    u)      ");
-			for (int u = 1; u < inst->nnodes; u++)
-				printf("%6.1f", round(res->best_sol[asymmetric_upos(u, inst)]));
 		}
+		printf("\n    u)      ");
+		for (int u = 1; u < inst->nnodes; u++)
+			printf("%6.1f", round(res->best_sol[asymmetric_upos(u, inst)]));
 
 		int* degree = (int*)calloc(inst->nnodes, sizeof(int));
 		for (int i = 0; i < inst->nnodes; i++){
@@ -596,7 +594,7 @@ void build_sol_mtz(tspInstance* inst, result* res, int* succ, int* comp, int* nc
 	}
 
 	// print succ, comp and ncomp
-	if (inst->verbose >= 1000) {
+	if (inst->verbose >= 100) {
 		printf("\ni:      ");
 		for (int i = 0; i < inst->nnodes; i++)
 			printf("%5d", i);
