@@ -22,3 +22,17 @@ data/
 model/
 
 res.csv
+
+
+
+
+#Visual Studio
+#Visual Studio
+.vs
+*.sln
+Debug
+Hmw1.*
+*.props
+Release
+Makefile
+pch.*
