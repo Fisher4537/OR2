@@ -1,0 +1,9 @@
+#Visual Studio
+.vs
+*.sln
+Debug
+Hmw1.*
+*.props
+Release
+Makefile
+pch.*
