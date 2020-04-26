@@ -8,14 +8,14 @@
 
 /*** TODO:
 		- migliora commenti
-		- controlla mtz
-		- sistema plot
+		- controlla mtz																=> a posto?
+		- sistema plot																=> DONE (grazie fish)
 
-		- non generare vincolo vuoto e cambiare poi i coef => genera tutto index value e poi passali così
+		- non generare vincolo vuoto e cambiare poi i coef 
+		  => genera tutto index value e poi passali così
 		- look LOOP and performing profile throught LOOP and lazycallback
-		- old-lazycallback
-		- new-lazycallback
-		- look dinaymic search
+		- old-lazycallback - new-lazycallback (per non perdere il dynamic search) 						
+		  generic-callback															=> da sistemare	
 
 ***/
 
@@ -97,12 +97,15 @@ void switch_model(tspInstance* inst, CPXENVptr env, CPXLPptr lp) {
 	switch (inst->model_type){
 		case 0:									// basic model with asymmetric x and q
 			build_model_std(inst, env, lp);
-			if (inst->callback >= 1) {
+			if (inst->callback >= 1) {			// implementation of callbacks
 				switch_callback(inst, env, lp);
 			}
 		break;
 		case 1:									// MTZ contraints
 			build_model_mtz(inst, env, lp);
+		break;
+		case 2: 								// FLOW chart
+			print_error(" not yet implemented!!");
 		break;
 		default:
 			print_error(" model type unknown!!");
@@ -243,7 +246,7 @@ void build_model_mtz(tspInstance* inst, CPXENVptr env, CPXLPptr lp) {
 		for (int i = 0; i < inst->nnodes; i++) {
 			if (i != h && i != 0) {
 				lastrow = CPXgetnumrows(env, lp);
-				rhs = big_M - 2.0;
+				rhs = big_M - 1.0;
 				sense = 'L';	// 'L' for lower of equal
 				sprintf(cname[0], "mtz_i(%d, %d)", h + 1, i + 1);
 
@@ -291,16 +294,16 @@ void mip_optimization(CPXENVptr env, CPXLPptr lp, tspInstance* inst, result* res
 
 	char** cname = (char**)calloc(1, sizeof(char*));		// (char **) required by cplex...
 	cname[0] = (char*)calloc(100, sizeof(char));			// name of the variable
-	
-	switch (inst->model_type) {
-		case 0:
+
+	switch (inst->model_type) {			
+		case 0:												// subtour_iter_opt
+			*ncomp = inst->nnodes;
+			int subtour_counter = 0;
+
 			CPXmipopt(env, lp);
 			CPXsolution(env, lp, error, &res->best_lb, res->best_sol, NULL, NULL, NULL);
 			build_sol(inst, res, succ, comp, ncomp);
 			while (*ncomp >= 2) {
-
-				if (inst->verbose >= 1000)
-					get_pipe(inst, res);
 
 				// subtour elimination constraints
 				for (int comp_i = 1; comp_i <= *ncomp; comp_i++) {
@@ -331,16 +334,19 @@ void mip_optimization(CPXENVptr env, CPXLPptr lp, tspInstance* inst, result* res
 						}
 					}
 				}
-
+				subtour_counter++;
 				CPXmipopt(env, lp);
 				CPXsolution(env, lp, error, &res->best_lb, res->best_sol, NULL, NULL, NULL);
 				build_sol(inst, res, succ, comp, ncomp);
+				if (inst->verbose >= 50) printf("Iter %3d partial solution, ncomp = %d\n", subtour_counter, *ncomp);
+				if (inst->verbose >= 100) plot_instance(inst);
 			}
-			printf("best solution found. ncomp = %d\n", *ncomp);
+			if (inst->verbose >= 100)
+				printf("best solution found. ncomp = %d\n", *ncomp);
 			break;
 
 		case 1:
-			CPXmipopt(env, lp);
+			*error = CPXmipopt(env, lp);
 		break;
 		default:
 			print_error("model_type not implemented in optimization method");
@@ -369,6 +375,7 @@ void build_sol_std(tspInstance* inst, result* res, int* succ, int* comp, int* nc
 	// check if nodes degree is 2 for each node
 	if (inst->verbose >= 100) {
 		int* degree = (int*)calloc(inst->nnodes, sizeof(int));
+		printf("nnodes=%d\n", inst->nnodes);
 		for (int i = 0; i < inst->nnodes; i++) {
 			for (int j = i + 1; j < inst->nnodes; j++) {
 				int k = xpos(i, j, inst);
@@ -376,14 +383,20 @@ void build_sol_std(tspInstance* inst, result* res, int* succ, int* comp, int* nc
 					print_error(" wrong inst -> best_sol in build_sol()");
 
 				if (res->best_sol[k] > 0.5) {
+					printf("x[%d,%d] = 1\n", i, j);
 					++degree[i];
 					++degree[j];
+				}else {
+					printf("x[%d,%d] = 0\n", i, j);
 				}
 			}
 		}
 		for (int i = 0; i < inst->nnodes; i++) {
-			if (degree[i] != 2)
-				print_error("wrong degree in build_sol()");
+			if (degree[i] != 2) {
+				char msg[40];
+				nprintf(msg, sizeof msg, "wrong degree[%d] = %d in build_sol_sym", i, degree[i]);
+				print_error(msg);
+			}
 		}
 		free(degree);
 	}
@@ -484,7 +497,8 @@ void build_sol_mtz(tspInstance* inst, result* res, int* succ, int* comp, int* nc
 				for (int j = 0; j < inst->nnodes; j++)
 					if (i == j) 
 						printf("      ");
-					else printf("%6.1f", round(res->best_sol[asymmetric_xpos(i, j, inst)]));
+					else 
+						printf("%6.1f", round(res->best_sol[asymmetric_xpos(i, j, inst)]));
 				printf("\n");
 			}
 			printf("\n    u)      ");
