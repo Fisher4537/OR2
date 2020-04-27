@@ -12,7 +12,7 @@ int main(int argc, char **argv)
      for (int a = 0; a < argc; a++) printf("%s ", argv[a]);
 		 //printf("\n");
   }
-
+ 
 	tspinstance inst;
 
 	// parse input args
