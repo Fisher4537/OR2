@@ -307,8 +307,8 @@ void build_model_flow1(tspInstance* inst, CPXENVptr env, CPXLPptr lp) {
 	xctype = CPX_INTEGER;						// Integer values
 	obj = 0.0;
 	lb = 0.0;
-	ub = (double)(inst->nnodes - 1 );
-	ub1 = (double)(inst->nnodes - 2);
+	ub = (double)inst->nnodes - 1;
+	ub1 = (double)inst->nnodes - 2;
 
 	for (int i = 0; i < inst->nnodes; i++) {			
 		for (int j = 0; j < inst->nnodes; j++) {
@@ -414,13 +414,7 @@ void build_model_flow1(tspInstance* inst, CPXENVptr env, CPXLPptr lp) {
 			}
 			// check coloumn
 		}
-		for (int i = 0; i < inst->nnodes; i++) {
-			if (i != h) {
-				// add here missing xij coef above ?
-			}
-		}
 	}
-
 }
 
 /******************************************************************************************************/
@@ -491,7 +485,7 @@ void mip_optimization(CPXENVptr env, CPXLPptr lp, tspInstance* inst, result* res
 				CPXsolution(env, lp, error, &res->best_lb, res->best_sol, NULL, NULL, NULL);
 				build_sol(inst, res, succ, comp, ncomp);
 				if (inst->verbose >= 50) printf("Iter %3d partial solution, ncomp = %d\n", subtour_counter, *ncomp);
-				if (inst->verbose >= 100) plot_instance(inst);
+				if (inst->verbose >= 100) get_pipe(&inst, &res);
 			}
 			if (inst->verbose >= 100)
 				printf("best solution found. ncomp = %d\n", *ncomp);
@@ -515,6 +509,9 @@ void build_sol(tspInstance* inst, result* res, int* succ, int* comp, int* ncomp)
 		case 1 :
 			build_sol_mtz(inst, res, succ, comp, ncomp);
 		break;
+		case 2:
+			build_sol_flow1(inst, res, succ, comp, ncomp);
+			break;
 		default :
 			print_error("model_type UNKNOWN!");
 		break;
@@ -548,7 +545,7 @@ void build_sol_std(tspInstance* inst, const result* res, int* succ, int* comp, i
 		for (int i = 0; i < inst->nnodes; i++) {
 			if (degree[i] != 2) {
 				char msg[40];
-				nprintf(msg, sizeof msg, "wrong degree[%d] = %d in build_sol_sym", i, degree[i]);
+				snprintf(msg, sizeof msg, "wrong degree[%d] = %d in build_sol_sym", i, degree[i]);
 				print_error(msg);
 			}
 		}
@@ -690,6 +687,129 @@ void build_sol_mtz(tspInstance* inst, result* res, int* succ, int* comp, int* nc
 		comp[i] = -1;
 	}
 
+	if (TRUE) {				// FALSE to use alternative method
+		// tour
+		for (int start = 0; start < inst->nnodes; start++) {
+			if (comp[start] >= 0) 								// node "start" has already been setted
+				continue;
+
+			(*ncomp)++;											// a new component is found
+			comp[start] = *ncomp;
+
+			int i = start;
+			while (succ[i] == -1) {  							// go and visit the current component
+				comp[i] = *ncomp;
+				for (int j = 0; j < inst->nnodes; j++) {
+					if (j == i)
+						continue;
+					if (res->best_sol[asymmetric_xpos(i, j, inst)] > 0.5) { // the edge [i,j] is selected in best_sol and j was not visited before
+
+						// intern edge of the cycle
+						if (comp[j] == -1) {
+							succ[i] = j;
+							i = j;
+							break;
+						}
+						// last edge of the cycle
+						if (start == j) {
+							succ[i] = j;
+						}
+					}
+				}
+			}
+		}
+	}
+	else {
+		// alternative tour
+		for (int start = 0; start < inst->nnodes; start++) {
+			if (comp[start] >= 0)
+				continue;
+
+			(*ncomp)++;
+			int prv = -1;
+			int i = start;
+			while (comp[start] == -1) {
+				for (int j = 0; j < inst->nnodes; j++) {
+					if (res->best_sol[asymmetric_xpos(i, j, inst)] > 0.5 && i != j && j != prv) {
+
+						succ[i] = j;
+						comp[j] = *ncomp;
+						prv = i;
+						i = j;
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	// print succ, comp and ncomp
+	if (inst->verbose >= 100) {
+		printf("\ni:      ");
+		for (int i = 0; i < inst->nnodes; i++)
+			printf("%5d", i);
+		printf("\nsucc:   ");
+		for (int i = 0; i < inst->nnodes; i++)
+			printf("%5d", succ[i]);
+		printf("\ncomp:   ");
+		for (int i = 0; i < inst->nnodes; i++)
+			printf("%5d", comp[i]);
+		printf("\n");
+	}
+}
+
+/******************************************************************************************************/
+void build_sol_flow1(tspInstance* inst, result* res, int* succ, int* comp, int* ncomp) {
+	
+	// check if nodes degree is 2 for each node
+	if (inst->verbose >= 100) {
+		printf("debugging sym flow1 solution...\n");
+
+		printf("Solution:\n      ");
+		for (int i = 0; i < inst->nnodes; i++)
+			printf("%5d|", i);
+		printf("\n");
+
+		for (int i = 0; i < inst->nnodes; i++) {
+			printf("%5d)", i);
+			for (int j = 0; j < inst->nnodes; j++)
+				if (i == j)
+					printf("      ");
+				else
+					printf("%6.1f", round(res->best_sol[asymmetric_xpos(i, j, inst)]));
+			printf("\n");
+		}
+		printf("\n    y)      ");
+		for (int u = 1; u < inst->nnodes; u++)
+			printf("%6.1f", round(res->best_sol[asymmetric_upos(u, inst)]));
+
+		int* degree = (int*)calloc(inst->nnodes, sizeof(int));
+		for (int i = 0; i < inst->nnodes; i++) {
+			for (int j = 0; j < inst->nnodes; j++) {
+				if (i == j)
+					continue;
+				int k = asymmetric_xpos(i, j, inst);
+				if (fabs(res->best_sol[k]) > EPS && fabs(res->best_sol[k] - 1.0) > EPS)
+					print_error(" wrong inst->best_sol in build_sol()");
+				if (res->best_sol[k] > 0.5) {
+					++degree[i];
+					++degree[j];
+				}
+			}
+		}
+		for (int i = 0; i < inst->nnodes; i++) {
+
+			if (degree[i] != 2) {
+				char msg[100];
+				snprintf(msg, sizeof msg, "wrong degree in build_sol_mtz: degree(%d) = %d", i, degree[i]);
+				print_error(msg);
+			}
+		}
+		free(degree);
+		printf("\ndebug completed succesfully.\n");
+	}
+	
+	
 	if (TRUE) {				// FALSE to use alternative method
 		// tour
 		for (int start = 0; start < inst->nnodes; start++) {

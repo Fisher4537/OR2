@@ -71,14 +71,18 @@ inline double dmax(double d1, double d2) { return (d1 > d2) ? d1 : d2; }
 
 int TSPopt(tspInstance* inst, result* res);
 int xpos(int i, int j, tspInstance* inst);
+int asymmetric_upos(int i, tspInstance* inst);
+int asymmetric_xpos(int i, int j, tspInstance* inst);
+int asymmetric_ypos(int i, int j, tspInstance* inst);
 void switch_model(tspInstance* inst, CPXENVptr env, CPXLPptr lp);								// interface
 void build_model_std(tspInstance* inst, CPXENVptr env, CPXLPptr lp);							// sym, std
 void build_model_mtz(tspInstance* inst, CPXENVptr env, CPXLPptr lp);
+void build_model_flow1(tspInstance* inst, CPXENVptr env, CPXLPptr lp);
 void mip_optimization(CPXENVptr env, CPXLPptr lp, tspInstance* inst, result* res, int* error);
 void build_sol(tspInstance* inst, result* res, int* succ, int* comp, int* ncomp);
 void build_sol_std(tspInstance* inst, result* res, int* succ, int* comp, int* ncomp);
 void build_sol_mtz(tspInstance* inst, result* res, int* succ, int* comp, int* ncomp);
-void build_model_flow1(tspInstance* inst, CPXENVptr env, CPXLPptr lp);
+void build_sol_flow1(tspInstance* inst, result* res, int* succ, int* comp, int* ncomp);
 
 void switch_callback(tspInstance* inst, CPXENVptr env, CPXLPptr lp);
 static int CPXPUBLIC lazycallback(CPXCENVptr env, void* cbdata, int wherefrom, void* cbhandle, int* useraction_p);
@@ -97,4 +101,5 @@ void plot_points(FILE* gnuplot, char* pngname, tspInstance* inst);
 void plot_edges(FILE* gnuplot, char* pngname, tspInstance* inst, result* res);
 void setup_style(FILE* gnuplot, tspInstance* inst);
 void save_results(tspInstance* inst, result* res, char* f_name);
+
 #endif   /* TSP_H_ */ 

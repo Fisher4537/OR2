@@ -28,9 +28,18 @@ int main(int argc, char **argv){
 	// TSP optimization
 	if (TSPopt(&inst, &res)) 
 		print_error(" error within TSPopt()");
-	
-	get_pipe(&inst, &res);
 
+#ifdef _WIN32
+	//get_pipe(&inst, &res);
+	printf("Windows\n");
+#elif __linux__
+	printf("Linux\n");
+#elif __unix__
+	printf("Other unix OS\n");
+#else
+	printf("Unidentified OS\n");
+#endif
+	
 	printf("TSP solved in %lf s. (CPS=%lf)\n\n", (&res)->opt_time, (double)CLOCKS_PER_SEC);
 
 	save_results(&inst, &res, "Sol/res.csv");
@@ -39,7 +48,7 @@ int main(int argc, char **argv){
 	printf("Finish, press Return to exit...");
 
 	// getchar();
-	
+
 	return 0;
 }
 
