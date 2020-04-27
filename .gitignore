@@ -4,3 +4,13 @@
 *.blg
 *.bbl
 *.pdf
+
+Release/
+x64/
+Debug/
+Sol/
+graph/
+Hmw1.*
+pch.cpp
+pch.h
+*.props
