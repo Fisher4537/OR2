@@ -80,7 +80,7 @@ int xpos(int i, int j, tspInstance* inst){
 /**********************************	********************************************************************/
 int asymmetric_xpos(int i, int j, tspInstance* inst){
 	if (i == j) 
-		print_error(" i == j in asymmetric_upos");
+		print_error(" i == j in asymmetric_xpos");
 	return i * (inst->nnodes - 1) + (i < j ? j - 1 : j);
 }
 
@@ -89,6 +89,13 @@ int asymmetric_upos(int i, tspInstance* inst){
 	if (i < 1) 
 		print_error(" i < 1 in asymmetric_upos");
 	return inst->nnodes * (inst->nnodes - 1) + i - 1;
+}
+
+/******************************************************************************************************/
+int asymmetric_ypos(int i, int j, tspInstance* inst) {
+	if (i == j)
+		print_error(" i == j in asymmetric_ypos");
+	return i * (inst->nnodes - 1) + (i < j ? j - 1 : j);
 }
 
 /******************************************************************************************************/
@@ -104,8 +111,8 @@ void switch_model(tspInstance* inst, CPXENVptr env, CPXLPptr lp) {
 		case 1:									// MTZ contraints
 			build_model_mtz(inst, env, lp);
 		break;
-		case 2: 								// FLOW chart
-			print_error(" not yet implemented!!");
+		case 2: 								// FLOW1
+			build_model_flow1(inst, env, lp);
 		break;
 		default:
 			print_error(" model type unknown!!");
@@ -223,7 +230,7 @@ void build_model_mtz(tspInstance* inst, CPXENVptr env, CPXLPptr lp) {
 				print_error(" wrong CPXchgcoef [degree]");
 		}
 
-
+		lastrow = CPXgetnumrows(env, lp);
 		sprintf(cname[0], "outcome_d(%d)", h + 1);
 
 		// create a new row
@@ -268,6 +275,152 @@ void build_model_mtz(tspInstance* inst, CPXENVptr env, CPXLPptr lp) {
 
 	free(cname[0]);
 	free(cname);
+}
+
+/******************************************************************************************************/
+void build_model_flow1(tspInstance* inst, CPXENVptr env, CPXLPptr lp) {
+	char xctype = CPX_BINARY;		// Binary 0,1
+	double obj;						// objective function constant
+	double lb;						// lower bound
+	double ub,ub1;					// upper bound
+
+	char** cname = (char**)calloc(1, sizeof(char*));		// (char **) required by cplex...
+	cname[0] = (char*)calloc(100, sizeof(char));			// name of the variable
+
+	// add binary constraints and objective const x(i,j)
+	for (int i = 0; i < inst->nnodes; i++) {
+		for (int j = 0; j < inst->nnodes; j++) {
+			if (i != j) {
+				sprintf(cname[0], "x(%d,%d)", i + 1, j + 1);
+				obj = dist(i, j, inst);							// cost == distance
+				lb = 0.0;
+				ub = i == j ? 0.0 : 1.0;
+				if (CPXnewcols(env, lp, 1, &obj, &lb, &ub, &xctype, cname))
+					print_error(" wrong CPXnewcols on x var.s");
+				if (CPXgetnumcols(env, lp) - 1 != asymmetric_xpos(i, j, inst))
+					print_error(" wrong position for x var.s");
+			}
+		}
+	}
+
+	// add nodes index 'yij' in the circuits
+	xctype = CPX_INTEGER;						// Integer values
+	obj = 0.0;
+	lb = 0.0;
+	ub = (double)(inst->nnodes - 1 );
+	ub1 = (double)(inst->nnodes - 2);
+
+	for (int i = 0; i < inst->nnodes; i++) {			
+		for (int j = 0; j < inst->nnodes; j++) {
+			if (i != j) {
+				sprintf(cname[0], "y(%d,%d)", i + 1, j + 1);
+				if (j == 0) {														// yi0 = 0
+					if (CPXnewcols(env, lp, 1, &obj, &lb, &lb, &xctype, cname))
+						print_error(" wrong CPXnewcols on y var.s");
+				}else if(i == 0){													// y0j <= n-1			missing * xij
+					if (CPXnewcols(env, lp, 1, &obj, &lb, &ub, &xctype, cname))
+						print_error(" wrong CPXnewcols on y var.s");
+				}else {																// yij <= n-2			missing * xij
+					if (CPXnewcols(env, lp, 1, &obj, &lb, &ub1, &xctype, cname))
+						print_error(" wrong CPXnewcols on y var.s");
+				}
+				if (CPXgetnumcols(env, lp) - 1 != asymmetric_ypos(i, j, inst))
+					print_error(" wrong position for y var.s");
+
+			}
+		}
+	}
+
+	// add the degree constraints
+	int lastrow;	// the number of rows
+	double rhs;		// right head size
+	char sense;		// 'L', 'E' or 'G'
+	double coef;
+
+	for (int h = 0; h < inst->nnodes; h++) {
+		lastrow = CPXgetnumrows(env, lp);
+		rhs = 1.0;
+		sense = 'E';	// 'E' for equality constraint
+		sprintf(cname[0], "income_d(%d)", h + 1);
+
+		// create a new row
+		if (CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname))
+			print_error(" wrong CPXnewrows [degree]");
+
+		// income vertex
+		for (int i = 0; i < inst->nnodes; i++) {
+			if (i == h)
+				continue;
+			if (CPXchgcoef(env, lp, lastrow, asymmetric_xpos(i, h, inst), 1.0)) // income vertex
+				print_error(" wrong CPXchgcoef [degree]");
+		}
+
+		lastrow = CPXgetnumrows(env, lp);
+		sprintf(cname[0], "outcome_d(%d)", h + 1);
+
+		// create a new row
+		if (CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname))
+			print_error(" wrong CPXnewrows [degree]");
+
+		// outcome vertex
+		for (int i = 0; i < inst->nnodes; i++) {
+			if (i == h)
+				continue;
+			if (CPXchgcoef(env, lp, lastrow, asymmetric_xpos(h, i, inst), 1.0)) // outcome vertex
+				print_error(" wrong CPXchgcoef [degree]");
+		}
+
+		// y constraints: nodes index
+		if (h == 0 ) {
+			rhs = (double)inst->nnodes - 1.0;		
+			sense = 'E';
+			lastrow = CPXgetnumrows(env, lp);
+
+			sprintf(cname[0], "flow(%d)", 1);
+
+			// create a new row
+			if (CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname))	// new row
+				print_error(" wrong CPXnewrows [flow(0)]");
+
+			for (int i = 1; i < inst->nnodes; i++) {
+				
+				if (CPXchgcoef(env, lp, lastrow, asymmetric_xpos(h, i, inst), 1.0))		// outcome vertex from 0
+					print_error(" wrong CPXchgcoef [degree]");
+			}
+			// check coloumn
+		}else {
+			rhs = 1.0;
+			sense = 'E';
+			lastrow = CPXgetnumrows(env, lp);
+
+			sprintf(cname[0], "flow(%d)", h+1);
+
+			// create a new row
+			if (CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname))	// new row
+				print_error(" wrong CPXnewrows [flow(1)]");
+
+			for (int i = 0; i < inst->nnodes; i++) {
+				if (i != h) {
+					if (CPXchgcoef(env, lp, lastrow, asymmetric_xpos(h, i, inst), -1.0))
+						print_error(" wrong CPXchgcoef [degree]");
+				}
+			}
+
+			for (int i = 0; i < inst->nnodes; i++) {
+				if (i != h) {
+					if (CPXchgcoef(env, lp, lastrow, asymmetric_xpos(i, h, inst), 1.0))
+						print_error(" wrong CPXchgcoef [degree]");
+				}
+			}
+			// check coloumn
+		}
+		for (int i = 0; i < inst->nnodes; i++) {
+			if (i != h) {
+				// add here missing xij coef above ?
+			}
+		}
+	}
+
 }
 
 /******************************************************************************************************/

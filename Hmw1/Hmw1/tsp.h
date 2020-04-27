@@ -78,6 +78,7 @@ void mip_optimization(CPXENVptr env, CPXLPptr lp, tspInstance* inst, result* res
 void build_sol(tspInstance* inst, result* res, int* succ, int* comp, int* ncomp);
 void build_sol_std(tspInstance* inst, result* res, int* succ, int* comp, int* ncomp);
 void build_sol_mtz(tspInstance* inst, result* res, int* succ, int* comp, int* ncomp);
+void build_model_flow1(tspInstance* inst, CPXENVptr env, CPXLPptr lp);
 
 void switch_callback(tspInstance* inst, CPXENVptr env, CPXLPptr lp);
 static int CPXPUBLIC lazycallback(CPXCENVptr env, void* cbdata, int wherefrom, void* cbhandle, int* useraction_p);
