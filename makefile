@@ -3,7 +3,7 @@ LIBS = -L${CPLEX_HOME}/lib/x86-64_linux/static_pic -L. -lcplex -lm -lpthread -ld
 INC = -I. -I${CPLEX_HOME}/include/ilcplex
 ARGS = -input data/att12.tsp -model_type 0 -max_nodes 10000
 EXE = mainTSP
-OBJ = mainTSP.o
+OBJ = mainTSP.o tsp.o
 MODELS = 0 1
 TEST_FILES = `ls data/*.tsp`
 TRAINSET_FILES = data/att12.tsp data/att48.tsp data/pr76.tsp data/rat99.tsp data/kroB100.tsp data/a280.tsp
@@ -37,9 +37,10 @@ debug:
 $(EXE): $(OBJ)
 	gcc -o $(EXE) $(OBJ) $(LIBS)
 
-$(OBJ): mainTSP.c tsp.c tsp.h
+$(OBJ): mainTSP.c tsp.c
 	@echo "compiling..."
 	gcc $(INC) -c mainTSP.c
+	gcc $(INC) -c tsp.c
 
 clean:
 	rm *.o *.x mainTSP
