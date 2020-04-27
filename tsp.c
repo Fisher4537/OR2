@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "tsp.h"
+#include "chrono.cpp"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,10 +22,10 @@ int TSPopt(tspinstance *inst)
 	CPXLPptr lp = CPXcreateprob(env, &status, "TSP");
 
 	// Cplex's parameter setting
-	CPXsetintparam(env,CPXPARAM_Threads, 1);		// allow executing N parallel threads
+	CPXsetintparam(env,CPXPARAM_Threads, inst->nthread);		// allow executing N parallel threads
 	CPXsetintparam(env,CPX_PARAM_RANDOMSEED, inst->randomseed);		// avoid performace variability
 	CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit);		// set time limit
-	if (inst->verbose >= 1000) CPXsetintparam(env, CPX_PARAM_SCRIND, inst->nthread);	// show CPLEX log
+	if (inst->verbose >= 1000) CPXsetintparam(env, CPX_PARAM_SCRIND, CPX_ON);	// show CPLEX log
     // CPXsetintparam(env, CPX_PARAM_MIPDISPLAY, 4);
 
 	// set input data in CPX structure
@@ -42,7 +43,7 @@ int TSPopt(tspinstance *inst)
 	// compute cplex
 	clock_t init_time = clock();
 	mip_optimization(env, lp, inst, &status);
-	inst->opt_time = (double)(clock() - init_time)/CLOCKS_PER_SEC;
+	inst->opt_time = (double)(clock() - init_time)/CLOCKS_PER_SEC/(double)inst->nthread; // 
 	if (inst->verbose >= 100) printf("optimization complete!\n");
 
 	// get best solution
