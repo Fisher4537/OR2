@@ -901,7 +901,31 @@ void plot_instance(tspinstance *inst)
 {
 
 	// open gnuplot process
-  FILE *gnuplot = popen("gnuplot", "w");
+	FILE *gnuplot;
+	#ifdef _WIN32
+			// printf("Windows\n");
+			FILE* gnuplot = _popen("D:\\Programmi\\gnuplot\\bin\\gnuplot.exe -persist", "w");
+
+			if (gnuplot != NULL){
+				fprintf(gnuplot, "set term wx\n");    // set the terminal
+				fprintf(gnuplot, "plot '-' with lines\n");  // plot type
+				for (int i = 0; i < 10; i++)    // loop over the data [0,...,9]
+					fprintf(gnuplot, "%d\n", i);    // data terminated with \n
+				fprintf(gnuplot, "%s\n", "e");     // termination character
+				fflush(gnuplot);        // flush the gnuplot
+			}
+	#elif __linux__
+			// printf("Linux\n");
+			gnuplot = popen("gnuplot", "w");
+	#else
+			gnuplot = popen("gnuplot", "w");
+	#endif
+
+	if (gnuplot == NULL) {
+		printf("Could not open gnuplot");
+		return;
+	}
+
 	char pngname[sizeof(inst->input_file)+20+sizeof(inst->model_type)];
 	snprintf(pngname, sizeof pngname, "plot/%s_%d.png", get_file_name(inst->input_file), inst->model_type);  // TODO: input_file check
 
