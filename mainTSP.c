@@ -1,3 +1,4 @@
+#include "pch.h"
 #include "tsp.c"
 #include <stdio.h>
 #include <time.h>
@@ -31,6 +32,6 @@ int main(int argc, char **argv)
 	free_instance(&inst);
 
 	// printf("END OF mainTSP, press Return to exit...");
-  // getchar(); // pause execution
+	// getchar(); // pause execution
 	return 0;
 }

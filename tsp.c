@@ -1,7 +1,5 @@
+#include "pch.h"
 #include "tsp.h"
-#ifdef _WIN32
-    #include "pch.h"
-#endif
 
 #include <stdio.h>
 #include <stdlib.h>
