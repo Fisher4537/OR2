@@ -9,9 +9,9 @@
 
 #include <cplex.h>
 #include <pthread.h>
-
-                                //    =20 little output, =50-60 good,
-                                //    =70 verbose, >=100 cplex log)
+#ifdef _WIN32
+    #include <windows.h>
+#endif
 
 //hard-wired parameters
 #define XSMALL		  		  1e-5 		    // 1e-4*	// tolerance used to decide
@@ -53,6 +53,9 @@ typedef struct {
 	int nedges;									// number of edges in best_sol
 	// double *load_min;						// minimum load when leaving a node
 	// double *load_max;						// maximum load when leaving a node
+    
+	double ncols;
+	int callback;
 
 	// model;
 	// int xstart;
@@ -69,5 +72,12 @@ typedef struct {
 inline int imax(int i1, int i2) { return ( i1 > i2 ) ? i1 : i2; }
 inline double dmin(double d1, double d2) { return ( d1 < d2 ) ? d1 : d2; }
 inline double dmax(double d1, double d2) { return ( d1 > d2 ) ? d1 : d2; }
+
+void switch_callback(tspInstance* inst, CPXENVptr env, CPXLPptr lp);
+static int CPXPUBLIC lazycallback(CPXCENVptr env, void* cbdata, int wherefrom, void* cbhandle, int* useraction_p);
+static int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void* cbhandle);
+int mygeneric_separation(tspInstance* inst, const double* xstar, CPXCALLBACKCONTEXTptr context);
+int mylazy_separation(tspInstance* inst, const double* xstar, CPXCALLBACKCONTEXTptr context);
+void build_sol_flow1(tspInstance* inst, result* res, int* succ, int* comp, int* ncomp);
 
 #endif   /* TSP_H_ */

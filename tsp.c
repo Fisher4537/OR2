@@ -1,4 +1,7 @@
 #include "tsp.h"
+#ifdef _WIN32
+    #include "pch.h"
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -58,6 +61,7 @@ int TSPopt(tspinstance *inst)
 	CPXsetintparam(env,CPX_PARAM_RANDOMSEED, inst->randomseed);		// avoid performace variability
 	CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit);		// set time limit
 	if (inst->verbose >= 1000) CPXsetintparam(env, CPX_PARAM_SCRIND, inst->nthread);	// show CPLEX log
+    // CPXsetintparam(env, CPX_PARAM_MIPDISPLAY, 4);
 
 	// set input data in CPX structure
 	build_model(inst, env, lp);
@@ -846,6 +850,7 @@ void parse_command_line(int argc, char** argv, tspinstance *inst)
 	inst->max_nodes = -1; 						// max n. of branching nodes in the final run (-1 unlimited)
   inst->integer_costs = 0;
 	inst->verbose = 1000;							// VERBOSE
+    inst->callback = 0;
 
   int help = 0; if ( argc < 1 ) help = 1;
 	for ( int i = 1; i < argc; i++ )
@@ -861,6 +866,7 @@ void parse_command_line(int argc, char** argv, tspinstance *inst)
 		if ( strcmp(argv[i],"-memory") == 0 ) { inst->available_memory = atoi(argv[++i]); continue; }	// available memory (in MB)
 		if ( strcmp(argv[i],"-node_file") == 0 ) { strcpy(inst->node_file,argv[++i]); continue; }		// cplex's node file
 		if ( strcmp(argv[i],"-max_nodes") == 0 ) { inst->max_nodes = atoi(argv[++i]); continue; } 		// max n. of nodesfile
+        if (strcmp(argv[i], "-callback") == 0) { inst->callback = atoi(argv[++i]); continue; }			// 1 = lazy_callback, 2 = generic_callback
 		if ( strcmp(argv[i],"-v") == 0 ) { inst->verbose = atoi(argv[++i]); continue; } 		// max n. of nodes
 		if ( strcmp(argv[i],"-int") == 0 ) { inst->integer_costs = 1; continue; } 						// inteher costs
 		if ( strcmp(argv[i],"-help") == 0 ) { help = 1; continue; } 									// help
@@ -1076,3 +1082,218 @@ void pause_execution()
 
 void print_error(const char *err)
 { printf("\n\n ERROR: %s \n\n", err); fflush(NULL); exit(1); }
+
+
+
+/******************************************************************************************************/
+void build_model_flow1(tspInstance* inst, CPXENVptr env, CPXLPptr lp) {
+	char xctype = CPX_BINARY;		// Binary 0,1
+	double obj;						// objective function constant
+	double lb;						// lower bound
+	double ub,ub1;					// upper bound
+
+	char** cname = (char**)calloc(1, sizeof(char*));		// (char **) required by cplex...
+	cname[0] = (char*)calloc(100, sizeof(char));			// name of the variable
+
+	// add binary constraints and objective const x(i,j)
+	for (int i = 0; i < inst->nnodes; i++) {
+		for (int j = 0; j < inst->nnodes; j++) {
+			if (i != j) {
+				sprintf(cname[0], "x(%d,%d)", i + 1, j + 1);
+				obj = dist(i, j, inst);							// cost == distance
+				lb = 0.0;
+				ub = i == j ? 0.0 : 1.0;
+				if (CPXnewcols(env, lp, 1, &obj, &lb, &ub, &xctype, cname))
+					print_error(" wrong CPXnewcols on x var.s");
+				if (CPXgetnumcols(env, lp) - 1 != asymmetric_xpos(i, j, inst))
+					print_error(" wrong position for x var.s");
+			}
+		}
+	}
+
+	// add nodes index 'yij' in the circuits
+	xctype = CPX_INTEGER;						// Integer values
+	obj = 0.0;
+	lb = 0.0;
+	ub = (double)inst->nnodes - 1;
+	ub1 = (double)inst->nnodes - 2;
+
+	for (int i = 0; i < inst->nnodes; i++) {			
+		for (int j = 0; j < inst->nnodes; j++) {
+			if (i != j) {
+				sprintf(cname[0], "y(%d,%d)", i + 1, j + 1);
+				if (j == 0) {														// yi0 = 0
+					if (CPXnewcols(env, lp, 1, &obj, &lb, &lb, &xctype, cname))
+						print_error(" wrong CPXnewcols on y var.s");
+				}else if(i == 0){													// y0j <= n-1			missing * xij
+					if (CPXnewcols(env, lp, 1, &obj, &lb, &ub, &xctype, cname))
+						print_error(" wrong CPXnewcols on y var.s");
+				}else {																// yij <= n-2			missing * xij
+					if (CPXnewcols(env, lp, 1, &obj, &lb, &ub1, &xctype, cname))
+						print_error(" wrong CPXnewcols on y var.s");
+				}
+				if (CPXgetnumcols(env, lp) - 1 != asymmetric_ypos(i, j, inst))
+					print_error(" wrong position for y var.s");
+
+			}
+		}
+	}
+
+	// add the degree constraints
+	int lastrow;	// the number of rows
+	double rhs;		// right head size
+	char sense;		// 'L', 'E' or 'G'
+	double coef;
+
+	for (int h = 0; h < inst->nnodes; h++) {
+		lastrow = CPXgetnumrows(env, lp);
+		rhs = 1.0;
+		sense = 'E';	// 'E' for equality constraint
+		sprintf(cname[0], "income_d(%d)", h + 1);
+
+		// create a new row
+		if (CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname))
+			print_error(" wrong CPXnewrows [degree]");
+
+		// income vertex
+		for (int i = 0; i < inst->nnodes; i++) {
+			if (i == h)
+				continue;
+			if (CPXchgcoef(env, lp, lastrow, asymmetric_xpos(i, h, inst), 1.0)) // income vertex
+				print_error(" wrong CPXchgcoef [degree]");
+		}
+
+		lastrow = CPXgetnumrows(env, lp);
+		sprintf(cname[0], "outcome_d(%d)", h + 1);
+
+		// create a new row
+		if (CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname))
+			print_error(" wrong CPXnewrows [degree]");
+
+		// outcome vertex
+		for (int i = 0; i < inst->nnodes; i++) {
+			if (i == h)
+				continue;
+			if (CPXchgcoef(env, lp, lastrow, asymmetric_xpos(h, i, inst), 1.0)) // outcome vertex
+				print_error(" wrong CPXchgcoef [degree]");
+		}
+
+		// y constraints: nodes index
+		if (h == 0 ) {
+			rhs = (double)inst->nnodes - 1.0;		
+			sense = 'E';
+			lastrow = CPXgetnumrows(env, lp);
+
+			sprintf(cname[0], "flow(%d)", 1);
+
+			// create a new row
+			if (CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname))	// new row
+				print_error(" wrong CPXnewrows [flow(0)]");
+
+			for (int i = 1; i < inst->nnodes; i++) {
+				
+				if (CPXchgcoef(env, lp, lastrow, asymmetric_xpos(h, i, inst), 1.0))		// outcome vertex from 0
+					print_error(" wrong CPXchgcoef [degree]");
+			}
+			// check coloumn
+		}else {
+			rhs = 1.0;
+			sense = 'E';
+			lastrow = CPXgetnumrows(env, lp);
+
+			sprintf(cname[0], "flow(%d)", h+1);
+
+			// create a new row
+			if (CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname))	// new row
+				print_error(" wrong CPXnewrows [flow(1)]");
+
+			for (int i = 0; i < inst->nnodes; i++) {
+				if (i != h) {
+					if (CPXchgcoef(env, lp, lastrow, asymmetric_xpos(h, i, inst), -1.0))
+						print_error(" wrong CPXchgcoef [degree]");
+				}
+			}
+
+			for (int i = 0; i < inst->nnodes; i++) {
+				if (i != h) {
+					if (CPXchgcoef(env, lp, lastrow, asymmetric_xpos(i, h, inst), 1.0))
+						print_error(" wrong CPXchgcoef [degree]");
+				}
+			}
+			// check coloumn
+		}
+	}
+}
+/******************************************************************************************************/
+void switch_callback(tspInstance* inst, CPXENVptr env, CPXLPptr lp) {
+	CPXsetintparam(env, CPX_PARAM_MIPCBREDLP, CPX_OFF);				// let MIP callbacks work on the original model
+ 
+	if (inst->callback == 1) {										// Lazy Constraint Callback
+		CPXsetlazyconstraintcallbackfunc(env, lazycallback, inst);
+		
+	}else if (inst->callback == 2) {								// Generic Callback
+		CPXcallbacksetfunc(env, lp, CPX_CALLBACKCONTEXT_CANDIDATE, genericcallback, inst);		// CPX_CALLBACKCONTEXT_CANDIDATE can be used with other params with |
+	}
+	int ncores = 1;
+	CPXgetnumcores(env, &ncores);
+	CPXsetintparam(env, CPX_PARAM_THREADS, ncores); 				// it was reset after callback
+	inst->ncols = CPXgetnumcols(env, lp);
+}
+
+/******************************************************************************************************/
+static int CPXPUBLIC lazycallback(CPXCENVptr env, void* cbdata, int wherefrom, void* cbhandle, int* useraction_p){
+	*useraction_p = CPX_CALLBACK_DEFAULT;
+	tspInstance* inst = (tspInstance*)cbhandle; 			// casting of cbhandle (which is pointing to the above parameter inst)
+
+	// get solution xstar
+	double* xstar = (double*)malloc(inst->ncols * sizeof(double));
+	if (CPXgetcallbacknodex(env, cbdata, wherefrom, xstar, 0, inst->ncols - 1))			// xstar = current x from CPLEX-- xstar starts from position 0 (getx is not defined)
+		return 1;	
+
+	// get some random information at the node (as an example)
+	double objval = CPX_INFBOUND; CPXgetcallbacknodeobjval(env, cbdata, wherefrom, &objval);					//valore rilassamento continuo (LB) al nodo corrente
+	int mythread = -1; CPXgetcallbackinfo(env, cbdata, wherefrom, CPX_CALLBACK_INFO_MY_THREAD_NUM, &mythread);
+	double zbest; CPXgetcallbackinfo(env, cbdata, wherefrom, CPX_CALLBACK_INFO_BEST_INTEGER, &zbest);			//valore incumbent al nodo corrente
+
+	//apply cut separator and possibly add violated cuts
+	//int ncuts = mylazy_separation(inst, xstar, env, cbdata, wherefrom);
+	free(xstar);													//avoid memory leak
+
+	//if (ncuts >= 1) 
+		*useraction_p = CPX_CALLBACK_SET; 		// tell CPLEX that cuts have been created
+	return 0; 												// return 1 would mean error --> abort Cplex's execution
+}
+
+/******************************************************************************************************/
+static int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void* cbhandle) {
+
+	if (contextid == CPX_CALLBACKCONTEXT_CANDIDATE) {
+		tspInstance* inst = (tspInstance*)cbhandle; 			// casting of cbhandle (which is pointing to the above parameter inst)
+				// get solution xstar
+		double* xstar = (double*)malloc(inst->ncols * sizeof(double));
+		double objval = CPX_INFBOUND;
+		if (CPXcallbackgetcandidatepoint(context, xstar, 0, inst->ncols - 1, &objval))			// xstar = current x from CPLEX-- xstar starts from position 0 (getx is not defined)
+			return 1;
+
+		int mythread = -1; CPXcallbackgetinfoint(context, CPXCALLBACKINFO_THREADS, &mythread);
+		double zbest; CPXcallbackgetinfodbl(context, CPXCALLBACKINFO_BEST_SOL, &zbest);				//valore incumbent al nodo corrente
+
+		//apply cut separator and possibly add violated cuts
+		int ncuts = mygeneric_separation(inst, xstar, context);
+		free(xstar);											//avoid memory leak
+
+		return 0; 												// return 1 would mean error --> abort Cplex's execution
+	}
+	else
+		return 0;
+}
+
+/******************************************************************************************************/
+int mygeneric_separation(tspInstance* inst, const double* xstar, CPXCALLBACKCONTEXTptr context) {
+		return 0;
+}
+/******************************************************************************************************/
+int mylazy_separation(tspInstance* inst, const double* xstar, CPXCALLBACKCONTEXTptr context) {
+	return 0;
+}
+

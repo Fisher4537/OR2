@@ -8,25 +8,23 @@
 *.x
 mainTSP
 gnuplot*
+
+Release/
+x64/
+Debug/
+Sol/
+graph/
+Hmw1.*
+pch.cpp
+pch.h
+*.props
 plot/*
-.gitignore
 
-Latex/Report.fdb_latexmk
-
-Latex/Report.synctex(busy)
-
-Latex/Report.fls
-
-data/
-
-model/
 
 res.csv
+data/
+model/
 
-
-
-
-#Visual Studio
 #Visual Studio
 .vs
 *.sln
@@ -37,3 +35,7 @@ Release
 Makefile
 pch.*
 Hmw1
+
+Latex/Report.fdb_latexmk
+Latex/Report.synctex(busy)
+Latex/Report.fls
