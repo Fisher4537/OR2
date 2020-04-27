@@ -8,9 +8,11 @@
 #include <string.h>
 
 #include <cplex.h>
-#include <pthread.h>
+
 #ifdef _WIN32
     #include <windows.h>
+#else
+#include <pthread.h>
 #endif
 
 //hard-wired parameters

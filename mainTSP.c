@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "tsp.c"
+#include "tsp.h"
 #include <stdio.h>
 #include <time.h>
 

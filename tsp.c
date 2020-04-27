@@ -1084,7 +1084,7 @@ void plot_instance(tspinstance *inst)
 	FILE *gnuplot;
 	#ifdef _WIN32
 			// printf("Windows\n");
-			FILE* gnuplot = _popen("D:\\Programmi\\gnuplot\\bin\\gnuplot.exe -persist", "w");
+			gnuplot = _popen("D:\\Programmi\\gnuplot\\bin\\gnuplot.exe -persist", "w");
 
 			if (gnuplot != NULL){
 				fprintf(gnuplot, "set term wx\n");    // set the terminal
@@ -1217,10 +1217,15 @@ void setup_style(FILE *gnuplot, tspinstance *inst)
 char * get_file_name(char *path)
 {
     int start_name = 0;
-		for (int i = 0; path[i] != '\0'; i++)
-		    if (path[i] == '/') start_name = i+1;
-
-		return path+start_name;
+	for (int i = 0; path[i] != '\0'; i++) {
+		#ifdef _WIN32
+				if (path[i] == '\\') start_name = i + 1;			//ERROR HERE
+				printf("PATH: %c", path + start_name);
+		#else
+				if (path[i] == '/') start_name = i + 1;
+		#endif
+	}
+	return path+start_name;
 }
 
 
