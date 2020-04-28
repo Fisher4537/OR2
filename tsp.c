@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "tsp.h"
-#include "chrono.cpp"
+#include "chrono.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,6 +45,7 @@ int TSPopt(tspinstance *inst) {
 		double fin = second();
 		inst->opt_time = (double)(fin - ini);
 	#elif _WIN32
+	printf("Windows time!\n");
 		double ini = second(); 
 		mip_optimization(env, lp, inst, &status);
 		double fin = second();
@@ -1256,7 +1258,7 @@ char * get_file_name(char *path) {
 	for (int i = 0; path[i] != '\0'; i++) {
 		#ifdef _WIN32
 			if (path[i] == '\\') start_name = i + 1;
-				printf("PATH: %s\n", path + start_name);
+				//printf("PATH: %s\n", path + start_name);
 		#else
 				if (path[i] == '/') start_name = i + 1;
 		#endif

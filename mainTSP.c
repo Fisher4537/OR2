@@ -11,7 +11,7 @@ int main(int argc, char **argv)
 	if ( VERBOSE >= 2 ) {
      for (int a = 0; a < argc; a++) printf("%s ", argv[a]);
 		 //printf("\n");
-  }
+	}
  
 	tspinstance inst;
 

@@ -10,9 +10,8 @@
 #include <cplex.h>
 
 #ifdef _WIN32
-    #include <windows.h>
 #else
-#include <pthread.h>
+	#include <pthread.h>
 #endif
 
 //hard-wired parameters
