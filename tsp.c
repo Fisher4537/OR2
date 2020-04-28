@@ -26,6 +26,12 @@ int TSPopt(tspinstance *inst) {
 	if (inst->verbose >= 100) CPXsetintparam(env, CPX_PARAM_SCRIND, CPX_ON);	// show CPLEX log
     // CPXsetintparam(env, CPX_PARAM_MIPDISPLAY, 4);
 
+	// CPX_PARAM_MIPEMPHASIS: it balances optimality and integer feasibility.
+	//	(CPX_MIPEMPHASIS_BALANCED, CPX_MIPEMPHASIS_FEASIBILITY, CPX_MIPEMPHASIS_OPTIMALITY,
+	//	CPX_MIPEMPHASIS_BESTBOUND, CPX_MIPEMPHASIS_HIDDENFEAS)
+	// CPX_PARAM_MIPSEARCH: Dynamic search or B&C ?
+  // CPXsetintparam(env, CPX_PARAM_MIPDISPLAY, 4);
+
 	// set input data in CPX structure
 	build_model(inst, env, lp);
 
