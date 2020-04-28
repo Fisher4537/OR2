@@ -20,7 +20,7 @@ double myWallTime()
 	SYSTEMTIME sm;
 	GetSystemTime(&sm);
 	return (double)sm.wSecond + 1.0e-6 * ((double)sm.wMilliseconds);		// accurato ai millisecondi (non perfetto ma abbastanza corretto)
-#endif 
+#endif																		// provare ad usare QueryPerformanceCounter
 	return 0.0;
 }
 
