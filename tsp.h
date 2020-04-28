@@ -98,6 +98,7 @@ int mylazy_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONTEXT
 void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp);
 void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp);
 void build_sol_mtz(tspinstance *inst, int *succ, int *comp, int *ncomp);
+void build_sol_flow1(tspinstance *inst, int *succ, int *comp, int *ncomp);
 
 void parse_command_line(int argc, char** argv, tspinstance *inst);
 void read_input(tspinstance *inst);

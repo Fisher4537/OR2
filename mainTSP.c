@@ -12,7 +12,7 @@ int main(int argc, char **argv)
      for (int a = 0; a < argc; a++) printf("%s ", argv[a]);
 		 //printf("\n");
 	}
- 
+
 	tspinstance inst;
 
 	// parse input args
@@ -23,7 +23,7 @@ int main(int argc, char **argv)
 
 	// TSP optimization
 	if ( TSPopt(&inst) ) print_error(" error within VRPopt()");
-	if ( (&inst)->verbose >= 1) printf(" ... Executed in %6.3lf s\n", (&inst)->opt_time);
+	if ( (&inst)->verbose >= 1) printf(" ... Executed in %6.3lf s\n", (&inst)->opt_time); 
 
 	if ( (&inst)->verbose >= 1 ) plot_instance(&inst);
 	if ( (&inst)->verbose <= 1) save_results(&inst, "res.csv");

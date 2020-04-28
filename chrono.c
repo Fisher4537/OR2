@@ -2,7 +2,7 @@
 #include "chrono.h"
 
 double myWallTime()
-{ 
+{
 #ifdef __APPLE__
 	static double timeConvert = 0.0;
 	if ( timeConvert == 0.0 )
@@ -20,7 +20,7 @@ double myWallTime()
 	SYSTEMTIME sm;
 	GetSystemTime(&sm);
 	return (double)sm.wSecond + 1.0e-6 * ((double)sm.wMilliseconds);
-#endif 
+#endif
 	return 0.0;
 }
 
