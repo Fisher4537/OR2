@@ -1,6 +1,5 @@
 #include "pch.h"
 #include "tsp.h"
-#include "chrono.cpp"
 
 #include <stdio.h>
 #include <stdlib.h>
