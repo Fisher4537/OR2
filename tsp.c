@@ -60,7 +60,7 @@ int TSPopt(tspinstance *inst) {
 		mip_optimization(env, lp, inst, &status);
 		inst->opt_time = (double)(clock() - init_time) / CLOCKS_PER_SEC;
 	#endif
-	
+
 	if (inst->verbose >= 100) printf("optimization complete!\n");
 
 	// get best solution
@@ -117,8 +117,8 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 		 	build_mtz(inst, env,lp);
 			break;
 
-		case 2 : 		// FLOW chart
-			build_flow1(inst, env, lp);
+		case 2 : 		// FLOW 1
+			build_model_flow1(inst, env, lp);
 			break;
 
 		default:
@@ -344,7 +344,7 @@ void build_flow1(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 						print_error(" wrong CPXnewcols on u var.s");
 				}
 
-				if ( CPXgetnumcols(env,lp)-1 != asym_upos(i, inst) )
+				if ( CPXgetnumcols(env,lp)-1 != asym_ypos(i, j, inst) )
 						print_error(" wrong position for u var.s");
 			}
 		}
@@ -429,13 +429,14 @@ void build_model_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 				if (j == 0) {														// yi0 = 0
 					if (CPXnewcols(env, lp, 1, &obj, &lb, &lb, &xctype, cname))
 						print_error(" wrong CPXnewcols on y var.s");
-				}else if(i == 0){													// y0j <= n-1
+				} else if (i == 0) {													// y0j <= n-1
 					if (CPXnewcols(env, lp, 1, &obj, &lb, &ub, &xctype, cname))
 						print_error(" wrong CPXnewcols on y var.s");
-				}else {																// yij <= n-2
+				} else {																// yij <= n-2
 					if (CPXnewcols(env, lp, 1, &obj, &lb, &ub1, &xctype, cname))
 						print_error(" wrong CPXnewcols on y var.s");
 				}
+
 				if (CPXgetnumcols(env, lp) - 1 != asym_ypos(i, j, inst))
 					print_error(" wrong position for y var.s");
 
@@ -448,7 +449,6 @@ void build_model_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 	double rhs;		// right head size
 	char sense;		// 'L', 'E' or 'G'
 	double coef;
-
 	for (int h = 0; h < inst->nnodes; h++) {
 		lastrow = CPXgetnumrows(env, lp);
 		rhs = 1.0;
@@ -501,7 +501,7 @@ void build_model_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 				if (CPXchgcoef(env, lp, lastrow, asym_ypos(h, i, inst), 1.0))		// outcome vertex from 0
 					print_error(" wrong CPXchgcoef [flow(1)]");
 			}
-		}else {
+		} else {
 			rhs = 1.0;
 			sense = 'E';
 			lastrow = CPXgetnumrows(env, lp);
@@ -514,15 +514,15 @@ void build_model_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 
 			for (int i = 0; i < inst->nnodes; i++) {
 				if (i != h) {
-					if (CPXchgcoef(env, lp, lastrow, asym_ypos(h, i, inst), -1.0))
-						print_error(" wrong CPXchgcoef [flow(1)]");
+					if (CPXchgcoef(env, lp, lastrow, asym_ypos(h, i, inst), -1.0))	// outcome
+						print_error(" wrong CPXchgcoef [flow(i)]");
 				}
 			}
 
 			for (int i = 0; i < inst->nnodes; i++) {
 				if (i != h) {
-					if (CPXchgcoef(env, lp, lastrow, asym_ypos(i, h, inst), 1.0))
-						print_error(" wrong CPXchgcoef [flow(1)]");
+					if (CPXchgcoef(env, lp, lastrow, asym_ypos(i, h, inst), 1.0))		// income
+						print_error(" wrong CPXchgcoef [flow(i)]");
 				}
 			}
 		}
@@ -544,7 +544,7 @@ void build_model_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 				if (CPXchgcoef(env, lp, lastrow, asym_ypos(i, j, inst), 1.0))
 					print_error(" wrong CPXchgcoef [y_cut()]");
 
-				if (CPXchgcoef(env, lp, lastrow, asym_xpos(i, j, inst), (double) inst->nnodes - 1.0))
+				if (CPXchgcoef(env, lp, lastrow, asym_xpos(i, j, inst), - (double) inst->nnodes + 1.0))
 					print_error(" wrong CPXchgcoef [y_cut()]");
 			}
 		}
@@ -562,7 +562,7 @@ void build_model_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 					if (CPXchgcoef(env, lp, lastrow, asym_ypos(i, j, inst), 1.0))
 						print_error(" wrong CPXchgcoef [y_cut()]");
 
-					if (CPXchgcoef(env, lp, lastrow, asym_xpos(i, j, inst), (double)inst->nnodes - 2.0))
+					if (CPXchgcoef(env, lp, lastrow, asym_xpos(i, j, inst), -(double)inst->nnodes + 2.0))
 						print_error(" wrong CPXchgcoef [y_cut()]");
 				}
 			}
@@ -582,6 +582,10 @@ void mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status
 			break;
 
 		case 1:
+			*status = CPXmipopt(env,lp);
+			break;
+
+		case 2:
 			*status = CPXmipopt(env,lp);
 			break;
 
@@ -743,6 +747,10 @@ void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp) {
 		 	build_sol_mtz(inst, succ, comp, ncomp);
 			break;
 
+		case 2:
+			build_sol_flow1(inst, succ, comp, ncomp);
+			break;
+
 		default:
 			print_error(" model type unknown!!");
 			break;
@@ -848,16 +856,13 @@ void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 void build_sol_mtz(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// build succ() and comp() wrt xstar()...
 
 	// check if nodes degree is 2 for each node
-	if (inst->verbose >= 1000)
-	{
+	if (inst->verbose >= 1000) {
 		printf("debugging sym mtz solution...\n");
-		if (inst->verbose >= 1000)
-		{
+		if (inst->verbose >= 1000) {
 			printf("Solution:\n      ");
 			for (int i = 0; i < inst->nnodes; i++) printf("%5d|", i);
 			printf("\n");
-			for (int i = 0; i < inst->nnodes; i++)
-			{
+			for (int i = 0; i < inst->nnodes; i++) {
 				printf("%5d)", i);
 				for (int j = 0; j < inst->nnodes; j++)
 					if (i == j) printf("      ");
@@ -869,25 +874,20 @@ void build_sol_mtz(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 				printf("%6.1f", round(inst->best_sol[asym_upos(u,inst)]) );
 		}
 		int *degree = (int *) calloc(inst->nnodes, sizeof(int));
-		for ( int i = 0; i < inst->nnodes; i++ )
-		{
-			for ( int j = 0; j < inst->nnodes; j++ )
-			{
+		for ( int i = 0; i < inst->nnodes; i++ ) {
+			for ( int j = 0; j < inst->nnodes; j++ ) {
 				if (i == j) continue;
 				int k = asym_xpos(i,j,inst);
 				if ( fabs(inst->best_sol[k]) > EPS && fabs(inst->best_sol[k]-1.0) > EPS ) print_error(" wrong inst->best_sol in build_sol()");
-				if ( inst->best_sol[k] > 0.5 )
-				{
+				if ( inst->best_sol[k] > 0.5 ) {
 					++degree[i];
 					++degree[j];
 				}
 			}
 		}
-		for ( int i = 0; i < inst->nnodes; i++ )
-		{
+		for ( int i = 0; i < inst->nnodes; i++ ) {
 
-			if ( degree[i] != 2 )
-			{
+			if ( degree[i] != 2 ) {
 				char msg[100];
 				snprintf(msg, sizeof msg, "wrong degree in build_sol_mtz: degree(%d) = %d", i, degree[i]);
 				print_error(msg);
@@ -902,8 +902,7 @@ void build_sol_mtz(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 	for ( int i = 0; i < inst->nnodes; i++ ) { succ[i] = -1; comp[i] = -1; }
 
 	// tour
-	for ( int start = 0; start < inst->nnodes; start++ )
-	{
+	for ( int start = 0; start < inst->nnodes; start++ ) {
 		if ( comp[start] >= 0 ) continue;  // node "start" has already been setted
 
 		// a new component is found
@@ -911,18 +910,14 @@ void build_sol_mtz(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 		comp[start] = *ncomp;
 
 		int i = start;
-		while ( succ[i] == -1  )  // go and visit the current component
-		{
+		while ( succ[i] == -1 ) { // go and visit the current component
 			comp[i] = *ncomp;
-			for ( int j = 0; j < inst->nnodes; j++ )
-			{
+			for ( int j = 0; j < inst->nnodes; j++ ) {
 				if (j == i) continue;
 
-				if ( inst->best_sol[asym_xpos(i,j,inst)] > 0.5) // the edge [i,j] is selected in inst->best_sol and j was not visited before
-				{
+				if ( inst->best_sol[asym_xpos(i,j,inst)] > 0.5) { // the edge [i,j] is selected in inst->best_sol and j was not visited before
 					// intern edge of the cycle
-					if (comp[j] == -1)
-					{
+					if (comp[j] == -1) {
 						succ[i] = j;
 						i = j;
 						break;
@@ -936,8 +931,7 @@ void build_sol_mtz(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 	}
 
 	// print succ, comp and ncomp
-	if (inst->verbose >= 1000)
-	{
+	if (inst->verbose >= 1000) {
 		printf("\ni:   ");
 		for (int i = 0; i < inst->nnodes; i++) printf("%5d", i);
 		printf("\nsucc:");
@@ -948,6 +942,94 @@ void build_sol_mtz(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 	}
 }
 
+void build_sol_flow1(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// build succ() and comp() wrt xstar()...
+
+	// check if nodes degree is 2 for each node
+	if (inst->verbose >= 1000) {
+		printf("debugging sym flow1 solution...\n");
+		if (inst->verbose >= 1000) {
+			printf("Solution:\n      ");
+			for (int i = 0; i < inst->nnodes; i++) printf("%5d|", i);
+			printf("\n");
+			for (int i = 0; i < inst->nnodes; i++) {
+				printf("%5d)", i);
+				for (int j = 0; j < inst->nnodes; j++)
+					if (i == j) printf("      ");
+					else printf("%6.1f", round(inst->best_sol[asym_xpos(i,j,inst)]) );
+				printf("\n");
+			}
+			// printf("\n    u)      ");
+			// for (int u = 1; u < inst->nnodes; u++)
+			// 	printf("%6.1f", round(inst->best_sol[asym_upos(u,inst)]) );
+		}
+		int *degree = (int *) calloc(inst->nnodes, sizeof(int));
+		for ( int i = 0; i < inst->nnodes; i++ ) {
+			for ( int j = 0; j < inst->nnodes; j++ ) {
+				if (i == j) continue;
+				int k = asym_xpos(i,j,inst);
+				if ( fabs(inst->best_sol[k]) > EPS && fabs(inst->best_sol[k]-1.0) > EPS ) print_error(" wrong inst->best_sol in build_sol()");
+				if ( inst->best_sol[k] > 0.5 ) {
+					++degree[i];
+					++degree[j];
+				}
+			}
+		}
+		for ( int i = 0; i < inst->nnodes; i++ ) {
+
+			if ( degree[i] != 2 ) {
+				char msg[100];
+				snprintf(msg, sizeof msg, "wrong degree in build_sol_mtz: degree(%d) = %d", i, degree[i]);
+				print_error(msg);
+			}
+		}
+		free(degree);
+		printf("\ndebug completed succesfully.\n");
+	}
+
+	// initialization of succ, comp and ncomp
+	*ncomp = 0;
+	for ( int i = 0; i < inst->nnodes; i++ ) { succ[i] = -1; comp[i] = -1; }
+
+	// tour
+	for ( int start = 0; start < inst->nnodes; start++ ) {
+		if ( comp[start] >= 0 ) continue;  // node has already been setted
+
+		// a new component is found
+		(*ncomp)++;
+		comp[start] = *ncomp;
+
+		int i = start;
+		while ( succ[i] == -1 ) { // go and visit the current component
+			comp[i] = *ncomp;
+			for ( int j = 0; j < inst->nnodes; j++ ) {
+				if (j == i) continue;
+
+				if ( inst->best_sol[asym_xpos(i,j,inst)] > 0.5) { // the edge [i,j] is selected in inst->best_sol and j was not visited before
+					// intern edge of the cycle
+					if (comp[j] == -1) {
+						succ[i] = j;
+						i = j;
+						break;
+					}
+					// last edge of the cycle
+					if (start == j) succ[i] = j;
+				}
+			}
+		}	// while
+	// go to the next component...
+	}
+
+	// print succ, comp and ncomp
+	if (inst->verbose >= 1000) {
+		printf("\ni:   ");
+		for (int i = 0; i < inst->nnodes; i++) printf("%5d", i);
+		printf("\nsucc:");
+		for (int i = 0; i < inst->nnodes; i++) printf("%5d", succ[i]);
+		printf("\ncomp:");
+		for (int i = 0; i < inst->nnodes; i++) printf("%5d", comp[i]);
+		printf("\n");
+	}
+}
 
 // distance functions
 double dist(int i, int j, tspinstance *inst) {
@@ -1215,6 +1297,18 @@ void plot_edges(FILE *gnuplot, char *pngname, tspinstance *inst) {
 				fprintf(gnuplot, "e\n");
 				break;
 
+			case 2:
+				fprintf(gnuplot, "plot '-' using 1:2:3:4 with vectors arrowstyle 2\n");
+				for (int i = 0; i < inst->nnodes; i++)
+					for (int j = 0; j < inst->nnodes; j++)
+						if (i != j)
+							if (0.5 < inst->best_sol[asym_xpos(i,j,inst)] ) // && inst->best_sol[i] < 1.00001)
+								fprintf(gnuplot, "%f %f %f %f\n",
+													inst->xcoord[i], inst->ycoord[i],
+													inst->xcoord[j]-inst->xcoord[i], inst->ycoord[j]-inst->ycoord[i]);
+				fprintf(gnuplot, "e\n");
+				break;
+
 			default:
 				fclose(gnuplot);
 				print_error(" model type unknown!!");
@@ -1241,6 +1335,16 @@ void setup_style(FILE *gnuplot, tspinstance *inst) {
 			break;
 
 		case 1:
+			fprintf(gnuplot,"set style line 2 \
+									    lc rgb '#0060ad' \
+											linetype 1 linewidth 2 \
+											pointtype 7 pointsize 1.0\n\
+											set style arrow 2 \
+											head filled size screen 0.025,30,45 \
+											ls 2\n");
+			break;
+
+		case 2:
 			fprintf(gnuplot,"set style line 2 \
 									    lc rgb '#0060ad' \
 											linetype 1 linewidth 2 \

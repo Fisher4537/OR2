@@ -2,7 +2,7 @@
 #include "chrono.h"
 
 double myWallTime()
-{ 
+{
 #ifdef __APPLE__
 	static double timeConvert = 0.0;
 	if ( timeConvert == 0.0 )
@@ -19,8 +19,8 @@ double myWallTime()
 #elif _WIN32
 	SYSTEMTIME sm;
 	GetSystemTime(&sm);
-	return (double)sm.wSecond + 1.0e-6 * ((double)sm.wMilliseconds);		// accurato ai millisecondi (non perfetto ma abbastanza corretto)
-#endif																		// provare ad usare QueryPerformanceCounter
+	return (double)sm.wSecond + 1.0e-6 * ((double)sm.wMilliseconds);
+#endif
 	return 0.0;
 }
 
