@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "tsp.h"
-#include "chrono.c"
+//#include "chrono.cpp"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,12 +38,12 @@ int TSPopt(tspinstance *inst) {
 	if (inst->verbose >= 100) printf("optimizing model...\n");
 
 	// compute cplex
-	//clock_t init_time = clock();
-	double ini = second();
+	clock_t init_time = clock();
+	//double ini = second();
 	mip_optimization(env, lp, inst, &status);
-	//inst->opt_time = (double)(clock() - init_time)/CLOCKS_PER_SEC;
-	double fin = second();
-	inst->opt_time = (double)(fin - ini);
+	inst->opt_time = (double)(clock() - init_time)/CLOCKS_PER_SEC;
+	//double fin = second();
+	//inst->opt_time = (double)(fin - ini);
 	if (inst->verbose >= 100) printf("optimization complete!\n");
 
 	// get best solution
@@ -68,7 +68,7 @@ int TSPopt(tspinstance *inst) {
 int xpos(int i, int j, tspinstance *inst) {
 	if ( i == j ) print_error(" i == j in xpos" );
 	if ( i > j ) return xpos(j,i,inst);								// simplify returned formula
-	return i*inst->nnodes + j - ((i + 1)*(i + 2))/2; 	// default case
+	return i*inst->nnodes + j - ((i + 1)*(i + 2))/2; 				// default case
 }
 
 int asym_xpos(int i, int j, tspinstance *inst) {
@@ -79,6 +79,11 @@ int asym_xpos(int i, int j, tspinstance *inst) {
 int asym_upos(int i, tspinstance *inst) {
 	if ( i < 1 ) print_error(" i < 1 in asym_upos" );
 	return inst->nnodes*(inst->nnodes - 1) + i - 1;
+}
+
+int asym_ypos(int i, int j, tspinstance* inst) {
+	if (i == j) print_error(" i == j in asym_ypos");
+	return (inst->nnodes * (inst->nnodes - 1)) + i * (inst->nnodes - 1) + (i < j ? j - 1 : j);
 }
 
 
@@ -397,8 +402,8 @@ void build_model_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 	xctype = CPX_INTEGER;						// Integer values
 	obj = 0.0;
 	lb = 0.0;
-	ub = (double)inst->nnodes - 1;
-	ub1 = (double)inst->nnodes - 2;
+	ub = (double)inst->nnodes - 1.0;
+	ub1 = (double)inst->nnodes - 2.0;
 
 	for (int i = 0; i < inst->nnodes; i++) {
 		for (int j = 0; j < inst->nnodes; j++) {
@@ -407,14 +412,14 @@ void build_model_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 				if (j == 0) {														// yi0 = 0
 					if (CPXnewcols(env, lp, 1, &obj, &lb, &lb, &xctype, cname))
 						print_error(" wrong CPXnewcols on y var.s");
-				}else if(i == 0){													// y0j <= n-1			missing * xij
+				}else if(i == 0){													// y0j <= n-1
 					if (CPXnewcols(env, lp, 1, &obj, &lb, &ub, &xctype, cname))
 						print_error(" wrong CPXnewcols on y var.s");
-				}else {																// yij <= n-2			missing * xij
+				}else {																// yij <= n-2
 					if (CPXnewcols(env, lp, 1, &obj, &lb, &ub1, &xctype, cname))
 						print_error(" wrong CPXnewcols on y var.s");
 				}
-				if (CPXgetnumcols(env, lp) - 1 != asym_xpos(i, j, inst))
+				if (CPXgetnumcols(env, lp) - 1 != asym_ypos(i, j, inst))
 					print_error(" wrong position for y var.s");
 
 			}
@@ -459,25 +464,26 @@ void build_model_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 			if (CPXchgcoef(env, lp, lastrow, asym_xpos(h, i, inst), 1.0)) // outcome vertex
 				print_error(" wrong CPXchgcoef [degree]");
 		}
+	}
 
+	for (int h = 0; h < inst->nnodes; h++) {
 		// y constraints: nodes index
 		if (h == 0 ) {
 			rhs = (double)inst->nnodes - 1.0;
 			sense = 'E';
 			lastrow = CPXgetnumrows(env, lp);
 
-			sprintf(cname[0], "flow(%d)", 1);
+			sprintf(cname[0], "flow(%d)", h+1);
 
 			// create a new row
 			if (CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname))	// new row
-				print_error(" wrong CPXnewrows [flow(0)]");
+				print_error(" wrong CPXnewrows [flow(1)]");
 
 			for (int i = 1; i < inst->nnodes; i++) {
 
-				if (CPXchgcoef(env, lp, lastrow, asym_xpos(h, i, inst), 1.0))		// outcome vertex from 0
-					print_error(" wrong CPXchgcoef [degree]");
+				if (CPXchgcoef(env, lp, lastrow, asym_ypos(h, i, inst), 1.0))		// outcome vertex from 0
+					print_error(" wrong CPXchgcoef [flow(1)]");
 			}
-			// check coloumn
 		}else {
 			rhs = 1.0;
 			sense = 'E';
@@ -491,18 +497,58 @@ void build_model_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 
 			for (int i = 0; i < inst->nnodes; i++) {
 				if (i != h) {
-					if (CPXchgcoef(env, lp, lastrow, asym_xpos(h, i, inst), -1.0))
-						print_error(" wrong CPXchgcoef [degree]");
+					if (CPXchgcoef(env, lp, lastrow, asym_ypos(h, i, inst), -1.0))
+						print_error(" wrong CPXchgcoef [flow(1)]");
 				}
 			}
 
 			for (int i = 0; i < inst->nnodes; i++) {
 				if (i != h) {
-					if (CPXchgcoef(env, lp, lastrow, asym_xpos(i, h, inst), 1.0))
-						print_error(" wrong CPXchgcoef [degree]");
+					if (CPXchgcoef(env, lp, lastrow, asym_ypos(i, h, inst), 1.0))
+						print_error(" wrong CPXchgcoef [flow(1)]");
 				}
 			}
-			// check coloumn
+		}
+	}
+
+	rhs = 0.0;
+	sense = 'L';
+	for (int i = 0; i < inst->nnodes; i++) {
+		if (i == 0) {
+			for (int j = 1; j < inst->nnodes; j++) {
+				lastrow = CPXgetnumrows(env, lp);
+
+				sprintf(cname[0], "y_cut(%d,%d)", i + 1, j + 1);
+
+				// create a new row
+				if (CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname))	// new row
+					print_error(" wrong CPXnewrows [y_cut()]");
+
+				if (CPXchgcoef(env, lp, lastrow, asym_ypos(i, j, inst), 1.0))
+					print_error(" wrong CPXchgcoef [y_cut()]");
+
+				if (CPXchgcoef(env, lp, lastrow, asym_xpos(i, j, inst), (double) inst->nnodes - 1.0))
+					print_error(" wrong CPXchgcoef [y_cut()]");
+			}
+		}
+		else {
+			for (int j = 1; j < inst->nnodes; j++) {
+				if (i != j) {
+					lastrow = CPXgetnumrows(env, lp);
+
+					sprintf(cname[0], "y_cut(%d,%d)", i + 1, j + 1);
+
+					// create a new row
+					if (CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname))	// new row
+						print_error(" wrong CPXnewrows [y_cut()]");
+
+					if (CPXchgcoef(env, lp, lastrow, asym_ypos(i, j, inst), 1.0))
+						print_error(" wrong CPXchgcoef [y_cut()]");
+
+					if (CPXchgcoef(env, lp, lastrow, asym_xpos(i, j, inst), (double)inst->nnodes - 2.0))
+						print_error(" wrong CPXchgcoef [y_cut()]");
+				}
+			}
 		}
 	}
 }
