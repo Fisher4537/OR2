@@ -86,9 +86,12 @@ void build_sym_std(tspinstance *inst, CPXENVptr env, CPXLPptr lp); 	// sym, std
 void build_mtz(tspinstance *inst, CPXENVptr env, CPXLPptr lp); 			// asym, MTZ
 void build_flow1(tspinstance *inst, CPXENVptr env, CPXLPptr lp);
 void build_model_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
+void build_model_mtz_lazy(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
+void add_lazy_mtz(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 
 void mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
 int subtour_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
+int subtour_heur_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, int heuristic);
 
 void switch_callback(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 static int CPXPUBLIC lazycallback(CPXCENVptr env, void* cbdata, int wherefrom, void* cbhandle, int* useraction_p);
