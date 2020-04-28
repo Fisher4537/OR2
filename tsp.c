@@ -1,7 +1,6 @@
 #include "pch.h"
 #include "tsp.h"
-#include "chrono.cpp"
-
+#include "chrono.c"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,7 +22,7 @@ int TSPopt(tspinstance *inst) {
 	CPXsetintparam(env,CPXPARAM_Threads, inst->nthread);		// allow executing N parallel threads
 	CPXsetintparam(env,CPX_PARAM_RANDOMSEED, inst->randomseed);		// avoid performace variability
 	CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit);		// set time limit
-	if (inst->verbose >= 1000) CPXsetintparam(env, CPX_PARAM_SCRIND, CPX_ON);	// show CPLEX log
+	if (inst->verbose >= 100) CPXsetintparam(env, CPX_PARAM_SCRIND, CPX_ON);	// show CPLEX log
     // CPXsetintparam(env, CPX_PARAM_MIPDISPLAY, 4);
 
 	// set input data in CPX structure
@@ -39,9 +38,12 @@ int TSPopt(tspinstance *inst) {
 	if (inst->verbose >= 100) printf("optimizing model...\n");
 
 	// compute cplex
-	clock_t init_time = clock();
+	//clock_t init_time = clock();
+	double ini = second();
 	mip_optimization(env, lp, inst, &status);
-	inst->opt_time = (double)(clock() - init_time)/CLOCKS_PER_SEC/(double)inst->nthread; //
+	//inst->opt_time = (double)(clock() - init_time)/CLOCKS_PER_SEC;
+	double fin = second();
+	inst->opt_time = (double)(fin - ini);
 	if (inst->verbose >= 100) printf("optimization complete!\n");
 
 	// get best solution
@@ -1089,7 +1091,7 @@ void plot_instance(tspinstance *inst) {
 	}
 
 	char pngname[sizeof(inst->input_file)+20+sizeof(inst->model_type)];
-	snprintf(pngname, sizeof pngname, "plot/%s_%d.png", get_file_name(inst->input_file), inst->model_type);  // TODO: input_file check
+	snprintf(pngname, sizeof pngname, "plot\\%s_%d.png", get_file_name(inst->input_file), inst->model_type);  // TODO: input_file check
 
 	// set up line and point style
 	setup_style(gnuplot, inst);
@@ -1197,8 +1199,8 @@ char * get_file_name(char *path) {
     int start_name = 0;
 	for (int i = 0; path[i] != '\0'; i++) {
 		#ifdef _WIN32
-				if (path[i] == '\\') start_name = i + 1;			//ERROR HERE
-				printf("PATH: %c", path + start_name);
+			if (path[i] == '\\') start_name = i + 1;
+				printf("PATH: %s\n", path + start_name);
 		#else
 				if (path[i] == '/') start_name = i + 1;
 		#endif
