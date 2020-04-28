@@ -12,9 +12,7 @@
 	TODO: a way to get CPLEX error code: status?
 */
 
-
-int TSPopt(tspinstance *inst)
-{
+int TSPopt(tspinstance *inst) {
 
 	// open cplex model
 	int status;
@@ -43,7 +41,7 @@ int TSPopt(tspinstance *inst)
 	// compute cplex
 	clock_t init_time = clock();
 	mip_optimization(env, lp, inst, &status);
-	inst->opt_time = (double)(clock() - init_time)/CLOCKS_PER_SEC/(double)inst->nthread; // 
+	inst->opt_time = (double)(clock() - init_time)/CLOCKS_PER_SEC/(double)inst->nthread; //
 	if (inst->verbose >= 100) printf("optimization complete!\n");
 
 	// get best solution
@@ -65,29 +63,25 @@ int TSPopt(tspinstance *inst)
 	return !status; // status 0 is ok
 }
 
-int xpos(int i, int j, tspinstance *inst)
-{
+int xpos(int i, int j, tspinstance *inst) {
 	if ( i == j ) print_error(" i == j in xpos" );
 	if ( i > j ) return xpos(j,i,inst);								// simplify returned formula
 	return i*inst->nnodes + j - ((i + 1)*(i + 2))/2; 	// default case
 }
 
-int asym_xpos(int i, int j, tspinstance *inst)
-{
+int asym_xpos(int i, int j, tspinstance *inst) {
 	if ( i == j ) print_error(" i == j in asym_upos" );
 	return i*(inst->nnodes - 1) + ( i < j ? j-1 : j );
 }
 
-int asym_upos(int i, tspinstance *inst)
-{
+int asym_upos(int i, tspinstance *inst) {
 	if ( i < 1 ) print_error(" i < 1 in asym_upos" );
 	return inst->nnodes*(inst->nnodes - 1) + i - 1;
 }
 
 
 // build_model methods add the constraints to OPTIMIZER structures
-void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp)
-{
+void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 
 	switch (inst->model_type)
 	{
@@ -109,8 +103,7 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp)
 	}
 }
 
-void build_sym_std(tspinstance *inst, CPXENVptr env, CPXLPptr lp)
-{
+void build_sym_std(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 
 	// double zero = 0.0;
 	char xctype = CPX_BINARY;
@@ -157,8 +150,7 @@ void build_sym_std(tspinstance *inst, CPXENVptr env, CPXLPptr lp)
 	free(cname);
 }
 
-void build_mtz(tspinstance *inst, CPXENVptr env, CPXLPptr lp)
-{
+void build_mtz(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 
 	char xctype = 'B';	// type of variable
 	double obj; // objective function constant
@@ -276,8 +268,7 @@ void build_mtz(tspinstance *inst, CPXENVptr env, CPXLPptr lp)
 	free(cname);
 }
 
-void build_flow1(tspinstance *inst, CPXENVptr env, CPXLPptr lp)
-{
+void build_flow1(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 	char xctype = 'B';	// type of variable
 	double obj; // objective function constant
 	double lb;	// lower bound
@@ -516,8 +507,7 @@ void build_model_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 
 
 // optimization methods run the problem optimization
-void mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status)
-{
+void mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status) {
 
 	switch (inst->model_type)
 	{
@@ -536,8 +526,7 @@ void mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status
 	} // switch
 }
 
-int subtour_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status)
-{
+int subtour_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status) {
 
 	// structure init
 	int *succ = (int*) calloc(inst->nnodes, sizeof(int));
@@ -677,8 +666,7 @@ int mylazy_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONTEXT
 
 
 // build_sol methods use the optimized solution to plot
-void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp)
-{
+void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp) {
 
 	switch (inst->model_type)
 	{
@@ -696,8 +684,7 @@ void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp)
 	}
 }
 
-void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) // build succ() and comp() wrt xstar()...
-{
+void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// build succ() and comp() wrt xstar()...
 
 	// check if nodes degree is 2 for each node
 	if (inst->verbose >= 1000)
@@ -793,8 +780,7 @@ void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) // build
 	}
 }
 
-void build_sol_mtz(tspinstance *inst, int *succ, int *comp, int *ncomp) // build succ() and comp() wrt xstar()...
-{
+void build_sol_mtz(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// build succ() and comp() wrt xstar()...
 
 	// check if nodes degree is 2 for each node
 	if (inst->verbose >= 1000)
@@ -899,8 +885,7 @@ void build_sol_mtz(tspinstance *inst, int *succ, int *comp, int *ncomp) // build
 
 
 // distance functions
-double dist(int i, int j, tspinstance *inst)
-{
+double dist(int i, int j, tspinstance *inst) {
 	double dx = inst->xcoord[i] - inst->xcoord[j];
 	double dy = inst->ycoord[i] - inst->ycoord[j];
 	if ( !inst->integer_costs ) return sqrt(dx*dx+dy*dy);
@@ -910,8 +895,7 @@ double dist(int i, int j, tspinstance *inst)
 
 
 // User input
-void read_input(tspinstance *inst) // simplified CVRP parser, not all SECTIONs detected
-{
+void read_input(tspinstance *inst) { // simplified CVRP parser, not all SECTIONs detected
 
 	FILE *fin = fopen(inst->input_file, "r");
 	if ( fin == NULL ) print_error(" input file not found!");
@@ -1011,8 +995,7 @@ void read_input(tspinstance *inst) // simplified CVRP parser, not all SECTIONs d
 	fclose(fin);
 }
 
-void parse_command_line(int argc, char** argv, tspinstance *inst)
-{
+void parse_command_line(int argc, char** argv, tspinstance *inst) {
 
 	// default
 	inst->model_type = 0;
@@ -1067,8 +1050,7 @@ void parse_command_line(int argc, char** argv, tspinstance *inst)
 
 }
 
-void free_instance(tspinstance *inst)
-{
+void free_instance(tspinstance *inst) {
 
 	free(inst->xcoord);
 	free(inst->ycoord);
@@ -1078,8 +1060,7 @@ void free_instance(tspinstance *inst)
 
 
 // Plot functions
-void plot_instance(tspinstance *inst)
-{
+void plot_instance(tspinstance *inst) {
 
 	// open gnuplot process
 	FILE *gnuplot;
@@ -1133,16 +1114,14 @@ void plot_instance(tspinstance *inst)
 	fclose(gnuplot);
 }
 
-void plot_points(FILE *gnuplot, char *pngname, tspinstance *inst)
-{
+void plot_points(FILE *gnuplot, char *pngname, tspinstance *inst) {
 	fprintf(gnuplot, "plot '-' w p ls 1\n");
 	for (size_t i = 0; i < inst->nnodes; i++)
 		fprintf(gnuplot, "%f %f\n", inst->xcoord[i], inst->ycoord[i]);
 	fprintf(gnuplot, "e\n");
 }
 
-void plot_edges(FILE *gnuplot, char *pngname, tspinstance *inst)
-{
+void plot_edges(FILE *gnuplot, char *pngname, tspinstance *inst) {
 	if (inst->nedges > 0) // check if solution is available
 	{
 
@@ -1180,8 +1159,7 @@ void plot_edges(FILE *gnuplot, char *pngname, tspinstance *inst)
 	}
 }
 
-void setup_style(FILE *gnuplot, tspinstance *inst)
-{
+void setup_style(FILE *gnuplot, tspinstance *inst) {
 
 	fprintf(gnuplot,"set style line 1 \
 									lc rgb '#0060ad' \
@@ -1215,8 +1193,7 @@ void setup_style(FILE *gnuplot, tspinstance *inst)
 
 }
 
-char * get_file_name(char *path)
-{
+char * get_file_name(char *path) {
     int start_name = 0;
 	for (int i = 0; path[i] != '\0'; i++) {
 		#ifdef _WIN32
@@ -1231,8 +1208,7 @@ char * get_file_name(char *path)
 
 
 // Saving data
-int save_results(tspinstance *inst, char *f_name)
-{
+int save_results(tspinstance *inst, char *f_name) {
 	FILE *outfile;
 	outfile = fopen(f_name, "a");
 	char dataToAppend[sizeof(inst->input_file)+sizeof(inst->nnodes)*4+ sizeof(inst->opt_time) + 20];
@@ -1257,8 +1233,12 @@ int save_results(tspinstance *inst, char *f_name)
 
 
 // DEBUG only
-void pause_execution()
-{ printf("Paused execution. Return to restart: "); getchar(); printf("\n"); }
+void pause_execution() {
+	printf("Paused execution. Return to restart: ");
+	getchar();
+	printf("\n");
+}
 
-void print_error(const char *err)
-{ printf("\n\n ERROR: %s \n\n", err); fflush(NULL); exit(1); }
+void print_error(const char *err) {
+	printf("\n\n ERROR: %s \n\n", err); fflush(NULL); exit(1);
+}
