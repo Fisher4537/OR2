@@ -51,7 +51,6 @@ int TSPopt(tspinstance *inst) {
 		double fin = second();
 		inst->opt_time = (double)(fin - ini);
 	#elif _WIN32
-	printf("Windows time!\n");
 		double ini = second(); 
 		mip_optimization(env, lp, inst, &status);
 		double fin = second();

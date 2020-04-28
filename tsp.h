@@ -10,6 +10,7 @@
 #include <cplex.h>
 
 #ifdef _WIN32
+	//TODO : use pthread on Win?
 #else
 	#include <pthread.h>
 #endif
