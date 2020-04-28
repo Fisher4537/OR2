@@ -563,7 +563,7 @@ void build_model_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 					if (CPXchgcoef(env, lp, lastrow, asym_ypos(i, j, inst), 1.0))
 						print_error(" wrong CPXchgcoef [y_cut()]");
 
-					if (CPXchgcoef(env, lp, lastrow, asym_xpos(i, j, inst), -(double)inst->nnodes + 1.0))
+					if (CPXchgcoef(env, lp, lastrow, asym_xpos(i, j, inst), -(double)inst->nnodes + 2.0))
 						print_error(" wrong CPXchgcoef [y_cut()]");
 				}
 			}
