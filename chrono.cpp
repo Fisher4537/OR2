@@ -2,8 +2,11 @@
 #include <time.h>
 #include <stdlib.h>
 //#include <sys/resource.h>
-#include <windows.h>
-#include <sysinfoapi.h>
+
+#ifdef _WIN32
+	#include <windows.h>
+	#include <sysinfoapi.h>
+#endif
 
 #if defined(__MACH__) && defined(__APPLE__)
 #include <mach/mach.h>
@@ -21,14 +24,15 @@ double myWallTime()
 		timeConvert = (double)timeBase.numer / (double)timeBase.denom / 1000000000.0;
 	}
 	return mach_absolute_time() * timeConvert;
-#else
-	//struct timespec ts;
-	//clock_gettime(CLOCK_MONOTONIC, &ts);
+#elif __linux__
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (double)ts.tv_sec + 1.0e-9*((double)ts.tv_nsec);
+#elif _WIN32
 	SYSTEMTIME sm;
 	GetSystemTime(&sm);
-	//return (double)ts.tv_sec + 1.0e-9*((double)ts.tv_nsec);
-	return (double)sm.wSecond + 1.0e-6* ((double)sm.wMilliseconds);
-#endif // __APPLE__
+	return (double)sm.wSecond + 1.0e-6 * ((double)sm.wMilliseconds);
+#endif 
 	return 0.0;
 }
 

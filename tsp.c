@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "tsp.h"
-//#include "chrono.cpp"
+#include "chrono.cpp"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,13 +37,23 @@ int TSPopt(tspinstance *inst) {
 	if (inst->verbose >= 1000) pause_execution();
 	if (inst->verbose >= 100) printf("optimizing model...\n");
 
-	// compute cplex
-	clock_t init_time = clock();
-	//double ini = second();
-	mip_optimization(env, lp, inst, &status);
-	inst->opt_time = (double)(clock() - init_time)/CLOCKS_PER_SEC;
-	//double fin = second();
-	//inst->opt_time = (double)(fin - ini);
+	// compute cplex and calculate opt_time w.r.t. OS used
+	#ifdef __linux__
+		double ini = second();
+		mip_optimization(env, lp, inst, &status);
+		double fin = second();
+		inst->opt_time = (double)(fin - ini);
+	#elif _WIN32
+		double ini = second(); 
+		mip_optimization(env, lp, inst, &status);
+		double fin = second();
+		inst->opt_time = (double)(fin - ini);
+	#else
+		clock_t init_time = clock();
+		mip_optimization(env, lp, inst, &status);
+		inst->opt_time = (double)(clock() - init_time) / CLOCKS_PER_SEC;
+	#endif
+	
 	if (inst->verbose >= 100) printf("optimization complete!\n");
 
 	// get best solution
