@@ -52,10 +52,20 @@ int TSPopt(tspinstance *inst) {
 		double fin = second();
 		inst->opt_time = (double)(fin - ini);
 	#elif _WIN32
-		double ini = second(); 
+
+		/* Metodo 1 -> QueryPerformanceCounter*/
+		double ini = second();
 		mip_optimization(env, lp, inst, &status);
 		double fin = second();
 		inst->opt_time = (double)(fin - ini);
+		
+		/* Metodo 2	-> CPXgettime
+		struct timespec ts, ts2;
+		CPXgettime(env, &ts);
+		mip_optimization(env, lp, inst, &status);
+		CPXgettime(env, &ts2);
+		inst->opt_time = (double)ts2.tv_nsec + 1.0e-9 * ((double)ts2.tv_nsec) - (double)ts.tv_nsec + 1.0e-9 * ((double)ts.tv_nsec);
+		*/
 	#else
 		clock_t init_time = clock();
 		mip_optimization(env, lp, inst, &status);
@@ -122,8 +132,16 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 			build_model_flow1(inst, env, lp);
 			break;
 
+		case 3: 		// FLOW 1
+			build_model_flow1(inst, env, lp);
+			break;
+
 		case 4: 		// MTZ with LAZY
 			build_model_mtz_lazy(inst, env, lp);
+			break;
+
+		case 5:			// STD with HEUR subtour
+			build_sym_std(inst, env, lp);
 			break;
 
 		default:
@@ -725,8 +743,7 @@ void mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status
 	{
 
 		case 0:
-			//subtour_iter_opt(env, lp, inst, status);
-			subtour_heur_iter_opt(env, lp, inst, status, 0);
+			*status = subtour_iter_opt(env, lp, inst, status);
 			break;
 
 		case 1:
@@ -743,6 +760,10 @@ void mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status
 		
 		case 4:
 			*status = CPXmipopt(env, lp);
+			break;
+
+		case 5:
+			*status = subtour_heur_iter_opt(env, lp, inst, status, 0);
 			break;
 
 		default:
@@ -1037,6 +1058,18 @@ void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp) {
 
 		case 2:
 			build_sol_flow1(inst, succ, comp, ncomp);
+			break;
+		
+		case 3:
+			build_sol_flow1(inst, succ, comp, ncomp);
+			break;
+
+		case 4:
+			build_sol_mtz(inst, succ, comp, ncomp);
+			break;
+
+		case 5:		
+			build_sol_sym(inst, succ, comp, ncomp);
 			break;
 
 		default:
@@ -1634,7 +1667,7 @@ void setup_style(FILE *gnuplot, tspinstance *inst) {
 			break;
 
 		case 2:
-			fprintf(gnuplot,"set style line 2 \
+			fprintf(gnuplot, "set style line 2 \
 									    lc rgb '#0060ad' \
 											linetype 1 linewidth 2 \
 											pointtype 7 pointsize 1.0\n\
@@ -1642,7 +1675,7 @@ void setup_style(FILE *gnuplot, tspinstance *inst) {
 											head filled size screen 0.025,30,45 \
 											ls 2\n");
 			break;
-
+		
 		default:
 			fclose(gnuplot);
 			print_error(" Model type unknown!!\n");
@@ -1700,3 +1733,5 @@ void pause_execution() {
 void print_error(const char *err) {
 	printf("\n\n ERROR: %s \n\n", err); fflush(NULL); exit(1);
 }
+
+
