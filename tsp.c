@@ -1299,15 +1299,17 @@ void plot_arrow_asym(FILE *gnuplot, char *pngname, tspinstance *inst) {
 
 
 char * get_file_name(char *path) {	// data/att48.tsp -> att48
-    int start_name = 0;
-	for (int i = 0; path[i] != '\0'; i++) {
-		if (path[i] == DIR_DELIM) start_name = i + 1;
-		if (path[i] == '.') {
-			path[i] = '\0';
+	char *copy_path = (char *) malloc(strlen(path)); // TODO: memory problem if doesn't free copy_path
+	strcpy(copy_path, path);
+  int start_name = 0;
+	for (int i = 0; copy_path[i] != '\0'; i++) {
+		if (copy_path[i] == DIR_DELIM) start_name = i + 1;
+		if (copy_path[i] == '.') {
+			copy_path[i] = '\0';
 			break;
 		}
 	}
-	return path+start_name;
+	return copy_path+start_name;
 }
 
 

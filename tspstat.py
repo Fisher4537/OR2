@@ -4,34 +4,7 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 
-
-def performance_profile(file_path, v_shift=20., time_limit=300.):
-    """
-        test_set = {
-            'att48.tsp': {
-                'models': {
-                    '0': {
-                        'exec_time': [
-                            {'opt_time': float(opt_time),
-                             'randomseed': int(randomseed),
-                             'nthreads': int(nthreads)}
-                        ],
-                        'model_mean': model_mean
-                    },
-                    '1': { ... }
-                },
-                'input_size': in_size,
-                'min_opt_time': min_opt_time
-            },
-            'att24.tsp': { ... },
-        }
-
-        models_ratio = {
-            '0': [t1/t1_min, t2/t2_min, ...],
-            '1': [t1/t1_min, t2/t2_min, ...]
-        }
-    """
-    # read input
+def get_testset(file_path, v_shift=20., time_limit=300.):
     test_set = {}
     with open(file_path, mode='r') as in_csv:
         for line in in_csv:  # skip first line
@@ -63,6 +36,38 @@ def performance_profile(file_path, v_shift=20., time_limit=300.):
                 {'opt_time': opt_time,
                  'randomseed': int(randomseed),
                  'nthreads': int(nthreads)})
+    return test_set
+
+
+def performance_profile(file_path, v_shift=20., time_limit=300.):
+    """
+        test_set = {
+            'att48.tsp': {
+                'models': {
+                    '0': {
+                        'exec_time': [
+                            {'opt_time': float(opt_time),
+                             'randomseed': int(randomseed),
+                             'nthreads': int(nthreads)}
+                        ],
+                        'model_mean': model_mean
+                    },
+                    '1': { ... }
+                },
+                'input_size': in_size,
+                'min_opt_time': min_opt_time
+            },
+            'att24.tsp': { ... },
+        }
+
+        models_ratio = {
+            '0': [t1/t1_min, t2/t2_min, ...],
+            '1': [t1/t1_min, t2/t2_min, ...]
+        }
+    """
+    # read input
+    test_set = get_testset(file_path, v_shift=v_shift, time_limit=time_limit)
+
 
     # compute statistics
     for input_file in test_set:
@@ -90,7 +95,7 @@ def performance_profile(file_path, v_shift=20., time_limit=300.):
 
     # show performance profile
     colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k']
-    style = ['-', '--', '-.', 'o']
+    style = ['-', '--', '-.', 'o', '*', '+', 'x']
 
     fig, ax = plt.subplots()
     x_ax = np.arange(0, 4, 0.2)**2 + 0.96
@@ -98,7 +103,7 @@ def performance_profile(file_path, v_shift=20., time_limit=300.):
     for i, model in enumerate(models_ratio):
         y_model = [sum(map(lambda ratio: ratio <= x, models_ratio[model]))/len(models_ratio[model]) for x in x_ax]
         y_ax = np.array(y_model)
-        ax.plot(x_ax, y_ax, colors[i % len(colors)]+style[1], label=model)
+        ax.plot(x_ax, y_ax, colors[i % len(colors)]+style[i % len(style)], label=model)
 
     ax.legend(loc='upper center', shadow=True, fontsize='x-large')
     plt.show()
