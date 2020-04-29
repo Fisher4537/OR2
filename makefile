@@ -4,7 +4,7 @@ INC = -I. -I${CPLEX_HOME}/include/ilcplex
 ARGS = -input data/att12.tsp -model_type 0 -max_nodes 10000
 EXE = mainTSP
 OBJ = tsp.o chrono.o mainTSP.o
-MODELS = 0 1
+MODELS = 2
 TEST_FILES = `ls data/*.tsp`
 TRAINSET_FILES = data/att12.tsp data/att48.tsp data/pr76.tsp data/rat99.tsp data/kroB100.tsp data/a280.tsp
 SEED = 0 123456 666 777 1995
@@ -50,9 +50,9 @@ cleanlog:
 	rm log/*
 
 cleanmodel:
-	rm *.lp
+	rm model/*.lp
 
 cleanplot:
-	rm *.png
+	rm plot/*.png
 
 cleanall: clean cleanlog cleanmodel cleanplot
