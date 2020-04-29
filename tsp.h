@@ -84,7 +84,7 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp); 		// interface
 void build_sym_std(tspinstance *inst, CPXENVptr env, CPXLPptr lp); 	// sym, std
 void build_mtz(tspinstance *inst, CPXENVptr env, CPXLPptr lp); 			// asym, MTZ
 void build_flow1(tspinstance *inst, CPXENVptr env, CPXLPptr lp);
-void build_model_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
+void build_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 
 void mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
 int subtour_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
@@ -111,8 +111,13 @@ int save_results(tspinstance *inst, char *f_name);	// Save model performance
 void plot_instance(tspinstance *inst);
 char * get_file_name(char *path);
 void setup_style(FILE *gnuplot, tspinstance *inst);
+void setup_linestyle1(FILE *gnuplot);
+void setup_linestyle2(FILE *gnuplot);
+void setup_arrowstyle2(FILE *gnuplot);
 void plot_points(FILE *gnuplot, char *pngname, tspinstance *inst);
 void plot_edges(FILE *gnuplot, char *pngname, tspinstance *inst);
+void plot_lines_sym(FILE *gnuplot, char *pngname, tspinstance *inst);
+void plot_arrow_asym(FILE *gnuplot, char *pngname, tspinstance *inst);
 
 // Debug functions
 void pause_execution();
