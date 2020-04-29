@@ -1,0 +1,13 @@
+\section{Problem description}
+
+\subsection{Travelling Salesman Problem (simmetric version)}
+During the course the well-known Traveling Salesman Problem (TSP) was analyzed in its symmetrical version.
+This is a proposed linear programming model which resolve the problem:
+\[
+\begin{cases}
+min \sum_{ e\in E } c_ex_e \\
+\sum_{e\in \delta (v) } x_e = 2, \forall v \in V \\
+\sum_{e\in E(S) } x_e \le |S|-1, \forall S \subset V, |S| \ge 3 \\
+x_e \in \{0,1\}, \forall v \in V
+\end{cases}
+\]
