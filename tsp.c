@@ -19,6 +19,15 @@
 	TODO: a way to get CPLEX error code: status?
 */
 
+char * model_name(int i) {
+	switch (i) {
+		case 0: return "subtour";
+		case 1: return "mtz";
+		case 2: return "flow1_n-2";
+		case 3: return "flow1_n-1";
+	}
+}
+
 int TSPopt(tspinstance *inst) {
 
 	// open cplex model
@@ -141,10 +150,11 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 	// save model in .lp file
 	if ( inst->verbose >= 1 ){
 		char lpname[sizeof(inst->input_file)+20+sizeof(inst->model_type)];
+		char name[strlen(inst->input_file)];
 		snprintf(lpname, sizeof lpname,
 								"%s%c%s_%d.lp",
 								"model", DIR_DELIM,
-								get_file_name(inst->input_file),
+								get_file_name(inst->input_file, name),
 								inst->model_type);  // TODO: input_file check
 		// printf("saving %s\n", lpname);
 		CPXwriteprob(env, lp, lpname, NULL);
@@ -1155,10 +1165,11 @@ void plot_instance(tspinstance *inst) {
 	}
 
 	char pngname[sizeof(inst->input_file)+20+sizeof(inst->model_type)];
+	char name[strlen(inst->input_file)];
 	snprintf(pngname, sizeof pngname,
 		"plot%c%s_%d.png",
 		DIR_DELIM,
-		get_file_name(inst->input_file),
+		get_file_name(inst->input_file, name),
 		inst->model_type);  // TODO: input_file check
 
 	// set up line and point style depending on the model
@@ -1298,18 +1309,19 @@ void plot_arrow_asym(FILE *gnuplot, char *pngname, tspinstance *inst) {
 }
 
 
-char * get_file_name(char *path) {	// data/att48.tsp -> att48
+char * get_file_name(char *path, char *name) {	// data/att48.tsp -> att48
 	char *copy_path = (char *) malloc(strlen(path)); // TODO: memory problem if doesn't free copy_path
-	strcpy(copy_path, path);
+	strcpy(name, path);
   int start_name = 0;
-	for (int i = 0; copy_path[i] != '\0'; i++) {
-		if (copy_path[i] == DIR_DELIM) start_name = i + 1;
-		if (copy_path[i] == '.') {
-			copy_path[i] = '\0';
+	for (int i = 0; name[i] != '\0'; i++) {
+		if (name[i] == DIR_DELIM) start_name = i + 1;
+		if (name[i] == '.') {
+			name[i] = '\0';
 			break;
 		}
 	}
-	return copy_path+start_name;
+	name += start_name;
+	return name;
 }
 
 
@@ -1318,9 +1330,10 @@ int save_results(tspinstance *inst, char *f_name) {
 	FILE *outfile;
 	outfile = fopen(f_name, "a");
 	char dataToAppend[sizeof(inst->input_file)+sizeof(inst->nnodes)*4+ sizeof(inst->opt_time) + 20];
-	snprintf(dataToAppend, sizeof dataToAppend, "%s; %d; %d; %d; %d; %lf;\n",
-	 												inst->input_file, inst->nnodes,
-													inst->model_type, inst->randomseed,
+	char name[strlen(inst->input_file)];
+	snprintf(dataToAppend, sizeof dataToAppend, "%s; %d; %s; %d; %d; %lf;\n",
+	 												get_file_name(inst->input_file, name), inst->nnodes,
+													model_name(inst->model_type), inst->randomseed,
 													inst->nthread, inst->opt_time );
 	/* fopen() return NULL if unable to open file in given mode. */
 	if (outfile == NULL)

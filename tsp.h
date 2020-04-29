@@ -109,7 +109,7 @@ double dist(int i, int j, tspinstance *inst);		// get distance between two nodes
 int save_results(tspinstance *inst, char *f_name);	// Save model performance
 
 void plot_instance(tspinstance *inst);
-char * get_file_name(char *path);
+char * get_file_name(char *path, char *name);
 void setup_style(FILE *gnuplot, tspinstance *inst);
 void setup_linestyle1(FILE *gnuplot);
 void setup_linestyle2(FILE *gnuplot);
