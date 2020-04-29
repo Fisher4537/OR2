@@ -122,6 +122,10 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 			build_model_flow1(inst, env, lp);
 			break;
 
+		case 4: 		// MTZ with LAZY
+			build_model_mtz_lazy(inst, env, lp);
+			break;
+
 		default:
 			print_error(" model type unknown!!");
 			break;
@@ -722,7 +726,7 @@ void mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status
 
 		case 0:
 			//subtour_iter_opt(env, lp, inst, status);
-			subtour_iter_opt(env, lp, inst, status, TRUE);
+			subtour_heur_iter_opt(env, lp, inst, status, 0);
 			break;
 
 		case 1:
@@ -731,6 +735,14 @@ void mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status
 
 		case 2:
 			*status = CPXmipopt(env,lp);
+			break;
+
+		case 3:
+			*status = CPXmipopt(env, lp);
+			break;
+		
+		case 4:
+			*status = CPXmipopt(env, lp);
 			break;
 
 		default:
@@ -805,6 +817,7 @@ int subtour_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status)
 		if (inst->verbose >= 1000) plot_instance(inst);
 	}
 	if (inst->verbose >= 100) printf("best solution found. ncomp = %d\n", *ncomp);
+	return 0;
 }
 
 int subtour_heur_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, int heuristic) {
@@ -826,7 +839,7 @@ int subtour_heur_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* st
 	int subtour_counter = 0;
 
 
-	if (heuristic) {
+	if (heuristic == 0) {
 		CPXsetintparam(env, CPX_PARAM_NODELIM, 0);
 		
 		CPXmipopt(env, lp);
@@ -879,10 +892,10 @@ int subtour_heur_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* st
 			if (inst->verbose >= 1000) plot_instance(inst);
 		}
 		if (inst->verbose >= 100) printf("best solution found in Root node. ncomp = %d\n", *ncomp);
-		subtour_iter_opt(env, lp, inst, status, FALSE);
+		subtour_heur_iter_opt(env, lp, inst, status, 1);
 	}
 	else {
-		CPXsetintparam(env, CPX_PARAM_NODELIM, CPX_INFBOUND);
+		CPXsetintparam(env, CPX_PARAM_NODELIM, 9999999);	//CPX_INFBOUND
 
 		CPXmipopt(env, lp);
 		CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
@@ -935,6 +948,7 @@ int subtour_heur_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* st
 		}
 		if (inst->verbose >= 100) printf("best solution found. ncomp = %d\n", *ncomp);
 	}
+	return 0;
 }
 
 
@@ -968,10 +982,10 @@ static int CPXPUBLIC lazycallback(CPXCENVptr env, void* cbdata, int wherefrom, v
 	double zbest; CPXgetcallbackinfo(env, cbdata, wherefrom, CPX_CALLBACK_INFO_BEST_INTEGER, &zbest);			//valore incumbent al nodo corrente
 
 	//apply cut separator and possibly add violated cuts
-	int ncuts = mylazy_separation(inst, xstar, env, cbdata, wherefrom);
+	//int ncuts = mylazy_separation(inst, xstar, env, cbdata, wherefrom);
 	free(xstar);													//avoid memory leak
 
-	if (ncuts >= 1)
+	//if (ncuts >= 1)
 		*useraction_p = CPX_CALLBACK_SET; 		// tell CPLEX that cuts have been created
 	return 0; 												// return 1 would mean error --> abort Cplex's execution
 }
@@ -1463,6 +1477,7 @@ void parse_command_line(int argc, char** argv, tspinstance *inst) {
 		printf("-max_nodes %d\n", inst->max_nodes);
 		printf("-memory %d\n", inst->available_memory);
 		printf("-int %d\n", inst->integer_costs);
+		printf("-verbose %d\n", inst->verbose);
 		printf("-node_file %s\n", inst->node_file);
 		printf("---------------------------------\n\n");
 	}
@@ -1671,6 +1686,7 @@ int save_results(tspinstance *inst, char *f_name) {
 	fputs(dataToAppend, outfile);
 
 	fclose(outfile);
+	return 0;
 }
 
 

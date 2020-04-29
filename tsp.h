@@ -80,6 +80,7 @@ int TSPopt(tspinstance *inst);
 int xpos(int i, int j, tspinstance *inst);
 int asym_xpos(int i, int j, tspinstance *inst);
 int asym_upos(int i, tspinstance *inst);
+int asym_ypos(int i, int j, tspinstance* inst);
 
 void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp); 		// interface
 void build_sym_std(tspinstance *inst, CPXENVptr env, CPXLPptr lp); 	// sym, std
