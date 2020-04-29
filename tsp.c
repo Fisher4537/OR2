@@ -458,6 +458,7 @@ void build_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {  // auto adapt
 	sense = 'L';
 	for (int i = 0; i < inst->nnodes; i++) {
 		for (int j = 1; j < inst->nnodes; j++) {
+			if (i == j) continue;
 			lastrow = CPXgetnumrows(env, lp);
 
 			sprintf(cname[0], "y_cut(%d,%d)", i + 1, j + 1);
