@@ -8,9 +8,25 @@
 #include <time.h>
 #include <math.h>
 
+
+#ifdef _WIN32
+	#define DIR_DELIM '\\'
+#else
+	#define DIR_DELIM '/'
+#endif
+
 /**
 	TODO: a way to get CPLEX error code: status?
 */
+
+char * model_name(int i) {
+	switch (i) {
+		case 0: return "subtour";
+		case 1: return "mtz";
+		case 2: return "flow1_n-2";
+		case 3: return "flow1_n-1";
+	}
+}
 
 int TSPopt(tspinstance *inst) {
 
@@ -117,14 +133,32 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 		 	build_mtz(inst, env,lp);
 			break;
 
-		case 2 : 		// FLOW 1
-			build_model_flow1(inst, env, lp);
+		case 2 : 		// FLOW 1 with y_0j <= x_0j*(n-2) if i != 0
+			build_flow1(inst, env, lp);
+			break;
+
+		case 3 : 		// FLOW 1 with y_0j <= x_0j*(n-1)
+			build_flow1(inst, env, lp);
 			break;
 
 		default:
 			print_error(" model type unknown!!");
 			break;
 	}
+
+	// save model in .lp file
+	if ( inst->verbose >= 1 ){
+		char lpname[sizeof(inst->input_file)+20+sizeof(inst->model_type)];
+		char name[strlen(inst->input_file)];
+		snprintf(lpname, sizeof lpname,
+								"%s%c%s_%d.lp",
+								"model", DIR_DELIM,
+								get_file_name(inst->input_file, name),
+								inst->model_type);  // TODO: input_file check
+		// printf("saving %s\n", lpname);
+		CPXwriteprob(env, lp, lpname, NULL);
+	}
+
 }
 
 void build_sym_std(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
@@ -167,8 +201,6 @@ void build_sym_std(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 				print_error(" wrong CPXchgcoef [degree]");
 		}
 	}
-
-	if ( inst->verbose >= -100 ) CPXwriteprob(env, lp, "model/model.lp", NULL);
 
 	free(cname[0]);
 	free(cname);
@@ -286,111 +318,11 @@ void build_mtz(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 		}
 	}
 
-	if ( inst->verbose >= -100 ) CPXwriteprob(env, lp, "model/asym_model.lp", NULL);
-
 	free(cname[0]);
 	free(cname);
 }
 
-void build_flow1(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
-	char xctype = 'B';	// type of variable
-	double obj; // objective function constant
-	double lb;	// lower bound
-	double ub;	// upper bound
-
-	char **cname = (char **) calloc(1, sizeof(char *));	// (char **) required by cplex...
-	cname[0] = (char *) calloc(100, sizeof(char));			// name of the variable
-
-	// add binary constraints and objective
-	for ( int i = 0; i < inst->nnodes; i++ )
-	{
-		for ( int j = 0; j < inst->nnodes; j++ )
-		{
-			if (i != j)
-			{
-				sprintf(cname[0], "x(%d,%d)", i+1,j+1);
-				obj = dist(i,j,inst); // cost == distance
-				lb = 0.0;
-				ub = i == j ? 0.0 : 1.0;
-				if ( CPXnewcols(env, lp, 1, &obj, &lb, &ub, &xctype, cname) )
-					print_error(" wrong CPXnewcols on x var.s");
-				if ( CPXgetnumcols(env,lp)-1 != asym_xpos(i,j, inst) )
-					print_error(" wrong position for x var.s");
-			}
-		}
-	}
-
-	// add nodes index in the circuits
-	xctype = 'I';		// maybe not necessary
-	obj = 0.0;
-	lb = 0.0;
-	ub = inst->nnodes-1;
-
-	for ( int i = 0; i < inst->nnodes; i++)
-	{
-		for (int j = 0; j < inst->nnodes; j++)
-		{
-			if ( i != j )
-			{
-				sprintf(cname[0], "y(%d,%d)", i+1, j+1);
-				if (j == 0)	// y_i1
-				{
-					if ( CPXnewcols(env, lp, 1, &obj, &lb, &lb, &xctype, cname) )
-						print_error(" wrong CPXnewcols on u var.s");
-				}
-				else				// y_ij
-				{
-					if ( CPXnewcols(env, lp, 1, &obj, &lb, &ub, &xctype, cname) )
-						print_error(" wrong CPXnewcols on u var.s");
-				}
-
-				if ( CPXgetnumcols(env,lp)-1 != asym_ypos(i, j, inst) )
-						print_error(" wrong position for u var.s");
-			}
-		}
-	}
-
-
-	// add the degree constraints
-	int lastrow;	// the number of rows
-	double rhs;		// right head size
-	char sense;		// 'L', 'E' or 'G'
-	int big_M = inst->nnodes;
-	for ( int h = 0; h < inst->nnodes; h++ )  // degree constraints
-	{
-		lastrow = CPXgetnumrows(env,lp);
-		rhs = 1.0;
-		sense = 'E';	// 'E' for equality constraint
-		sprintf(cname[0], "income_d(%d)", h+1);
-
-		// income vertex
-		if ( CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname) ) // create a new row
-			print_error(" wrong CPXnewrows [degree]");
-		for ( int i = 0; i < inst->nnodes; i++ )
-		{
-			if ( i == h ) continue;
-			if ( CPXchgcoef(env, lp, lastrow, asym_xpos(i,h, inst), 1.0) ) // income vertex
-				print_error(" wrong CPXchgcoef [degree]");
-		}
-
-		// outcome vertex
-		lastrow = CPXgetnumrows(env,lp);
-		rhs = 1.0;
-		sense = 'E';	// 'E' for equality constraint
-		sprintf(cname[0], "outcome_d(%d)", h+1);
-
-		if ( CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname) ) // create a new row
-			print_error(" wrong CPXnewrows [degree]");
-		for ( int i = 0; i < inst->nnodes; i++ )
-		{
-			if ( i == h ) continue;
-			if ( CPXchgcoef(env, lp, lastrow, asym_xpos(h,i, inst), 1.0) ) // income vertex
-				print_error(" wrong CPXchgcoef [degree]");
-		}
-	}
-}
-
-void build_model_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
+void build_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {  // auto adapt for model 2 and 3
 	char xctype = CPX_BINARY;		// Binary 0,1
 	double obj;						// objective function constant
 	double lb;						// lower bound
@@ -483,6 +415,8 @@ void build_model_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 		}
 	}
 
+	// sum_{h in V} y_1h  = n - 1
+	// sum_{j in V} y_hj = sum_{i in V} y_ih -1
 	for (int h = 0; h < inst->nnodes; h++) {
 		// y constraints: nodes index
 		if (h == 0 ) {
@@ -496,7 +430,7 @@ void build_model_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 			if (CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname))	// new row
 				print_error(" wrong CPXnewrows [flow(1)]");
 
-			for (int i = 1; i < inst->nnodes; i++) {
+			for (int i = 1; i < inst->nnodes; i++) { 	// sum_{h in V} y_1h  = n - 1
 
 				if (CPXchgcoef(env, lp, lastrow, asym_ypos(h, i, inst), 1.0))		// outcome vertex from 0
 					print_error(" wrong CPXchgcoef [flow(1)]");
@@ -512,14 +446,14 @@ void build_model_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 			if (CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname))	// new row
 				print_error(" wrong CPXnewrows [flow(1)]");
 
-			for (int i = 0; i < inst->nnodes; i++) {
+			for (int i = 0; i < inst->nnodes; i++) {		// sum_{j in V} y_hj
 				if (i != h) {
 					if (CPXchgcoef(env, lp, lastrow, asym_ypos(h, i, inst), -1.0))	// outcome
 						print_error(" wrong CPXchgcoef [flow(i)]");
 				}
 			}
 
-			for (int i = 0; i < inst->nnodes; i++) {
+			for (int i = 0; i < inst->nnodes; i++) {		// sum_{i in V} y_ih
 				if (i != h) {
 					if (CPXchgcoef(env, lp, lastrow, asym_ypos(i, h, inst), 1.0))		// income
 						print_error(" wrong CPXchgcoef [flow(i)]");
@@ -528,43 +462,29 @@ void build_model_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 		}
 	}
 
+	// y_ij <= x_ij*(n-1)
 	rhs = 0.0;
 	sense = 'L';
 	for (int i = 0; i < inst->nnodes; i++) {
-		if (i == 0) {
-			for (int j = 1; j < inst->nnodes; j++) {
-				lastrow = CPXgetnumrows(env, lp);
+		for (int j = 1; j < inst->nnodes; j++) {
+			if (i == j) continue;
+			lastrow = CPXgetnumrows(env, lp);
 
-				sprintf(cname[0], "y_cut(%d,%d)", i + 1, j + 1);
+			sprintf(cname[0], "y_cut(%d,%d)", i + 1, j + 1);
 
-				// create a new row
-				if (CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname))	// new row
-					print_error(" wrong CPXnewrows [y_cut()]");
+			// create a new row
+			if (CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname))	// new row
+				print_error(" wrong CPXnewrows [y_cut()]");
 
-				if (CPXchgcoef(env, lp, lastrow, asym_ypos(i, j, inst), 1.0))
+			if (CPXchgcoef(env, lp, lastrow, asym_ypos(i, j, inst), 1.0)) // y_ij
+				print_error(" wrong CPXchgcoef [y_cut()]");
+
+			if (i == 0 || inst->model_type == 3) {		// y_0j <= x_0j*(n-1)
+				if (CPXchgcoef(env, lp, lastrow, asym_xpos(i, j, inst), -(double)inst->nnodes + 1.0))
 					print_error(" wrong CPXchgcoef [y_cut()]");
-
-				if (CPXchgcoef(env, lp, lastrow, asym_xpos(i, j, inst), - (double) inst->nnodes + 1.0))
+			}	else {  																// y_ij <= x_ij*(n-2)
+				if (CPXchgcoef(env, lp, lastrow, asym_xpos(i, j, inst), -(double)inst->nnodes + 2.0))
 					print_error(" wrong CPXchgcoef [y_cut()]");
-			}
-		}
-		else {
-			for (int j = 1; j < inst->nnodes; j++) {
-				if (i != j) {
-					lastrow = CPXgetnumrows(env, lp);
-
-					sprintf(cname[0], "y_cut(%d,%d)", i + 1, j + 1);
-
-					// create a new row
-					if (CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname))	// new row
-						print_error(" wrong CPXnewrows [y_cut()]");
-
-					if (CPXchgcoef(env, lp, lastrow, asym_ypos(i, j, inst), 1.0))
-						print_error(" wrong CPXchgcoef [y_cut()]");
-
-					if (CPXchgcoef(env, lp, lastrow, asym_xpos(i, j, inst), -(double)inst->nnodes + 2.0))
-						print_error(" wrong CPXchgcoef [y_cut()]");
-				}
 			}
 		}
 	}
@@ -586,6 +506,10 @@ void mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status
 			break;
 
 		case 2:
+			*status = CPXmipopt(env,lp);
+			break;
+
+		case 3:
 			*status = CPXmipopt(env,lp);
 			break;
 
@@ -748,6 +672,10 @@ void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp) {
 			break;
 
 		case 2:
+			build_sol_flow1(inst, succ, comp, ncomp);
+			break;
+
+		case 3:
 			build_sol_flow1(inst, succ, comp, ncomp);
 			break;
 
@@ -1236,9 +1164,14 @@ void plot_instance(tspinstance *inst) {
 	}
 
 	char pngname[sizeof(inst->input_file)+20+sizeof(inst->model_type)];
-	snprintf(pngname, sizeof pngname, "plot\\%s_%d.png", get_file_name(inst->input_file), inst->model_type);  // TODO: input_file check
+	char name[strlen(inst->input_file)];
+	snprintf(pngname, sizeof pngname,
+		"plot%c%s_%d.png",
+		DIR_DELIM,
+		get_file_name(inst->input_file, name),
+		inst->model_type);  // TODO: input_file check
 
-	// set up line and point style
+	// set up line and point style depending on the model
 	setup_style(gnuplot, inst);
 
 	// set title
@@ -1261,6 +1194,58 @@ void plot_instance(tspinstance *inst) {
 	fclose(gnuplot);
 }
 
+void setup_style(FILE *gnuplot, tspinstance *inst) {
+
+	switch (inst->model_type) {
+
+		case 0:
+			setup_linestyle2(gnuplot);
+			break;
+
+		case 1:
+			setup_arrowstyle2(gnuplot);
+			break;
+
+		case 2:
+			setup_arrowstyle2(gnuplot);
+			break;
+
+		case 3:
+			setup_arrowstyle2(gnuplot);
+			break;
+
+		default:
+			fclose(gnuplot);
+			print_error(" Model type unknown!!\n");
+			break;
+	}
+
+}
+
+void setup_linestyle1(FILE *gnuplot) {
+	fprintf(gnuplot,"set style line 1 \
+									lc rgb '#0060ad' \
+									pointtype 7 \
+									pointsize 1.0\n");
+}
+
+void setup_linestyle2(FILE *gnuplot) {
+	fprintf(gnuplot,"set style line 2 \
+									lc rgb '#0060ad' \
+									linetype 1 linewidth 2 \
+									pointtype 7 pointsize 1.0\n");
+}
+
+void setup_arrowstyle2(FILE *gnuplot) {
+	fprintf(gnuplot,"set style line 2 \
+									lc rgb '#0060ad' \
+									linetype 1 linewidth 2 \
+									pointtype 7 pointsize 1.0\n\
+									set style arrow 2 \
+									head filled size screen 0.025,30,45 \
+									ls 2\n");
+}
+
 void plot_points(FILE *gnuplot, char *pngname, tspinstance *inst) {
 	fprintf(gnuplot, "plot '-' w p ls 1\n");
 	for (size_t i = 0; i < inst->nnodes; i++)
@@ -1275,38 +1260,19 @@ void plot_edges(FILE *gnuplot, char *pngname, tspinstance *inst) {
 		switch (inst->model_type) {
 
 			case 0:
-				fprintf(gnuplot, "plot '-' w linespoints linestyle 2\n");
-				for (int i = 0; i < inst->nnodes; i++)
-					for (int j = i+1; j < inst->nnodes; j++)
-						if (0.5 < inst->best_sol[xpos(i,j,inst)] ) // && inst->best_sol[i] < 1.00001)
-							fprintf(gnuplot, "%f %f\n%f %f\n\n",
-												inst->xcoord[i], inst->ycoord[i],
-												inst->xcoord[j], inst->ycoord[j]);
-				fprintf(gnuplot, "e\n");
+				plot_lines_sym(gnuplot, pngname, inst);
 				break;
 
 			case 1:
-				fprintf(gnuplot, "plot '-' using 1:2:3:4 with vectors arrowstyle 2\n");
-				for (int i = 0; i < inst->nnodes; i++)
-					for (int j = 0; j < inst->nnodes; j++)
-						if (i != j)
-							if (0.5 < inst->best_sol[asym_xpos(i,j,inst)] ) // && inst->best_sol[i] < 1.00001)
-								fprintf(gnuplot, "%f %f %f %f\n",
-													inst->xcoord[i], inst->ycoord[i],
-													inst->xcoord[j]-inst->xcoord[i], inst->ycoord[j]-inst->ycoord[i]);
-				fprintf(gnuplot, "e\n");
+				plot_arrow_asym(gnuplot, pngname, inst);
 				break;
 
 			case 2:
-				fprintf(gnuplot, "plot '-' using 1:2:3:4 with vectors arrowstyle 2\n");
-				for (int i = 0; i < inst->nnodes; i++)
-					for (int j = 0; j < inst->nnodes; j++)
-						if (i != j)
-							if (0.5 < inst->best_sol[asym_xpos(i,j,inst)] ) // && inst->best_sol[i] < 1.00001)
-								fprintf(gnuplot, "%f %f %f %f\n",
-													inst->xcoord[i], inst->ycoord[i],
-													inst->xcoord[j]-inst->xcoord[i], inst->ycoord[j]-inst->ycoord[i]);
-				fprintf(gnuplot, "e\n");
+				plot_arrow_asym(gnuplot, pngname, inst);
+				break;
+
+			case 3:
+				plot_arrow_asym(gnuplot, pngname, inst);
 				break;
 
 			default:
@@ -1318,61 +1284,43 @@ void plot_edges(FILE *gnuplot, char *pngname, tspinstance *inst) {
 	}
 }
 
-void setup_style(FILE *gnuplot, tspinstance *inst) {
-
-	fprintf(gnuplot,"set style line 1 \
-									lc rgb '#0060ad' \
-									pointtype 7 \
-									pointsize 1.0\n");
-
-	switch (inst->model_type) {
-
-		case 0:
-			fprintf(gnuplot,"set style line 2 \
-									    lc rgb '#0060ad' \
-											linetype 1 linewidth 2 \
-											pointtype 7 pointsize 1.0\n");
-			break;
-
-		case 1:
-			fprintf(gnuplot,"set style line 2 \
-									    lc rgb '#0060ad' \
-											linetype 1 linewidth 2 \
-											pointtype 7 pointsize 1.0\n\
-											set style arrow 2 \
-											head filled size screen 0.025,30,45 \
-											ls 2\n");
-			break;
-
-		case 2:
-			fprintf(gnuplot,"set style line 2 \
-									    lc rgb '#0060ad' \
-											linetype 1 linewidth 2 \
-											pointtype 7 pointsize 1.0\n\
-											set style arrow 2 \
-											head filled size screen 0.025,30,45 \
-											ls 2\n");
-			break;
-
-		default:
-			fclose(gnuplot);
-			print_error(" Model type unknown!!\n");
-			break;
-	}
-
+void plot_lines_sym(FILE *gnuplot, char *pngname, tspinstance *inst) {
+	fprintf(gnuplot, "plot '-' w linespoints linestyle 2\n");
+	for (int i = 0; i < inst->nnodes; i++)
+		for (int j = i+1; j < inst->nnodes; j++)
+			if (0.5 < inst->best_sol[xpos(i,j,inst)] ) // && inst->best_sol[i] < 1.00001)
+				fprintf(gnuplot, "%f %f\n%f %f\n\n",
+									inst->xcoord[i], inst->ycoord[i],
+									inst->xcoord[j], inst->ycoord[j]);
+	fprintf(gnuplot, "e\n");
 }
 
-char * get_file_name(char *path) {
-    int start_name = 0;
-	for (int i = 0; path[i] != '\0'; i++) {
-		#ifdef _WIN32
-			if (path[i] == '\\') start_name = i + 1;
-				//printf("PATH: %s\n", path + start_name);
-		#else
-				if (path[i] == '/') start_name = i + 1;
-		#endif
+void plot_arrow_asym(FILE *gnuplot, char *pngname, tspinstance *inst) {
+	fprintf(gnuplot, "plot '-' using 1:2:3:4 with vectors arrowstyle 2\n");
+	for (int i = 0; i < inst->nnodes; i++)
+		for (int j = 0; j < inst->nnodes; j++)
+			if (i != j)
+				if (0.5 < inst->best_sol[asym_xpos(i,j,inst)] ) // && inst->best_sol[i] < 1.00001)
+					fprintf(gnuplot, "%f %f %f %f\n",
+										inst->xcoord[i], inst->ycoord[i],
+										inst->xcoord[j]-inst->xcoord[i], inst->ycoord[j]-inst->ycoord[i]);
+	fprintf(gnuplot, "e\n");
+}
+
+
+char * get_file_name(char *path, char *name) {	// data/att48.tsp -> att48
+	char *copy_path = (char *) malloc(strlen(path)); // TODO: memory problem if doesn't free copy_path
+	strcpy(name, path);
+  int start_name = 0;
+	for (int i = 0; name[i] != '\0'; i++) {
+		if (name[i] == DIR_DELIM) start_name = i + 1;
+		if (name[i] == '.') {
+			name[i] = '\0';
+			break;
+		}
 	}
-	return path+start_name;
+	name += start_name;
+	return name;
 }
 
 
@@ -1381,9 +1329,10 @@ int save_results(tspinstance *inst, char *f_name) {
 	FILE *outfile;
 	outfile = fopen(f_name, "a");
 	char dataToAppend[sizeof(inst->input_file)+sizeof(inst->nnodes)*4+ sizeof(inst->opt_time) + 20];
-	snprintf(dataToAppend, sizeof dataToAppend, "%s; %d; %d; %d; %d; %lf;\n",
-	 												inst->input_file, inst->nnodes,
-													inst->model_type, inst->randomseed,
+	char name[strlen(inst->input_file)];
+	snprintf(dataToAppend, sizeof dataToAppend, "%s; %d; %s; %d; %d; %lf;\n",
+	 												get_file_name(inst->input_file, name), inst->nnodes,
+													model_name(inst->model_type), inst->randomseed,
 													inst->nthread, inst->opt_time );
 	/* fopen() return NULL if unable to open file in given mode. */
 	if (outfile == NULL)
