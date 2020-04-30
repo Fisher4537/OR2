@@ -19,6 +19,7 @@
 
 % Set page margins
 \usepackage[top=100pt,bottom=100pt,left=68pt,right=66pt]{geometry}
+\usepackage{tabularx}
 
 % Package used for placeholder text
 \usepackage{lipsum}
@@ -76,21 +77,22 @@
 		\vspace{2cm}
 
 		% Titles
-		{\large Thesis of Operational Research 2 \par}
-		\vspace{4cm}
-		{\Huge \textbf{Travelling Salesman Problem}} \\
-		\vspace{4cm}
-		{\normalsize Luca Perali, 1237770  \\
-			Michele Thiella  \par}
+    \includegraphics[scale=0.75]{uniLogo.png} \\ [1cm]
+  	\Large{ \textbf{University of Padua} } \\ [4cm]
+		{\Huge \textbf{Travelling Salesman Problem}} \\ [1cm]
+		{\large Thesis of Operational Research 2 \par} \\ [4cm]
+    \begin{table}[h]
+      \begin{tabularx}{\textwidth}{X r}
+
+          \large\textit{Professor}  & \large\textit{Author} \\ [0.2cm]
+          \large\textsc{Matteo Fischetti}  & \large\textsc{Luca Perali, 1237770} \\ [0.2cm]
+            & \large\textsc{Michele Thiella } \\ [0.2cm]
+          \hline
+      \end{tabularx}
+    \end{table}
+%\Large\textsc{18 Marzo 2019 } \\
+%\Large\textsc{Anno Accademico 2018/2019}
 		\vspace{2cm}
-
-		\includegraphics[scale=0.75]{uniLogo.png}
-
-		\vspace{2cm}
-
-		% Information about the University
-		{\normalsize Computer Engineering Course \\
-			University of Padua \par}
 
 		% Set the date
 		{\normalsize 29/04/2020 \par}
