@@ -172,8 +172,8 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 
 	// save model in .lp file
 	if ( inst->verbose >= 1 ){
-		char lpname[sizeof(inst->input_file)+20+sizeof(inst->model_type)];
-		char name[strlen(inst->input_file)];
+		char* lpname = (char *) malloc(sizeof(inst->input_file)+20+sizeof(inst->model_type));
+		char* name = (char*) malloc(strlen(inst->input_file));
 		snprintf(lpname, sizeof lpname,
 								"%s%c%s_%d.lp",
 								"model", DIR_DELIM,
@@ -1103,10 +1103,6 @@ void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp) {
 			build_sol_flow1(inst, succ, comp, ncomp);
 			break;
 
-		case 3:
-			build_sol_flow1(inst, succ, comp, ncomp);
-			break;
-
 		case 4:
 			build_sol_mtz(inst, succ, comp, ncomp);
 			break;
@@ -1717,8 +1713,8 @@ void plot_instance(tspinstance *inst) {
 		return;
 	}
 
-	char pngname[sizeof(inst->input_file)+20+sizeof(inst->model_type)];
-	char name[strlen(inst->input_file)];
+	char* pngname = (char*)malloc(sizeof(inst->input_file) + 20 + sizeof(inst->model_type));
+	char* name = (char*)malloc(strlen(inst->input_file));
 	snprintf(pngname, sizeof pngname,
 		"plot%c%s_%d.png",
 		DIR_DELIM,
@@ -1865,7 +1861,7 @@ void plot_arrow_asym(FILE *gnuplot, char *pngname, tspinstance *inst) {
 char * get_file_name(char *path, char *name) {	// data/att48.tsp -> att48
 	char *copy_path = (char *) malloc(strlen(path)); // TODO: memory problem if doesn't free copy_path
 	strcpy(name, path);
-  int start_name = 0;
+	int start_name = 0;
 	for (int i = 0; name[i] != '\0'; i++) {
 		if (name[i] == DIR_DELIM) start_name = i + 1;
 		if (name[i] == '.') {
@@ -1881,8 +1877,8 @@ char * get_file_name(char *path, char *name) {	// data/att48.tsp -> att48
 int save_results(tspinstance *inst, char *f_name) {
 	FILE *outfile;
 	outfile = fopen(f_name, "a");
-	char dataToAppend[sizeof(inst->input_file)+sizeof(inst->nnodes)*4+ sizeof(inst->opt_time) + 20];
-	char name[strlen(inst->input_file)];
+	char* dataToAppend = (char*)malloc(sizeof(inst->input_file) + sizeof(inst->nnodes) * 4 + sizeof(inst->opt_time) + 20);
+	char* name = (char*)malloc(strlen(inst->input_file));
 	snprintf(dataToAppend, sizeof dataToAppend, "%s; %d; %s; %d; %d; %lf;\n",
 	 												get_file_name(inst->input_file, name), inst->nnodes,
 													model_name(inst->model_type), inst->randomseed,
