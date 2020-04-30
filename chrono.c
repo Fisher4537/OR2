@@ -1,11 +1,6 @@
 #include "pch.h"
 #include "chrono.h"
 
-#ifdef _WIN32
-double RealElapsedTime(void) { 
-}
-#endif
-
 double myWallTime()
 {
 #ifdef __APPLE__
