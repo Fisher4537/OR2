@@ -1,16 +1,36 @@
 CPLEX_HOME = /home/jarvis/ibm/ILOG/CPLEX_Studio1210/cplex
 LIBS = -L${CPLEX_HOME}/lib/x86-64_linux/static_pic -L. -lcplex -lm -lpthread -ldl
 INC = -I. -I${CPLEX_HOME}/include/ilcplex
-ARGS = -input data/att12.tsp -model_type 0 -max_nodes 10000
+ARGS = -input data_trainset/att12.tsp -model_type 0 -max_nodes 10000 -
 EXE = mainTSP
 OBJ = tsp.o chrono.o mainTSP.o
-MODELS = 0 1
-TEST_FILES = `ls data/*.tsp`
-TRAINSET_FILES = data/att12.tsp data/att48.tsp data/pr76.tsp data/rat99.tsp data/kroB100.tsp data/a280.tsp
+MODELS = 0
+TEST_LIGHT = `ls data_light/*.tsp`
+TEST_AVERAGE = `ls data_average/*.tsp`
+TEST_SET = `ls Test_Set/*.tsp`
+TRAINSET_FILES = `ls data_trainset/*.tsp`
 SEED = 0 123456 666 777 1995
 
-test: $(EXE)
-	for file in $(TEST_FILES); do \
+testlight: $(EXE)
+	for file in $(TEST_LIGHT); do \
+		for model in $(MODELS); do \
+			for seed in $(SEED); do \
+				./$(EXE) -input $$file -model_type $$model -randomseed $$seed -v 1; \
+			done \
+		done \
+	done
+
+testaverage: $(EXE)
+	for file in $(TEST_AVERAGE); do \
+		for model in $(MODELS); do \
+			for seed in $(SEED); do \
+				./$(EXE) -input $$file -model_type $$model -randomseed $$seed -v 1; \
+			done \
+		done \
+	done
+
+testall: $(EXE)
+	for file in $(TEST_SET); do \
 		for model in $(MODELS); do \
 			for seed in $(SEED); do \
 				./$(EXE) -input $$file -model_type $$model -randomseed $$seed -v 1; \
@@ -31,14 +51,12 @@ run: $(EXE)
 	./mainTSP $(ARGS)  >> log/`date +%y%m%d-%H%M%S`.log
 
 debug:
-	@echo "compiling with debugging options..."
 	gcc $(INC) -g mainTSP.c -o mainTSP.x $(LIBS)
 
 $(EXE): $(OBJ)
 	gcc -o $(EXE) $(OBJ) $(LIBS)
 
 $(OBJ): mainTSP.c tsp.c chrono.c
-	@echo "compiling..."
 	gcc $(INC) -c chrono.c
 	gcc $(INC) -c tsp.c
 	gcc $(INC) -c mainTSP.c
@@ -50,9 +68,9 @@ cleanlog:
 	rm log/*
 
 cleanmodel:
-	rm *.lp
+	rm model/*.lp
 
 cleanplot:
-	rm *.png
+	rm plot/*.png
 
 cleanall: clean cleanlog cleanmodel cleanplot

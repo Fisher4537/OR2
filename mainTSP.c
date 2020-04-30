@@ -11,6 +11,7 @@ int main(int argc, char **argv)
 	if ( VERBOSE >= 2 ) {
      for (int a = 0; a < argc; a++) printf("%s ", argv[a]);
 		 //printf("\n");
+		 fflush(stdout);
 	}
 
 	tspinstance inst;
@@ -26,8 +27,8 @@ int main(int argc, char **argv)
 	if ( (&inst)->verbose >= 1) printf(" ... Executed in %6.3lf s\n", (&inst)->opt_time); 
 
 	if ( (&inst)->verbose >= 1 ) plot_instance(&inst);
-	if ( (&inst)->verbose <= 1) save_results(&inst, "res.csv");
-	else if ( (&inst)->verbose <= 10 ) save_results(&inst, "res_trainset.csv");
+	if ( (&inst)->verbose < 10) save_results(&inst, "res.csv");
+	else if ( (&inst)->verbose < 100 ) save_results(&inst, "res_trainset.csv");
 
 	free_instance(&inst);
 

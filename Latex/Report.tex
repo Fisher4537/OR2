@@ -1,58 +1,100 @@
-\documentclass[12pt]{article}
-\usepackage[english]{babel}
-\usepackage[utf8]{inputenc}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Template for lab reports used at STIMA
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Sets the document class for the document
+% Openany is added to remove the book style of starting every new chapter on an odd page (not needed for reports)
+\documentclass[10pt, english, openany]{report}
+
+%% Loading packages that alter the style
+\usepackage[]{graphicx}
+\usepackage[]{color}
+\usepackage{alltt}
 \usepackage[T1]{fontenc}
-\usepackage{graphicx}
-\usepackage{cite}
+\usepackage[utf8]{inputenc}
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{3}
+\setlength{\parskip}{\smallskipamount}
+\setlength{\parindent}{0pt}
+
+% Set page margins
+\usepackage[top=100pt,bottom=100pt,left=68pt,right=66pt]{geometry}
+
+% Package used for placeholder text
+\usepackage{lipsum}
+
+% Prevents LaTeX from filling out a page to the bottom
+\raggedbottom
+
+% add English language
+\usepackage[english]{babel}
+
+% All page numbers positioned at the bottom of the page
+\usepackage{fancyhdr}
+\fancyhf{}                          % clear all header and footers
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0pt}  % remove the header rule
+\pagestyle{fancy}
+
+% Changes the style of chapter headings
+\usepackage{titlesec}
+\titleformat{\chapter}
+{\normalfont\LARGE\bfseries}{\thechapter.}{1em}{}
+% Change distance between chapter header and text
+\titlespacing{\chapter}{0pt}{50pt}{2\baselineskip}
+
+% Adds table captions above the table per default
 \usepackage{float}
-\usepackage{amsfonts}
-\usepackage{amsmath}
-\usepackage{geometry}
-\usepackage{braket}
-\graphicspath{{IMAGES}}
-\newtheorem{tab}{Tabla}
-\renewcommand\tablename{Tabla}
-\setlength{\columnsep}{7mm}
-\renewcommand\tablename{Tabla}
-\renewcommand\contentsname{\'Indice}
-\setlength{\topmargin}{-0.75in} \setlength{\textheight}{9.25in}
-\setlength{\oddsidemargin}{0.0in} \setlength{\evensidemargin}{0.0in}
-\setlength{\textwidth}{6.5in}
+\floatstyle{plaintop}
+\restylefloat{table}
 
+% Adds space between caption and table
+\usepackage[tableposition=top]{caption}
 
+% Adds hyperlinks to references and ToC
+\usepackage{hyperref}
+\hypersetup{hidelinks, linkcolor = blue} % Changes the link color to black and hides the hideous red border that usually is created
+
+% If multiple images are to be added, a folder (path) with all the images can be added here
+\graphicspath{ {images/} }
+
+% Separates the first part of the report/thesis in Roman numerals
+\frontmatter
+
+%% USER Package
+\usepackage{tabularx}
+\usepackage{titling}
+
+%% title2.tex
+\title{Course Report of \\ Operational Research 2}
+\author{Luca Perali 1237770 \\ Michele Thiella 1234567}
+\date{\today}
+
+%% Starts the document
 \begin{document}
 
-\title{Thesis of Operational Research 2}
-\author{Luca Perali 1237770}
+	%% Selects the language to be used for the first couple of pages
+	\selectlanguage{english}
 
+	%% Adds the title page
+  \input{title.tex}
+  \input{abstract.tex}
 
-\twocolumn[
-\begin{@twocolumnfalse}
-\maketitle
-\vspace*{-0.8cm}
-\begin{center}\rule{0.9\textwidth}{0.1mm} \end{center}
-\begin{abstract}
-\normalsize This is the presentation of the problem and code managed in Operational Research 2, the Computer Engineering course of the University of Padua.
-\begin{center}\rule{0.9\textwidth}{0.1mm} \end{center}
-\vspace*{0.3cm}
-\end{abstract}
-\end{@twocolumnfalse}
-]
+	% Adds a table of contents
+	\tableofcontents{}
+	\clearpage
 
-\section{Travelling Salesman Problem (simmetric version)}
-During the course the well-known Traveling Salesman Problem (TSP) was analyzed in its symmetrical version.
-This is a proposed linear programming model which resolve the problem:
-\[
-\begin{cases}
-min \sum_{ e\in E } c_ex_e \\
-\sum_{e\in \delta (v) } x_e = 2, \forall v \in V \\
-\sum_{e\in E(S) } x_e \le |S|-1, \forall S \subset V, |S| \ge 3 \\
-x_e \in \Set{0,1}, \forall v \in V
-\end{cases}
-\]
+	%%%%
+	%% The rows above should not be changed except for the title page information
+	%%%% Text body starts here!
+	\mainmatter
+	\input{model_description.tex}
+	\input{results.tex}
 
-\cite{}
+	% Adding a bibliography if citations are used in the report
+	\bibliographystyle{plain}
+	\bibliography{bibliography.bib}
+	% Adds reference to the Bibliography in the ToC
+	\addcontentsline{toc}{chapter}{\bibname}
 
-\bibliographystyle{ieeetr}
-\bibliography{Report}
-\end{document}
+	\end{document}
