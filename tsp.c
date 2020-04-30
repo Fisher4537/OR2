@@ -67,7 +67,7 @@ int TSPopt(tspinstance *inst) {
 		double fin = second();
 		inst->opt_time = (double)(fin - ini);
 	#elif _WIN32
-		double ini = second(); 
+		double ini = second();
 		mip_optimization(env, lp, inst, &status);
 		double fin = second();
 		inst->opt_time = (double)(fin - ini);
@@ -1010,7 +1010,7 @@ void read_input(tspinstance *inst) { // simplified CVRP parser, not all SECTIONs
 		if ( strncmp(par_name, "TYPE", 4) == 0 )
 		{
 			token1 = strtok(NULL, " :");
-			if ( strncmp(token1, "TSP",3) != 0 ) print_error(" format error:  only TYPE == CVRP implemented so far!!!!!!");
+			if ( strncmp(token1, "TSP",3) != 0 ) print_error(" format error:  only TYPE == TSP implemented so far!!!!!!");
 			active_section = 0;
 			continue;
 		}
@@ -1027,11 +1027,31 @@ void read_input(tspinstance *inst) { // simplified CVRP parser, not all SECTIONs
 			continue;
 		}
 
+		if ( strncmp(par_name, "DISPLAY_DATA_TYPE", 17) == 0 )
+		{
+			token1 = strtok(NULL, " :");
+			if ( strncmp(token1, "COORD_DISPLAY", 13) != 0 ) print_error(" format error:  only DISPLAY_DATA_TYPE == COORD_DISPLAY implemented so far!!!!!!");
+			active_section = 0;
+			continue;
+		}
+
+		if ( strncmp(par_name, "EDGE_WEIGHT_FORMAT", 18) == 0 )
+		{
+			token1 = strtok(NULL, " :");
+			if ( strncmp(token1, "FUNCTION", 8) != 0 ) print_error(" format error:  only EDGE_WEIGHT_FORMAT == FUNCTION implemented so far!!!!!!");
+			active_section = 0;
+			continue;
+		}
+
+
+
 		if ( strncmp(par_name, "EDGE_WEIGHT_TYPE", 16) == 0 )
 		{
 			token1 = strtok(NULL, " :");
-			if ( strncmp(token1, "ATT", 3) != 0 && strncmp(token1, "EUC_2D", 6) != 0 )
-				print_error(" format error:  only EDGE_WEIGHT_TYPE == EUC_2D implemented so far!!!!!!");
+			if (	strncmp(token1, "ATT", 3) != 0 &&
+						strncmp(token1, "EUC_2D", 6) != 0 &&
+						strncmp(token1, "GEO", 3) != 0 )
+				print_error(" format error:  only EDGE_WEIGHT_TYPE == EUC_2D, ATT, GEO implemented so far!!!!!!");
 			active_section = 0;
 			continue;
 		}
@@ -1083,7 +1103,7 @@ void parse_command_line(int argc, char** argv, tspinstance *inst) {
 	inst->max_nodes = -1; 						// max n. of branching nodes in the final run (-1 unlimited)
   inst->integer_costs = 0;
 	inst->verbose = 1000;							// VERBOSE
-    inst->callback = 0;
+  inst->callback = 0;
 
   int help = 0; if ( argc < 1 ) help = 1;
 	for ( int i = 1; i < argc; i++ )
