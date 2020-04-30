@@ -94,14 +94,16 @@ void mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status
 int subtour_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
 int subtour_heur_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, int heuristic);
 
-void switch_callback(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
+void build_callback(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
+void initCallback(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 static int CPXPUBLIC lazycallback(CPXCENVptr env, void* cbdata, int wherefrom, void* cbhandle, int* useraction_p);
 static int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void* cbhandle);
+int mylazy_separation(tspinstance* inst, const double* xstar, CPXCENVptr env, void* cbdata, int wherefrom);
 int mygeneric_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONTEXTptr context);
-int mylazy_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONTEXTptr context);
 
 void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp);
 void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp);
+void build_sol_lazy_std(tspinstance* inst, double* xstar, int* succ, int* comp, int* ncomp);
 void build_sol_mtz(tspinstance *inst, int *succ, int *comp, int *ncomp);
 void build_sol_flow1(tspinstance *inst, int *succ, int *comp, int *ncomp);
 
