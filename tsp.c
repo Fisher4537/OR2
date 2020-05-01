@@ -16,7 +16,13 @@
 #endif
 
 /**
-	TODO: a way to get CPLEX error code: status?
+	TODO:	- a way to get CPLEX error code: status?
+			- subtour_iter_opt better performance with index-value?
+			- PLZ change all code with index-value, change_coef is really bad (said by Fischetti) 
+			- check all array and if free is used everytime is possible	(check all cname for example)
+
+			- Latex: how to use generic callback (if it's write good he can take the part for next year course
+			- User_cut di Concorde (difficile implementarle e non è possibile utilizzarle ogni volta bensì solo ogni tot..)		-> per la lode 
 */
 
 char * model_name(int i) {
@@ -36,27 +42,29 @@ int TSPopt(tspinstance *inst) {
 	CPXLPptr lp = CPXcreateprob(env, &status, "TSP");
 
 	// Cplex's parameter setting
-	CPXsetintparam(env,CPXPARAM_Threads, inst->nthread);		// allow executing N parallel threads
+	CPXsetintparam(env,CPX_PARAM_THREADS, inst->nthread);		// allow executing N parallel threads
 	CPXsetintparam(env,CPX_PARAM_RANDOMSEED, inst->randomseed);		// avoid performace variability
 	CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit);		// set time limit
 	if (inst->verbose >= 100) CPXsetintparam(env, CPX_PARAM_SCRIND, CPX_ON);	// show CPLEX log
-    // CPXsetintparam(env, CPX_PARAM_MIPDISPLAY, 4);
 
 	// CPX_PARAM_MIPEMPHASIS: it balances optimality and integer feasibility.
 	//	(CPX_MIPEMPHASIS_BALANCED, CPX_MIPEMPHASIS_FEASIBILITY, CPX_MIPEMPHASIS_OPTIMALITY,
 	//	CPX_MIPEMPHASIS_BESTBOUND, CPX_MIPEMPHASIS_HIDDENFEAS)
 	// CPX_PARAM_MIPSEARCH: Dynamic search or B&C ?
-  // CPXsetintparam(env, CPX_PARAM_MIPDISPLAY, 4);
+	// CPXsetintparam(env, CPX_PARAM_MIPDISPLAY, 4);			// Display new incumbents, and display a log line every n nodes
 
 	// set input data in CPX structure
 	build_model(inst, env, lp);
+
+	// add callback
+	build_callback(inst, env, lp);
 
 	// setup struct to save solution
 	inst->nedges = CPXgetnumcols(env, lp);
 	inst->best_sol = (double *) calloc(inst->nedges, sizeof(double)); 	// all entries to zero
 	inst->zbest = CPX_INFBOUND;
 
-	if (inst->verbose >= 100) printf("build model succesfully.\n");
+	if (inst->verbose >= 100) printf("\nbuild model succesfully.\n");
 	if (inst->verbose >= 1000) pause_execution();
 	if (inst->verbose >= 100) printf("optimizing model...\n");
 
@@ -67,10 +75,20 @@ int TSPopt(tspinstance *inst) {
 		double fin = second();
 		inst->opt_time = (double)(fin - ini);
 	#elif _WIN32
+
+		/* Metodo 1 -> QueryPerformanceCounter*/
 		double ini = second();
 		mip_optimization(env, lp, inst, &status);
 		double fin = second();
 		inst->opt_time = (double)(fin - ini);
+		
+		/* Metodo 2	-> CPXgettime
+		struct timespec ts, ts2;
+		CPXgettime(env, &ts);
+		mip_optimization(env, lp, inst, &status);
+		CPXgettime(env, &ts2);
+		inst->opt_time = (double)ts2.tv_nsec + 1.0e-9 * ((double)ts2.tv_nsec) - (double)ts.tv_nsec + 1.0e-9 * ((double)ts.tv_nsec);
+		*/
 	#else
 		clock_t init_time = clock();
 		mip_optimization(env, lp, inst, &status);
@@ -141,6 +159,14 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 			build_flow1(inst, env, lp);
 			break;
 
+		case 4: 		// MTZ with LAZY
+			build_model_mtz_lazy(inst, env, lp);
+			break;
+
+		case 5:			// STD with HEUR subtour
+			build_sym_std(inst, env, lp);
+			break;
+
 		default:
 			print_error(" model type unknown!!");
 			break;
@@ -157,8 +183,8 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 								inst->model_type);  // TODO: input_file check
 		// printf("saving %s\n", lpname);
 		CPXwriteprob(env, lp, lpname, NULL);
+		free(lpname);
 	}
-
 }
 
 void build_sym_std(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
@@ -490,6 +516,148 @@ void build_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {  // auto adapt
 	}
 }
 
+void build_model_mtz_lazy(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
+
+	char xctype = 'B';	// type of variable
+	double obj; // objective function constant
+	double lb;	// lower bound
+	double ub;	// upper bound
+
+	char** cname = (char**)calloc(1, sizeof(char*));	// (char **) required by cplex...
+	cname[0] = (char*)calloc(100, sizeof(char));			// name of the variable
+
+	// add binary constraints and objective const x(i,j) for i < j
+	for (int i = 0; i < inst->nnodes; i++)
+	{
+		for (int j = 0; j < inst->nnodes; j++)
+		{
+			if (i != j)
+			{
+				sprintf(cname[0], "x(%d,%d)", i + 1, j + 1);
+				obj = dist(i, j, inst); // cost == distance
+				lb = 0.0;
+				ub = i == j ? 0.0 : 1.0;
+				if (CPXnewcols(env, lp, 1, &obj, &lb, &ub, &xctype, cname))
+					print_error(" wrong CPXnewcols on x var.s");
+				if (CPXgetnumcols(env, lp) - 1 != asym_xpos(i, j, inst))
+					print_error(" wrong position for x var.s");
+			}
+		}
+	}
+
+	// add nodes index in the circuits
+	xctype = 'I';		// maybe not necessary
+	obj = 0.0;
+	lb = 0.0;
+	ub = inst->nnodes - 2.0;
+
+	for (int i = 1; i < inst->nnodes; i++)
+	{
+		sprintf(cname[0], "u(%d)", i + 1);
+		if (CPXnewcols(env, lp, 1, &obj, &lb, &ub, &xctype, cname))
+			print_error(" wrong CPXnewcols on u var.s");
+		if (CPXgetnumcols(env, lp) - 1 != asym_upos(i, inst))
+			print_error(" wrong position for u var.s");
+	}
+
+
+	// add the degree constraints
+	int lastrow;	// the number of rows
+	double rhs;		// right head size
+	char sense;		// 'L', 'E' or 'G'
+	int big_M = inst->nnodes;
+	for (int h = 0; h < inst->nnodes; h++)  // degree constraints
+	{
+		lastrow = CPXgetnumrows(env, lp);
+		rhs = 1.0;
+		sense = 'E';	// 'E' for equality constraint
+		sprintf(cname[0], "income_d(%d)", h + 1);
+
+		// create a new row
+		if (CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname))
+			print_error(" wrong CPXnewrows [degree]");
+
+		// income vertex
+		for (int i = 0; i < inst->nnodes; i++)
+		{
+			if (i == h) continue;
+			if (CPXchgcoef(env, lp, lastrow, asym_xpos(i, h, inst), 1.0)) // income vertex
+				print_error(" wrong CPXchgcoef [degree]");
+		}
+
+
+		// outcome vertex
+		lastrow = CPXgetnumrows(env, lp);
+		rhs = 1.0;
+		sense = 'E';	// 'E' for equality constraint
+		sprintf(cname[0], "outcome_d(%d)", h + 1);
+
+		// create a new row
+		if (CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname))
+			print_error(" wrong CPXnewrows [degree]");
+		for (int i = 0; i < inst->nnodes; i++)
+		{
+			if (i == h) continue;
+			if (CPXchgcoef(env, lp, lastrow, asym_xpos(h, i, inst), 1.0)) // income vertex
+				print_error(" wrong CPXchgcoef [degree]");
+		}
+
+	}
+
+	add_lazy_mtz(inst, env, lp);
+
+	if (inst->verbose >= -100) CPXwriteprob(env, lp, "model/asym_lazy_model.lp", NULL);
+
+	free(cname[0]);
+	free(cname);
+}
+
+void add_lazy_mtz(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
+	
+	int izero = 0;
+	int index[3];
+	double value[3];
+	
+	char** cname = (char**)calloc(1, sizeof(char*));
+	cname[0] = (char*)calloc(100, sizeof(char));
+
+	// add lazy constraints  u_i - u_j + M * x_ij <= M - 1, for each arc (i,j) not touching node 0	
+	double big_M = inst->nnodes - 1.0;
+	double rhs = big_M - 1.0;
+	char sense = 'L';
+	int nnz = 3;
+	for (int i = 1; i < inst->nnodes; i++){
+		for (int j = 1; j < inst->nnodes; j++){
+			if (i != j) {
+				sprintf(cname[0], "u-consistency for arc (%d,%d)", i + 1, j + 1);
+				index[0] = asym_upos(i, inst);
+				value[0] = 1.0;
+				index[1] = asym_upos(j, inst);
+				value[1] = -1.0;
+				index[2] = asym_xpos(i, j, inst);
+				value[2] = big_M;
+				if (CPXaddlazyconstraints(env, lp, 1, nnz, &rhs, &sense, &izero, index, value, cname)) 
+					print_error("wrong CPXlazyconstraints() for u-consistency");
+			}
+		}
+	}
+
+	// add lazy constraints x_ij + x_ji <= 1, for each arc (i,j) with i < j
+	rhs = 1.0;
+	nnz = 2;
+	for (int i = 0; i < inst->nnodes; i++){
+		for (int j = i + 1; j < inst->nnodes; j++){
+			sprintf(cname[0], "SEC on node pair (%d,%d)", i + 1, j + 1);
+			index[0] = asym_xpos(i, j, inst);
+			value[0] = 1.0;
+			index[1] = asym_xpos(j, i, inst);
+			value[1] = 1.0;
+			if (CPXaddlazyconstraints(env, lp, 1, nnz, &rhs, &sense, &izero, index, value, cname)) 
+				print_error("wrong CPXlazyconstraints on 2-node SECs");
+		}
+	}
+}
+
 
 // optimization methods run the problem optimization
 void mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status) {
@@ -498,7 +666,7 @@ void mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status
 	{
 
 		case 0:
-			subtour_iter_opt(env, lp, inst, status);
+			*status = subtour_iter_opt(env, lp, inst, status);
 			break;
 
 		case 1:
@@ -510,7 +678,15 @@ void mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status
 			break;
 
 		case 3:
-			*status = CPXmipopt(env,lp);
+			*status = CPXmipopt(env, lp);
+			break;
+		
+		case 4:
+			*status = CPXmipopt(env, lp);
+			break;
+
+		case 5:
+			*status = subtour_heur_iter_opt(env, lp, inst, status, 0);
 			break;
 
 		default:
@@ -527,10 +703,9 @@ int subtour_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status)
 	int *ncomp = (int*) calloc(1, sizeof(int));
 	char sense = 'L';
 	double rhs;
-	int first;
 	int lastrow;
 
-	char **cname = (char **) calloc(1, sizeof(char *));	// (char **) required by cplex...
+	char **cname = (char **) calloc(1, sizeof(char *));		// (char **) required by cplex...
 	cname[0] = (char *) calloc(100, sizeof(char));			// name of the variable
 	*ncomp = inst->nnodes;
 	int subtour_counter = 0;
@@ -585,26 +760,212 @@ int subtour_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status)
 		if (inst->verbose >= 1000) plot_instance(inst);
 	}
 	if (inst->verbose >= 100) printf("best solution found. ncomp = %d\n", *ncomp);
+	free(cname);
+	free(succ);
+	free(comp);
+	free(ncomp);
+	return 0;
 }
 
+int subtour_heur_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, int heuristic) {
 
-void switch_callback(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
-	CPXsetintparam(env, CPX_PARAM_MIPCBREDLP, CPX_OFF);				// let MIP callbacks work on the original model
+	// structure init
+	int* succ = (int*)calloc(inst->nnodes, sizeof(int));
+	int* comp = (int*)calloc(inst->nnodes, sizeof(int));
+	int* ncomp = (int*)calloc(1, sizeof(int));
+	char sense = 'L';
+	double rhs;
+	int first;
+	int lastrow;
 
-	if (inst->callback == 1) {										// Lazy Constraint Callback
-		CPXsetlazyconstraintcallbackfunc(env, lazycallback, inst);
+	char** cname = (char**)calloc(1, sizeof(char*));		// (char **) required by cplex...
+	cname[0] = (char*)calloc(100, sizeof(char));			// name of the variable
+	*ncomp = inst->nnodes;
+	int subtour_counter = 0;
 
-	}else if (inst->callback == 2) {								// Generic Callback
-		CPXcallbacksetfunc(env, lp, CPX_CALLBACKCONTEXT_CANDIDATE, genericcallback, inst);		// CPX_CALLBACKCONTEXT_CANDIDATE can be used with other params with |
+
+	if (heuristic == 0) {
+		CPXsetintparam(env, CPX_PARAM_NODELIM, 0);
+		//CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 1);	// abort Cplex after the first incument update
+		//CPXsetdblparam(env, CPX_PARAM_EPGAP, 0.01);  	// abort Cplex when gap below 10%
+		
+		CPXmipopt(env, lp);
+		CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
+		build_sol(inst, succ, comp, ncomp);
+		if (inst->verbose >= 100) printf("Iter %3d partial solution on Root node, ncomp = %d\n", subtour_counter, *ncomp);
+		if (inst->verbose >= 1000) plot_instance(inst);
+		while (*ncomp >= 2)
+		{
+
+			// subtour elimination constraints, one for each component
+			for (int comp_i = 1; comp_i <= *ncomp; comp_i++)
+			{
+				// create a new row
+				sprintf(cname[0], "subtour_comp(%d)", comp_i); // constraint name
+
+				// calculate rhs in O(nedges)
+				rhs = 0.0;
+				for (int i = 0; i < inst->nnodes; i++)
+					if (comp_i == comp[i])
+						rhs++;
+
+				rhs--; // rhs = |S| -1
+
+				lastrow = CPXgetnumrows(env, lp);
+				if (CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname))
+					print_error(" wrong CPXnewrows [degree]");
+				// printf("added row %d with constraint %s %f\n", CPXgetnumrows(env,lp)-1, "<=",rhs);
+
+				for (int i = 0; i < inst->nnodes; i++)
+				{
+					if (comp[i] == comp_i)
+					{
+						for (int j = i + 1; j < inst->nnodes; j++)
+						{
+							if (comp[j] == comp_i)
+							{
+								if (*status = CPXchgcoef(env, lp, lastrow, xpos(i, j, inst), 1.0)) // income vertex
+									print_error(" wrong CPXchgcoef [degree]");
+							}
+						}
+					}
+				}
+			}
+			subtour_counter++; //update subtour counter
+			CPXmipopt(env, lp);
+			CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
+			build_sol(inst, succ, comp, ncomp);
+			if (inst->verbose >= 100) printf("Iter %3d partial solution, ncomp = %d\n", subtour_counter, *ncomp);
+			if (inst->verbose >= 1000) plot_instance(inst);
+		}
+		if (inst->verbose >= 100) printf("best solution found in Root node. ncomp = %d\n", *ncomp);
+		subtour_heur_iter_opt(env, lp, inst, status, 1);
 	}
-	int ncores = 1;
-	CPXgetnumcores(env, &ncores);
-	CPXsetintparam(env, CPX_PARAM_THREADS, ncores); 				// it was reset after callback
-	inst->ncols = CPXgetnumcols(env, lp);
+	else {
+		CPXsetintparam(env, CPX_PARAM_NODELIM, 9999999);	//CPX_INFBOUND
+
+		CPXmipopt(env, lp);
+		CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
+		build_sol(inst, succ, comp, ncomp);
+		if (inst->verbose >= 100) printf("Iter %3d partial solution, ncomp = %d\n", subtour_counter, *ncomp);
+		if (inst->verbose >= 1000) plot_instance(inst);
+		while (*ncomp >= 2)
+		{
+
+			// subtour elimination constraints, one for each component
+			for (int comp_i = 1; comp_i <= *ncomp; comp_i++)
+			{
+				// create a new row
+				sprintf(cname[0], "subtour_comp(%d)", comp_i); // constraint name
+
+				// calculate rhs in O(nedges)
+				rhs = 0.0;
+				for (int i = 0; i < inst->nnodes; i++)
+					if (comp_i == comp[i])
+						rhs++;
+
+				rhs--; // rhs = |S| -1
+
+				lastrow = CPXgetnumrows(env, lp);
+				if (CPXnewrows(env, lp, 1, &rhs, &sense, NULL, cname))
+					print_error(" wrong CPXnewrows [degree]");
+				// printf("added row %d with constraint %s %f\n", CPXgetnumrows(env,lp)-1, "<=",rhs);
+
+				for (int i = 0; i < inst->nnodes; i++)
+				{
+					if (comp[i] == comp_i)
+					{
+						for (int j = i + 1; j < inst->nnodes; j++)
+						{
+							if (comp[j] == comp_i)
+							{
+								if (*status = CPXchgcoef(env, lp, lastrow, xpos(i, j, inst), 1.0)) // income vertex
+									print_error(" wrong CPXchgcoef [degree]");
+							}
+						}
+					}
+				}
+			}
+			subtour_counter++; //update subtour counter
+			CPXmipopt(env, lp);
+			CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
+			build_sol(inst, succ, comp, ncomp);
+			if (inst->verbose >= 100) printf("Iter %3d partial solution, ncomp = %d\n", subtour_counter, *ncomp);
+			if (inst->verbose >= 1000) plot_instance(inst);
+		}
+		if (inst->verbose >= 100) printf("best solution found. ncomp = %d\n", *ncomp);
+	}
+	free(cname);
+	free(succ);
+	free(comp);
+	free(ncomp);
+	return 0;
 }
 
-static int CPXPUBLIC lazycallback(CPXCENVptr env, void* cbdata, int wherefrom, void* cbhandle, int* useraction_p){
-	*useraction_p = CPX_CALLBACK_DEFAULT;
+
+void build_callback(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
+	
+	switch (inst->model_type)
+	{
+	case 0:		// basic model with asymmetric x and q
+		initCallback(inst, env, lp);
+		break;
+
+	case 1:		// MTZ contraints
+		
+		break;
+
+	case 2: 		// FLOW 1
+		
+		break;
+
+	case 3: 		// FLOW 1
+		
+		break;
+
+	case 4: 		// MTZ with LAZY
+		
+		break;
+
+	case 5:			// STD with HEUR subtour
+		initCallback(inst, env, lp);
+		break;
+
+	default:
+		print_error(" model type unknown for Lazy strategy!!");
+		break;
+	}	
+}
+
+void initCallback(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
+	if (inst->callback == 1) {											// Lazy Constraint Callback
+		CPXsetintparam(env, CPX_PARAM_MIPCBREDLP, CPX_OFF);				// let MIP callbacks work on the original model
+		if (CPXsetlazyconstraintcallbackfunc(env, lazycallback, inst)) {
+			print_error(" Error in setLazyCallback()\n");
+			CPXsetintparam(env, CPX_PARAM_MIPCBREDLP, CPX_ON);			// reset to allow CPX working on its (probably reduce) model
+			return;
+		}
+	}
+	else if (inst->callback == 2) {									// Generic Callback
+		CPXsetintparam(env, CPX_PARAM_MIPCBREDLP, CPX_OFF);
+		if (CPXcallbacksetfunc(env, lp, CPX_CALLBACKCONTEXT_CANDIDATE, genericcallback, inst)) {		// CPX_CALLBACKCONTEXT_CANDIDATE can be used with other params with |
+			print_error(" Error in setGenericCallback()\n");
+			CPXsetintparam(env, CPX_PARAM_MIPCBREDLP, CPX_ON);
+			return;
+		}
+	}
+	else {																// Callback not used
+		return;
+	}
+	//int ncores = 1;
+	//CPXgetnumcores(env, &ncores);
+	//CPXsetintparam(env, CPX_PARAM_THREADS, ncores); 				// it was reset after callback
+	CPXsetintparam(env, CPX_PARAM_THREADS, inst->nthread);
+	inst->ncols = CPXgetnumcols(env, lp);							// è necessario ricontrollare il numero di colonne?
+}
+
+static int CPXPUBLIC lazycallback(CPXCENVptr env, void* cbdata, int wherefrom, void* cbhandle, int* useraction_p){			// Dynamic Search is disabled
+	*useraction_p = CPX_CALLBACK_DEFAULT;					// solution is ok, don't add cuts
 	tspinstance* inst = (tspinstance*)cbhandle; 			// casting of cbhandle (which is pointing to the above parameter inst)
 
 	// get solution xstar
@@ -613,20 +974,20 @@ static int CPXPUBLIC lazycallback(CPXCENVptr env, void* cbdata, int wherefrom, v
 		return 1;
 
 	// get some random information at the node (as an example)
-	double objval = CPX_INFBOUND; CPXgetcallbacknodeobjval(env, cbdata, wherefrom, &objval);					//valore rilassamento continuo (LB) al nodo corrente
-	int mythread = -1; CPXgetcallbackinfo(env, cbdata, wherefrom, CPX_CALLBACK_INFO_MY_THREAD_NUM, &mythread);
-	double zbest; CPXgetcallbackinfo(env, cbdata, wherefrom, CPX_CALLBACK_INFO_BEST_INTEGER, &zbest);			//valore incumbent al nodo corrente
+	double objval = CPX_INFBOUND; CPXgetcallbacknodeobjval(env, cbdata, wherefrom, &objval);					// Valore rilassamento continuo (lower bound) al nodo corrente
+	int mythread = -1; CPXgetcallbackinfo(env, cbdata, wherefrom, CPX_CALLBACK_INFO_MY_THREAD_NUM, &mythread);	// Thread chiamante
+	double zbest; CPXgetcallbackinfo(env, cbdata, wherefrom, CPX_CALLBACK_INFO_BEST_INTEGER, &zbest);			// Valore incumbent al nodo corrente
 
 	//apply cut separator and possibly add violated cuts
-	//int ncuts = mylazy_separation(inst, xstar, env, cbdata, wherefrom);
-	free(xstar);													//avoid memory leak
+	int ncuts = mylazy_separation(inst, xstar, env, cbdata, wherefrom);
+	free(xstar);
 
-	//if (ncuts >= 1)
-		*useraction_p = CPX_CALLBACK_SET; 		// tell CPLEX that cuts have been created
+	if (ncuts >= 1)
+		*useraction_p = CPX_CALLBACK_SET; 					// tell CPLEX that cuts have been created
 	return 0; 												// return 1 would mean error --> abort Cplex's execution
 }
 
-static int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void* cbhandle) {
+static int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void* cbhandle) {			// Dynamic Search is used anyway
 
 	if (contextid == CPX_CALLBACKCONTEXT_CANDIDATE) {
 		tspinstance* inst = (tspinstance*)cbhandle; 			// casting of cbhandle (which is pointing to the above parameter inst)
@@ -649,11 +1010,140 @@ static int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG cont
 		return 0;
 }
 
-int mygeneric_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONTEXTptr context) {
-		return 0;
+int mylazy_separation(tspinstance* inst, const double* xstar, CPXCENVptr env, void* cbdata, int wherefrom) {
+	// structure init
+	int* succ = (int*)calloc(inst->nnodes, sizeof(int));
+	int* comp = (int*)calloc(inst->nnodes, sizeof(int));
+	int ncomp = 99999;
+	char sense = 'L';
+	double rhs;
+	int nnz;
+	int val_length = 0;
+
+	char** cname = (char**)calloc(1, sizeof(char*));		// (char **) required by cplex...
+	cname[0] = (char*)calloc(100, sizeof(char));			// name of the variable
+
+	build_sol_lazy_std(inst, xstar, succ, comp, &ncomp);
+	if (ncomp >= 2){
+
+		// subtour elimination constraints, one for each component
+		for (int comp_i = 1; comp_i <= ncomp; comp_i++){
+
+			// create a new row
+			sprintf(cname[0], "lazy_subtour_comp(%d)", comp_i); // constraint name
+
+			// calculate rhs in O(nedges)
+			rhs = 0.0;
+			for (int i = 0; i < inst->nnodes; i++)
+				if (comp_i == comp[i])
+					rhs++;
+
+			rhs--; // rhs = |S| -1
+
+			for (int i = 0; i < inst->nnodes; i++){
+				if (comp[i] == comp_i){
+					for (int j = i + 1; j < inst->nnodes; j++){
+						if (comp[j] == comp_i){
+							val_length++;
+						}
+					}
+				}
+			}
+			nnz = 0;
+			int* index = (int*)calloc(val_length, sizeof(int));
+			double* value = (double*)calloc(val_length, sizeof(double));
+			for (int i = 0; i < inst->nnodes; i++) {
+				if (comp[i] == comp_i) {
+					for (int j = i + 1; j < inst->nnodes; j++) {
+						if (comp[j] == comp_i) {
+							index[nnz] = xpos(i, j, inst);
+							value[nnz] = 1.0;
+							nnz++;
+						}
+					}
+				}
+			}
+			if (CPXcutcallbackadd(env, cbdata, wherefrom, nnz, rhs, sense, index, value, 0))					// 0 means that the cut is managed by CPX
+				print_error("User_Separation: CPXcutcallbackadd error");
+				//if ( CPXcutcallbackaddlocal(env, cbdata, wherefrom, nnz, rhs, sense, index, value) )			// Usato per tagli validi localmente (ex. Gomory)
+				//print_error("USER_separation: CPXcutcallbackaddlocal error");
+			free(index);
+			free(value);
+		}
+		if (inst->verbose >= 100) printf("LAZY partial solution, ncomp = %d\n", ncomp);
+		free(cname);
+		return ncomp == 1 ? 0 : ncomp;
+	}
+	if (inst->verbose >= 100) printf("best solution found in LAZY. ncomp = %d\n", ncomp);
+	free(cname);
+	return 0;
 }
 
-int mylazy_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONTEXTptr context) {
+int mygeneric_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONTEXTptr context) {
+	// structure init
+	int* succ = (int*)calloc(inst->nnodes, sizeof(int));
+	int* comp = (int*)calloc(inst->nnodes, sizeof(int));
+	int ncomp = 99999;
+	char sense = 'L';
+	double rhs;
+	int nnz;
+	int val_length = 0;
+	int izero = 0;
+
+	char** cname = (char**)calloc(1, sizeof(char*));		// (char **) required by cplex...
+	cname[0] = (char*)calloc(100, sizeof(char));			// name of the variable
+
+	build_sol_lazy_std(inst, xstar, succ, comp, &ncomp);
+	if (ncomp >= 2) {
+
+		// subtour elimination constraints, one for each component
+		for (int comp_i = 1; comp_i <= ncomp; comp_i++) {
+
+			// create a new row
+			sprintf(cname[0], "GenericLazy_subtour_comp(%d)", comp_i); // constraint name
+
+			// calculate rhs in O(nedges)
+			rhs = 0.0;
+			for (int i = 0; i < inst->nnodes; i++)
+				if (comp_i == comp[i])
+					rhs++;
+
+			rhs--; // rhs = |S| -1
+
+			for (int i = 0; i < inst->nnodes; i++) {
+				if (comp[i] == comp_i) {
+					for (int j = i + 1; j < inst->nnodes; j++) {
+						if (comp[j] == comp_i) {
+							val_length++;
+						}
+					}
+				}
+			}
+			nnz = 0;
+			int* index = (int*)calloc(val_length, sizeof(int));
+			double* value = (double*)calloc(val_length, sizeof(double));
+			for (int i = 0; i < inst->nnodes; i++) {
+				if (comp[i] == comp_i) {
+					for (int j = i + 1; j < inst->nnodes; j++) {
+						if (comp[j] == comp_i) {
+							index[nnz] = xpos(i, j, inst);
+							value[nnz] = 1.0;
+							nnz++;
+						}
+					}
+				}
+			}
+			if (CPXcallbackrejectcandidate(context, 1, nnz, &rhs, &sense, &izero, index, value))					// 0 means that the cut is managed by CPX
+				print_error("User_Separation: CPXcallbackrejectcandidate error");
+			free(index);
+			free(value);
+		}
+		if (inst->verbose >= 100) printf("GenericLAZY partial solution, ncomp = %d\n", ncomp);
+		free(cname);
+		return ncomp == 1 ? 0 : ncomp;
+	}
+	if (inst->verbose >= 100) printf("best solution found in GenericLAZY. ncomp = %d\n", ncomp);
+	free(cname);
 	return 0;
 }
 
@@ -674,9 +1164,17 @@ void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp) {
 		case 2:
 			build_sol_flow1(inst, succ, comp, ncomp);
 			break;
-
+		
 		case 3:
 			build_sol_flow1(inst, succ, comp, ncomp);
+			break;
+
+		case 4:
+			build_sol_mtz(inst, succ, comp, ncomp);
+			break;
+
+		case 5:		
+			build_sol_sym(inst, succ, comp, ncomp);
 			break;
 
 		default:
@@ -749,6 +1247,103 @@ void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 				if (j == i) continue;
 
 				if ( inst->best_sol[xpos(i,j,inst)] > 0.5) // the edge [i,j] is selected in inst->best_sol and j was not visited before
+				{
+					// intern edge of the cycle
+					if (comp[j] == -1)
+					{
+						succ[i] = j;
+						i = j;
+						break;
+					}
+					// last edge of the cycle
+					if (start == j)
+					{
+						succ[i] = j;
+					}
+				}
+			}
+		}	// while
+	// go to the next component...
+	}
+
+	// print succ, comp and ncomp
+	if (inst->verbose >= 1000)
+	{
+		printf("\ni:      ");
+		for (int i = 0; i < inst->nnodes; i++) printf("%6d", i);
+		printf("\nsucc:   ");
+		for (int i = 0; i < inst->nnodes; i++) printf("%6d", succ[i]);
+		printf("\ncomp:   ");
+		for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
+		printf("\n");
+	}
+}
+
+void build_sol_lazy_std(tspinstance* inst, double* xstar, int* succ, int* comp, int* ncomp) {	// build succ() and comp() wrt xstar()...
+
+	// check if nodes degree is 2 for each node
+	if (inst->verbose >= 1000)
+	{
+		int* degree = (int*)calloc(inst->nnodes, sizeof(int));
+		printf("nnodes=%d\n", inst->nnodes);
+		for (int i = 0; i < inst->nnodes; i++)
+		{
+			for (int j = i + 1; j < inst->nnodes; j++)
+			{
+				int k = xpos(i, j, inst);
+				if (fabs(xstar[k]) > EPS && fabs(xstar[k] - 1.0) > EPS) print_error(" wrong xstar in build_sol()");
+				if (xstar[k] > 0.5)
+				{
+					printf("x[%d,%d] = 1\n", i, j);
+					++degree[i];
+					++degree[j];
+				}
+				else {
+					printf("x[%d,%d] = 0\n", i, j);
+				}
+
+			}
+		}
+		for (int i = 0; i < inst->nnodes; i++)
+		{
+			if (degree[i] != 2)
+			{
+				char msg[40];
+				snprintf(msg, sizeof msg, "wrong degree[%d] = %d in build_sol_sym", i, degree[i]);
+				print_error(msg);
+			}
+		}
+		free(degree);
+	}
+
+	// initialization of succ, comp and ncomp
+	*ncomp = 0;
+	for (int i = 0; i < inst->nnodes; i++)
+	{
+		succ[i] = -1;
+		comp[i] = -1;
+	}
+
+	// tour
+	for (int start = 0; start < inst->nnodes; start++)
+	{
+		if (comp[start] >= 0) continue;  // node "start" has already been setted
+
+		// a new component is found
+		(*ncomp)++;
+		comp[start] = *ncomp;
+
+		int i = start;
+		//int done = 0;
+		while (succ[i] == -1)  // go and visit the current component
+		{
+			comp[i] = *ncomp;
+			// done = 1;
+			for (int j = 0; j < inst->nnodes; j++)
+			{
+				if (j == i) continue;
+
+				if (xstar[xpos(i, j, inst)] > 0.5) // the edge [i,j] is selected in xstar and j was not visited before
 				{
 					// intern edge of the cycle
 					if (comp[j] == -1)
@@ -1137,6 +1732,7 @@ void parse_command_line(int argc, char** argv, tspinstance *inst) {
 		printf("-max_nodes %d\n", inst->max_nodes);
 		printf("-memory %d\n", inst->available_memory);
 		printf("-int %d\n", inst->integer_costs);
+		printf("-verbose %d\n", inst->verbose);
 		printf("-node_file %s\n", inst->node_file);
 		printf("---------------------------------\n\n");
 	}
@@ -1233,7 +1829,7 @@ void setup_style(FILE *gnuplot, tspinstance *inst) {
 		case 3:
 			setup_arrowstyle2(gnuplot);
 			break;
-
+    
 		default:
 			fclose(gnuplot);
 			print_error(" Model type unknown!!\n");
@@ -1330,7 +1926,7 @@ void plot_arrow_asym(FILE *gnuplot, char *pngname, tspinstance *inst) {
 
 char * get_file_name(char *path, char *name) {	// data/att48.tsp -> att48
 	strcpy(name, path);
-  int start_name = 0;
+	int start_name = 0;
 	for (int i = 0; name[i] != '\0'; i++) {
 		if (name[i] == DIR_DELIM) start_name = i + 1;
 		if (name[i] == '.') {
@@ -1341,7 +1937,6 @@ char * get_file_name(char *path, char *name) {	// data/att48.tsp -> att48
 	name += start_name;
 	return name;
 }
-
 
 // Saving data
 int save_results(tspinstance *inst, char *f_name) {
@@ -1366,6 +1961,7 @@ int save_results(tspinstance *inst, char *f_name) {
 	fputs(dataToAppend, outfile);
 
 	fclose(outfile);
+	return 0;
 }
 
 
@@ -1379,3 +1975,5 @@ void pause_execution() {
 void print_error(const char *err) {
 	printf("\n\n ERROR: %s \n\n", err); fflush(NULL); exit(1);
 }
+
+
