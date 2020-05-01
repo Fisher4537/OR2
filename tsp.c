@@ -20,6 +20,9 @@
 			- subtour_iter_opt better performance with index-value?
 			- PLZ change all code with index-value, change_coef is really bad (said by Fischetti) 
 			- check all array and if free is used everytime is possible	(check all cname for example)
+
+			- Latex: how to use generic callback (if it's write good he can take the part for next year course
+			- User_cut di Concorde (difficile implementarle e non è possibile utilizzarle ogni volta bensì solo ogni tot..)		-> per la lode 
 */
 
 char * model_name(int i) {
@@ -171,13 +174,15 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 
 	// save model in .lp file
 	if ( inst->verbose >= 1 ){
-		char* lpname = (char *) malloc(sizeof(inst->input_file)+20+sizeof(inst->model_type));
+		char* lpname = (char*)malloc(sizeof(inst->input_file) + 20 + sizeof(inst->model_type));
 		char* name = (char*) malloc(strlen(inst->input_file));
-		snprintf(lpname, sizeof lpname,
-								"%s%c%s_%d.lp",
-								"model", DIR_DELIM,
-								get_file_name(inst->input_file, name),
-								inst->model_type);  // TODO: input_file check
+		name = get_file_name(inst->input_file, name);
+		snprintf(lpname, sizeof(inst->input_file) + 20 + sizeof(inst->model_type),
+											"%s%c%s_%d.lp",
+											"model", DIR_DELIM,
+											name,
+											inst->model_type
+											);  // TODO: input_file check
 		// printf("saving %s\n", lpname);
 		CPXwriteprob(env, lp, lpname, NULL);
 	}
