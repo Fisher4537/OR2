@@ -149,8 +149,8 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 	// save model in .lp file
 	if ( inst->verbose >= 1 ){
 		char lpname[sizeof(inst->input_file)+20+sizeof(inst->model_type)];
-		char name[strlen(inst->input_file)];
-		snprintf(lpname, sizeof lpname,
+		char name[sizeof(inst->input_file)];
+		snprintf(lpname, sizeof(lpname),
 								"%s%c%s_%d.lp",
 								"model", DIR_DELIM,
 								get_file_name(inst->input_file, name),
@@ -714,7 +714,7 @@ void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 			if ( degree[i] != 2 )
 			{
 				char msg[40];
-				snprintf(msg, sizeof msg, "wrong degree[%d] = %d in build_sol_sym", i, degree[i]);
+				snprintf(msg, sizeof(msg), "wrong degree[%d] = %d in build_sol_sym", i, degree[i]);
 				print_error(msg);
 			}
 		}
@@ -817,7 +817,7 @@ void build_sol_mtz(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 
 			if ( degree[i] != 2 ) {
 				char msg[100];
-				snprintf(msg, sizeof msg, "wrong degree in build_sol_mtz: degree(%d) = %d", i, degree[i]);
+				snprintf(msg, sizeof(msg), "wrong degree in build_sol_mtz: degree(%d) = %d", i, degree[i]);
 				print_error(msg);
 			}
 		}
@@ -906,7 +906,7 @@ void build_sol_flow1(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// b
 
 			if ( degree[i] != 2 ) {
 				char msg[100];
-				snprintf(msg, sizeof msg, "wrong degree in build_sol_mtz: degree(%d) = %d", i, degree[i]);
+				snprintf(msg, sizeof(msg), "wrong degree in build_sol_mtz: degree(%d) = %d", i, degree[i]);
 				print_error(msg);
 			}
 		}
@@ -1184,8 +1184,8 @@ void plot_instance(tspinstance *inst) {
 	}
 
 	char pngname[sizeof(inst->input_file)+20+sizeof(inst->model_type)];
-	char name[strlen(inst->input_file)];
-	snprintf(pngname, sizeof pngname,
+	char name[sizeof(inst->input_file)];
+	snprintf(pngname, sizeof(pngname),
 		"plot%c%s_%d.png",
 		DIR_DELIM,
 		get_file_name(inst->input_file, name),
@@ -1329,7 +1329,6 @@ void plot_arrow_asym(FILE *gnuplot, char *pngname, tspinstance *inst) {
 
 
 char * get_file_name(char *path, char *name) {	// data/att48.tsp -> att48
-	char *copy_path = (char *) malloc(strlen(path)); // TODO: memory problem if doesn't free copy_path
 	strcpy(name, path);
   int start_name = 0;
 	for (int i = 0; name[i] != '\0'; i++) {
@@ -1349,8 +1348,8 @@ int save_results(tspinstance *inst, char *f_name) {
 	FILE *outfile;
 	outfile = fopen(f_name, "a");
 	char dataToAppend[sizeof(inst->input_file)+sizeof(inst->nnodes)*4+ sizeof(inst->opt_time) + 20];
-	char name[strlen(inst->input_file)];
-	snprintf(dataToAppend, sizeof dataToAppend, "%s; %d; %s; %d; %d; %lf;\n",
+	char name[sizeof(inst->input_file)];
+	snprintf(dataToAppend, sizeof(dataToAppend), "%s; %d; %s; %d; %d; %lf;\n",
 	 												get_file_name(inst->input_file, name), inst->nnodes,
 													model_name(inst->model_type), inst->randomseed,
 													inst->nthread, inst->opt_time );
