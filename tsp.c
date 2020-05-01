@@ -17,20 +17,25 @@
 
 /**
 	TODO:	- a way to get CPLEX error code: status?
-			- subtour_iter_opt better performance with index-value?
 			- PLZ change all code with index-value, change_coef is really bad (said by Fischetti) 
 			- check all array and if free is used everytime is possible	(check all cname for example)
 
-			- Latex: how to use generic callback (if it's write good he can take the part for next year course
+			- Latex: how to use generic callback (if it's write good he can take the part for next year courses)
 			- User_cut di Concorde (difficile implementarle e non è possibile utilizzarle ogni volta bensì solo ogni tot..)		-> per la lode 
 */
 
 char * model_name(int i) {
 	switch (i) {
-		case 0: return "subtour";
-		case 1: return "mtz";
-		case 2: return "flow1_n-2";
-		case 3: return "flow1_n-1";
+		case 0: return "subtour";							// basic model with asymmetric x and q
+		case 1: return "mtz";								// MTZ contraints
+		case 2: return "flow1_n-2";							// FLOW 1 with y_0j <= x_0j*(n-2) if i != 0
+		case 3: return "flow1_n-1";							// FLOW 1 with y_0j <= x_0j*(n-1)
+		case 4: return "mtz_lazy";							// MTZ with LAZY
+		case 5: return "subtour_heur";						// Subtour with HEUR
+		case 6: return "subtour_callback_lazy";				// Subtour_callback_lazy
+		case 7: return "subtour_callback_general";			// Subtour_callback_general
+		case 8: return "subtour_heur_callback_lazy";		// Subtour_heur_callback_lazy
+		case 9: return "subtour_heur_callback_general";		// Subtour_heur_callback_general
 	}
 }
 
@@ -55,9 +60,6 @@ int TSPopt(tspinstance *inst) {
 
 	// set input data in CPX structure
 	build_model(inst, env, lp);
-
-	// add callback
-	build_callback(inst, env, lp);
 
 	// setup struct to save solution
 	inst->nedges = CPXgetnumcols(env, lp);
@@ -143,7 +145,7 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 
 	switch (inst->model_type)
 	{
-		case 0 :		// basic model with asymmetric x and q
+		case 0 :		// basic model with asymmetric x and q => Subtour
 			build_sym_std(inst, env,lp);
 			break;
 
@@ -160,10 +162,26 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 			break;
 
 		case 4: 		// MTZ with LAZY
-			build_model_mtz_lazy(inst, env, lp);
+			build_mtz_lazy(inst, env, lp);
 			break;
 
-		case 5:			// STD with HEUR subtour
+		case 5:			// Subtour with HEUR
+			build_sym_std(inst, env, lp);
+			break;
+
+		case 6:			// Subtour_callback_lazy
+			build_sym_std(inst, env, lp);
+			break;
+
+		case 7:			// Subtour_callback_general
+			build_sym_std(inst, env, lp);
+			break;
+
+		case 8:			// Subtour_heur_callback_lazy
+			build_sym_std(inst, env, lp);
+			break;
+
+		case 9:			// Subtour_heur_callback_general
 			build_sym_std(inst, env, lp);
 			break;
 
@@ -183,7 +201,6 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 								inst->model_type);  // TODO: input_file check
 		// printf("saving %s\n", lpname);
 		CPXwriteprob(env, lp, lpname, NULL);
-		free(lpname);
 	}
 }
 
@@ -516,7 +533,7 @@ void build_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {  // auto adapt
 	}
 }
 
-void build_model_mtz_lazy(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
+void build_mtz_lazy(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 
 	char xctype = 'B';	// type of variable
 	double obj; // objective function constant
@@ -665,34 +682,53 @@ void mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status
 	switch (inst->model_type)
 	{
 
-		case 0:
+		case 0:			// basic model with asymmetric x and q => Subtour
 			*status = subtour_iter_opt(env, lp, inst, status);
 			break;
 
-		case 1:
+		case 1:			// MTZ contraints
 			*status = CPXmipopt(env,lp);
 			break;
 
-		case 2:
+		case 2:			// FLOW 1 with y_0j <= x_0j*(n-2) if i != 0
 			*status = CPXmipopt(env,lp);
 			break;
 
-		case 3:
+		case 3:			// FLOW 1 with y_0j <= x_0j*(n-1)
 			*status = CPXmipopt(env, lp);
 			break;
 		
-		case 4:
+		case 4:			// MTZ with LAZY
 			*status = CPXmipopt(env, lp);
 			break;
 
-		case 5:
+		case 5:			// Subtour with HEUR
 			*status = subtour_heur_iter_opt(env, lp, inst, status, 0);
 			break;
 
+		case 6:			// Subtour_callback_lazy
+			switch_callback(inst, env, lp, 1);
+			*status = subtour_iter_opt(env, lp, inst, status);
+			break;
+
+		case 7:			// Subtour_callback_general
+			switch_callback(inst, env, lp, 2);
+			*status = subtour_iter_opt(env, lp, inst, status);
+			break;
+
+		case 8:			// Subtour_heur_callback_lazy
+			switch_callback(inst, env, lp, 1);
+			*status = subtour_heur_iter_opt(env, lp, inst, status, 0);
+			break;
+
+		case 9:			// Subtour_heur_callback_general
+			switch_callback(inst, env, lp, 2);
+			*status = subtour_heur_iter_opt(env, lp, inst, status, 0);
+			break;
 		default:
 			print_error("model ì_type not implemented in optimization method");
 			break;
-	} // switch
+	}
 }
 
 int subtour_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status) {
@@ -903,42 +939,9 @@ int subtour_heur_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* st
 }
 
 
-void build_callback(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
-	
-	switch (inst->model_type)
-	{
-	case 0:		// basic model with asymmetric x and q
-		initCallback(inst, env, lp);
-		break;
+void switch_callback(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int callback) {
 
-	case 1:		// MTZ contraints
-		
-		break;
-
-	case 2: 		// FLOW 1
-		
-		break;
-
-	case 3: 		// FLOW 1
-		
-		break;
-
-	case 4: 		// MTZ with LAZY
-		
-		break;
-
-	case 5:			// STD with HEUR subtour
-		initCallback(inst, env, lp);
-		break;
-
-	default:
-		print_error(" model type unknown for Lazy strategy!!");
-		break;
-	}	
-}
-
-void initCallback(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
-	if (inst->callback == 1) {											// Lazy Constraint Callback
+	if (callback == 1) {										// Lazy Constraint Callback
 		CPXsetintparam(env, CPX_PARAM_MIPCBREDLP, CPX_OFF);				// let MIP callbacks work on the original model
 		if (CPXsetlazyconstraintcallbackfunc(env, lazycallback, inst)) {
 			print_error(" Error in setLazyCallback()\n");
@@ -946,7 +949,7 @@ void initCallback(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 			return;
 		}
 	}
-	else if (inst->callback == 2) {									// Generic Callback
+	else if (callback == 2) {									// Generic Callback
 		CPXsetintparam(env, CPX_PARAM_MIPCBREDLP, CPX_OFF);
 		if (CPXcallbacksetfunc(env, lp, CPX_CALLBACKCONTEXT_CANDIDATE, genericcallback, inst)) {		// CPX_CALLBACKCONTEXT_CANDIDATE can be used with other params with |
 			print_error(" Error in setGenericCallback()\n");
@@ -957,10 +960,8 @@ void initCallback(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 	else {																// Callback not used
 		return;
 	}
-	//int ncores = 1;
-	//CPXgetnumcores(env, &ncores);
-	//CPXsetintparam(env, CPX_PARAM_THREADS, ncores); 				// it was reset after callback
-	CPXsetintparam(env, CPX_PARAM_THREADS, inst->nthread);
+		
+	CPXsetintparam(env, CPX_PARAM_THREADS, inst->nthread);			// it was reset after callback
 	inst->ncols = CPXgetnumcols(env, lp);							// è necessario ricontrollare il numero di colonne?
 }
 
@@ -1161,22 +1162,37 @@ void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp) {
 		 	build_sol_mtz(inst, succ, comp, ncomp);
 			break;
 
-		case 2:
+		case 2:			// FLOW 1 with y_0j <= x_0j*(n-2) if i != 0
 			build_sol_flow1(inst, succ, comp, ncomp);
 			break;
 		
-		case 3:
+		case 3:			// FLOW 1 with y_0j <= x_0j * (n - 1)
 			build_sol_flow1(inst, succ, comp, ncomp);
 			break;
 
-		case 4:
+		case 4:			// MTZ with LAZY
 			build_sol_mtz(inst, succ, comp, ncomp);
 			break;
 
-		case 5:		
+		case 5:			// Subtour with HEUR
 			build_sol_sym(inst, succ, comp, ncomp);
 			break;
 
+		case 6:			// Subtour_callback_lazy
+			build_sol_sym(inst, succ, comp, ncomp);
+			break;
+
+		case 7:			// Subtour_callback_general
+			build_sol_sym(inst, succ, comp, ncomp);
+			break;
+
+		case 8:			// Subtour_heur_callback_lazy
+			build_sol_sym(inst, succ, comp, ncomp);
+			break;
+
+		case 9:			// Subtour_heur_callback_general
+			build_sol_sym(inst, succ, comp, ncomp);
+			break;
 		default:
 			print_error(" model type unknown!!");
 			break;
@@ -1814,22 +1830,46 @@ void setup_style(FILE *gnuplot, tspinstance *inst) {
 
 	switch (inst->model_type) {
 
-		case 0:
+		case 0:			// basic model with asymmetric x and q
 			setup_linestyle2(gnuplot);
 			break;
 
-		case 1:
+		case 1:			// MTZ contraints
 			setup_arrowstyle2(gnuplot);
 			break;
 
-		case 2:
+		case 2:			// FLOW 1 with y_0j <= x_0j*(n-2) if i != 0
 			setup_arrowstyle2(gnuplot);
 			break;
 
-		case 3:
+		case 3:			// FLOW 1 with y_0j <= x_0j * (n - 1)
 			setup_arrowstyle2(gnuplot);
 			break;
-    
+
+		case 4:			// MTZ with LAZY
+			setup_arrowstyle2(gnuplot);
+			break;
+
+		case 5:			// Subtour with HEUR
+			setup_linestyle2(gnuplot);
+			break;
+
+		case 6:			// Subtour_callback_lazy
+			setup_linestyle2(gnuplot);
+			break;
+
+		case 7:			// Subtour_callback_general
+			setup_linestyle2(gnuplot);
+			break;
+
+		case 8:			// Subtour_heur_callback_lazy
+			setup_linestyle2(gnuplot);
+			break;
+
+		case 9:			// Subtour_heur_callback_general
+			setup_linestyle2(gnuplot);
+			break;
+
 		default:
 			fclose(gnuplot);
 			print_error(" Model type unknown!!\n");
@@ -1875,21 +1915,45 @@ void plot_edges(FILE *gnuplot, char *pngname, tspinstance *inst) {
 
 		switch (inst->model_type) {
 
-			case 0:
-				plot_lines_sym(gnuplot, pngname, inst);
-				break;
+		case 0:			// basic model with asymmetric x and q
+			plot_lines_sym(gnuplot, pngname, inst);
+			break;
 
-			case 1:
-				plot_arrow_asym(gnuplot, pngname, inst);
-				break;
+		case 1:			// MTZ contraints
+			plot_arrow_asym(gnuplot, pngname, inst);
+			break;
 
-			case 2:
-				plot_arrow_asym(gnuplot, pngname, inst);
-				break;
+		case 2:			// FLOW 1 with y_0j <= x_0j*(n-2) if i != 0
+			plot_arrow_asym(gnuplot, pngname, inst);
+			break;
 
-			case 3:
-				plot_arrow_asym(gnuplot, pngname, inst);
-				break;
+		case 3:			// FLOW 1 with y_0j <= x_0j * (n - 1)
+			plot_arrow_asym(gnuplot, pngname, inst);
+			break;
+
+		case 4:			// MTZ with LAZY
+			plot_arrow_asym(gnuplot, pngname, inst);
+			break;
+
+		case 5:			// Subtour with HEUR
+			plot_lines_sym(gnuplot, pngname, inst);
+			break;
+
+		case 6:			// Subtour_callback_lazy
+			plot_lines_sym(gnuplot, pngname, inst);
+			break;
+
+		case 7:			// Subtour_callback_general
+			plot_lines_sym(gnuplot, pngname, inst);
+			break;
+
+		case 8:			// Subtour_heur_callback_lazy
+			plot_lines_sym(gnuplot, pngname, inst);
+			break;
+
+		case 9:			// Subtour_heur_callback_general
+			plot_lines_sym(gnuplot, pngname, inst);
+			break;
 
 			default:
 				fclose(gnuplot);
