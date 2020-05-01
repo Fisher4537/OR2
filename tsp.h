@@ -33,6 +33,7 @@ typedef struct {
 	int verbose;
 
 	// parameters
+	int setup_model;
 	int model_type;					// TSP
 	int randomseed;
 	int nthread;					// number of threads
@@ -58,6 +59,11 @@ typedef struct {
 
 	double ncols;
 	int callback;
+	int mip_opt;
+	int build_sol;
+	int heuristic;
+	int plot_style;
+	int plot_edge;
 
 	// model;
 	// int xstart;
@@ -90,11 +96,13 @@ void build_flow1(tspinstance *inst, CPXENVptr env, CPXLPptr lp);
 void build_mtz_lazy(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 void add_lazy_mtz(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 
-void mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
+void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+
+int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
 int subtour_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
 int subtour_heur_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, int heuristic);
 
-void switch_callback(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int callback);
+void switch_callback(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 static int CPXPUBLIC lazycallback(CPXCENVptr env, void* cbdata, int wherefrom, void* cbhandle, int* useraction_p);
 static int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void* cbhandle);
 int mylazy_separation(tspinstance* inst, const double* xstar, CPXCENVptr env, void* cbdata, int wherefrom);
