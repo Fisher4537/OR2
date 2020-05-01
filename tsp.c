@@ -185,6 +185,8 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 											);  // TODO: input_file check
 		// printf("saving %s\n", lpname);
 		CPXwriteprob(env, lp, lpname, NULL);
+		free(lpname);
+		free(name);
 	}
 
 }
