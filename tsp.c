@@ -43,13 +43,12 @@ int TSPopt(tspinstance *inst) {
 	CPXsetintparam(env,CPX_PARAM_RANDOMSEED, inst->randomseed);		// avoid performace variability
 	CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit);		// set time limit
 	if (inst->verbose >= 100) CPXsetintparam(env, CPX_PARAM_SCRIND, CPX_ON);	// show CPLEX log
-    // CPXsetintparam(env, CPX_PARAM_MIPDISPLAY, 4);
 
 	// CPX_PARAM_MIPEMPHASIS: it balances optimality and integer feasibility.
 	//	(CPX_MIPEMPHASIS_BALANCED, CPX_MIPEMPHASIS_FEASIBILITY, CPX_MIPEMPHASIS_OPTIMALITY,
 	//	CPX_MIPEMPHASIS_BESTBOUND, CPX_MIPEMPHASIS_HIDDENFEAS)
 	// CPX_PARAM_MIPSEARCH: Dynamic search or B&C ?
-	// CPXsetintparam(env, CPX_PARAM_MIPDISPLAY, 4);
+	// CPXsetintparam(env, CPX_PARAM_MIPDISPLAY, 4);			// Display new incumbents, and display a log line every n nodes
 
 	// set input data in CPX structure
 	build_model(inst, env, lp);
@@ -1078,6 +1077,70 @@ int mylazy_separation(tspinstance* inst, const double* xstar, CPXCENVptr env, vo
 }
 
 int mygeneric_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONTEXTptr context) {
+	// structure init
+	int* succ = (int*)calloc(inst->nnodes, sizeof(int));
+	int* comp = (int*)calloc(inst->nnodes, sizeof(int));
+	int ncomp = 99999;
+	char sense = 'L';
+	double rhs;
+	int nnz;
+	int val_length = 0;
+	int izero = 0;
+
+	char** cname = (char**)calloc(1, sizeof(char*));		// (char **) required by cplex...
+	cname[0] = (char*)calloc(100, sizeof(char));			// name of the variable
+
+	build_sol_lazy_std(inst, xstar, succ, comp, &ncomp);
+	if (ncomp >= 2) {
+
+		// subtour elimination constraints, one for each component
+		for (int comp_i = 1; comp_i <= ncomp; comp_i++) {
+
+			// create a new row
+			sprintf(cname[0], "GenericLazy_subtour_comp(%d)", comp_i); // constraint name
+
+			// calculate rhs in O(nedges)
+			rhs = 0.0;
+			for (int i = 0; i < inst->nnodes; i++)
+				if (comp_i == comp[i])
+					rhs++;
+
+			rhs--; // rhs = |S| -1
+
+			for (int i = 0; i < inst->nnodes; i++) {
+				if (comp[i] == comp_i) {
+					for (int j = i + 1; j < inst->nnodes; j++) {
+						if (comp[j] == comp_i) {
+							val_length++;
+						}
+					}
+				}
+			}
+			nnz = 0;
+			int* index = (int*)calloc(val_length, sizeof(int));
+			double* value = (double*)calloc(val_length, sizeof(double));
+			for (int i = 0; i < inst->nnodes; i++) {
+				if (comp[i] == comp_i) {
+					for (int j = i + 1; j < inst->nnodes; j++) {
+						if (comp[j] == comp_i) {
+							index[nnz] = xpos(i, j, inst);
+							value[nnz] = 1.0;
+							nnz++;
+						}
+					}
+				}
+			}
+			if (CPXcallbackrejectcandidate(context, 1, nnz, &rhs, &sense, &izero, index, value))					// 0 means that the cut is managed by CPX
+				print_error("User_Separation: CPXcallbackrejectcandidate error");
+			free(index);
+			free(value);
+		}
+		if (inst->verbose >= 100) printf("GenericLAZY partial solution, ncomp = %d\n", ncomp);
+		free(cname);
+		return ncomp == 1 ? 0 : ncomp;
+	}
+	if (inst->verbose >= 100) printf("best solution found in GenericLAZY. ncomp = %d\n", ncomp);
+	free(cname);
 	return 0;
 }
 
