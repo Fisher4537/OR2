@@ -126,7 +126,7 @@ void setup_model(tspinstance* inst) {
 			inst->model_type = 0;
 			inst->heuristic = 2;
 			inst->callback = 1;
-			inst->mip_opt = 0;
+			inst->mip_opt = 2;
 			inst->build_sol = 0;
 			inst->plot_style = 0;
 			inst->plot_edge = 0;
@@ -272,8 +272,8 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 		char name[sizeof(inst->input_file)];
 		snprintf(lpname, sizeof(lpname),
 								"%s%c%s_%d.lp",
-								"model", DIR_DELIM,
 								get_file_name(inst->input_file, name),
+								"model", DIR_DELIM,
 								inst->model_type);  // TODO: input_file check
 		// printf("saving %s\n", lpname);
 		CPXwriteprob(env, lp, lpname, NULL);
@@ -788,16 +788,12 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 
 	double lb = -CPX_INFBOUND;
 
-	int* succ = (int*)calloc(inst->nnodes, sizeof(int));
-	int* comp = (int*)calloc(inst->nnodes, sizeof(int));
-	int* ncomp = (int*)calloc(1, sizeof(int));
-
 	for (int h = 0; h < rounds; h++) {
 
 		int nnz = 0;
 		// sizeof(inst->best_sol) / sizeof(inst->best_sol[0])				=> length of array
 		for (int i = 0; i < inst->nnodes * (inst->nnodes - 1) / 2; i++) {
-			if (inst->best_sol[i] == 1) {
+			if (inst->best_sol[i] > 0.5) {
 				nnz++;
 			}
 		}
@@ -851,10 +847,11 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 		if (CPXmipopt(env, lp)) {
 			printf("Error in CPXmipopt\n");
 		}
+
 		if (CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL)) {
 			printf("Error in CPXsolution\n");
 		}
-		
+
 		if(CPXdelrows(env, lp, CPXgetnumrows(env, lp) - 1, CPXgetnumrows(env, lp) - 1))
 			print_error("wrong CPXdelrows() for deleting local-branching constraint\n");
 
