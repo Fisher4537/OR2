@@ -83,6 +83,7 @@ inline double dmax(double d1, double d2) { return ( d1 > d2 ) ? d1 : d2; }
 
 
 char* model_name(int i);
+char * setup_model(tspinstance* inst);
 int TSPopt(tspinstance *inst);
 int xpos(int i, int j, tspinstance *inst);
 int asym_xpos(int i, int j, tspinstance *inst);
@@ -98,6 +99,9 @@ void add_lazy_mtz(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 
 void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 
+int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+
 int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
 int subtour_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
 int subtour_heur_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, int heuristic);
@@ -110,7 +114,7 @@ int mygeneric_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONT
 
 void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp);
 void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp);
-void build_sol_lazy_std(tspinstance* inst, double* xstar, int* succ, int* comp, int* ncomp);
+void build_sol_lazy_std(tspinstance* inst, const double* xstar, int* succ, int* comp, int* ncomp);
 void build_sol_mtz(tspinstance *inst, int *succ, int *comp, int *ncomp);
 void build_sol_flow1(tspinstance *inst, int *succ, int *comp, int *ncomp);
 
