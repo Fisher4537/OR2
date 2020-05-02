@@ -1,0 +1,143 @@
+a280.tsp - Drilling problem (Ludwig)
+a280.opt.tour - Optimum tour for a280
+ali535.tsp - 535 Airports around the globe (Padberg/Rinaldi)
+att48.tsp - 48 capitals of the US (Padberg/Rinaldi)
+att48.opt.tour - Optimum solution for att48
+att532.tsp - 532-city problem (Padberg/Rinaldi)
+bayg29.tsp - 29 Cities in Bavaria (geographical distance)
+bayg29.opt.tour - Optimum solution of bayg29
+bays29.tsp - 29 Cities in Bavaria (street distance)
+bays29.opt.tour - Optimum solution of bays29
+berlin52.tsp - 52 locations in Berlin (Germany) (Groetschel)
+berlin52.opt.tour - Optimum tour for berlin52
+bier127.tsp - 127 beergardens in the Augsburg (Germany) area (Juenger/Reinelt)
+brazil58.tsp - 58 cities in Brazil (C. Ferreira)
+brd14051.tsp - Federal Republic of Germany with borders as of 1989 (Bachem/Wottawa)
+brg180.tsp - Bridge tournament problem (Rinaldi)
+brg180.opt.tour - Optimum tour for brg180
+burma14.tsp - 14 cities in Burma (geographical coordinates)
+ch130.tsp - 130 city problem (Churritz)
+ch130.opt.tour - Optimum tour for ch130
+ch150.tsp 150 city problem (Churritz)
+ch150.opt.tour - Optimum tour for ch150
+d1291.tsp - Drilling problem (Reinelt)
+d1655.tsp - Drilling problem (Reinelt)
+d18512.tsp - Federal Republic of Germany (with ex-GDR territory) (Bachem/Wottawa)
+d198.tsp - Drilling problem (Reinelt)
+d2103.tsp - Drilling problem (Reinelt)
+d493.tsp - Drilling problem (Reinelt)
+d657.tsp - Drilling problem (Reinelt)
+dantzig42.tsp - 42 cities (Dantzig)
+dsj1000.tsp - Clustered random problem (Johnson)
+eil101.tsp - 101-city problem (Christofides/Eilon)
+eil101.opt.tour - Optimum tour for eil101
+eil51.tsp - 51-city problem (Christofides/Eilon)
+eil51.opt.tour - Optimum tour for eil51
+eil76.tsp - 76-city problem (Christofides/Eilon)
+eil76.opt.tour - Optimum tour for eil76
+fl1400.tsp - Drilling problem (Reinelt)
+fl1577.tsp - Drilling problem (Reinelt)
+fl3795.tsp - Drilling problem (Reinelt)
+fl417.tsp - Drilling problem (Reinelt)
+fnl4461.tsp - The five new Federal States of Germany (ex-GDR territory) (Bachem/Wottawa)
+fri26.tsp - 26-city problem (Fricker)
+fri26.opt.tour - Optimum tour for fri26
+gil262.ts - 262-city problem (Gillet/Johnson)
+gr120.tsp - 120 cities in Germany (Groetschel)
+gr120.opt.tour - Optimum tour for gr120
+gr137.tsp - America-Subproblem of 666-city TSP (Groetschel)
+gr17.tsp - 17-city problem (Groetschel)
+gr202.tsp - Europe-Subproblem of 666-city TSP (Groetschel)
+gr202.opt.tour - Optimum solution for gr202
+gr21.tsp - 21-city problem (Groetschel)
+gr229.tsp - Asia/Australia-Subproblem of 666-city TSP (Groetschel)
+gr24.tsp - 24-city problem (Groetschel)
+gr24.opt.tour - Optimum solution for gr24
+gr431.tsp - Europe/Asia/Australia-Subproblem of 666-city TSP (Groetschel)
+gr48.tsp - 48-city problem (Groetschel)
+gr48.opt.tour - Optimum solution for gr48
+gr666.tsp - 666 cities around the world (Groetschel)
+gr666.opt.tour - Optimum solution of gr666
+gr96.tsp - Africa-Subproblem of 666-city TSP (Groetschel)
+gr96.opt.tour - Optimum tour for gr96
+hk48.tsp - 48-city problem (Held/Karp)
+kroa100.tsp - 100-city problem A (Krolak/Felts/Nelson)
+kroa100.opt.tour - Optimum for kroa100
+kroa150.tsp - 150-city problem A (Krolak/Felts/Nelson)
+kroa200.tsp - 200-city problem A (Krolak/Felts/Nelson)
+krob100.tsp - 100-city problem B (Krolak/Felts/Nelson)
+krob150.tsp - 150-city problem B (Krolak/Felts/Nelson)
+krob200.tsp - 200-city problem B (Krolak/Felts/Nelson)
+kroc100.tsp - 100-city problem C (Krolak/Felts/Nelson)
+kroc100.opt.tour - Optimum tour for kroc100
+krod100.tsp - 100-city problem D (Krolak/Felts/Nelson)
+krod100.opt.tour - Optimum tour for krod100
+kroe100.tsp - 100-city problem E (Krolak/Felts/Nelson)
+lin105.tsp - 105-city problem (Subproblem of lin318)
+lin105.opt.tour - Optimum tour for lin105
+lin318.tsp - 318-city problem (Lin/Kernighan)
+linhp318.tsp - Original 318-city problem (Lin/Kernighan)
+nrw1379.tsp - Nordrhein-Westfalen (Bachem/Wottawa)
+p654.tsp - Drilling problem (Reinelt)
+pa561.tsp - 561-city problem (Kleinschmidt)
+pa561.opt.tour - Optimal.tour"> - for pa561
+pcb1173.tsp - Drilling problem (Juenger/Reinelt)
+pcb3038.tsp - Drilling problem (Juenger/Reinelt)
+pcb442.tsp - Drilling problem (Groetschel/Juenger/Reinelt)
+pcb442.opt.tour - Optimum solution for pcb442
+pla33810.tsp - Programmed logic array (D.S.Johnson)
+pla7397.tsp - Programmed logic array (D.S.Johnson)
+pla85900.tsp - Programmed logic array (D.S.Johnson)
+pr1002.tsp - 1002-city problem (Padberg/Rinaldi)
+pr1002.opt.tour - optimal.tour"> - for pr1002
+pr107.tsp - 107-city problem (Padberg/Rinaldi)
+pr124.tsp - 124-city problem (Padberg/Rinaldi)
+pr136.tsp - 136-city problem (Padberg/Rinaldi)
+pr144.tsp - 144-city problem (Padberg/Rinaldi)
+pr152.tsp - 152-city problem (Padberg/Rinaldi)
+pr226.tsp - 226-city problem (Padberg/Rinaldi)
+pr2392.tsp - 2392-city problem (Padberg/Rinaldi)
+pr2392.opt.tour - Optimum solution for pr2392
+pr264.tsp - 264-city problem (Padberg/Rinaldi)
+pr299.tsp - 299-city problem (Padberg/Rinaldi)
+pr439.tsp - 439-city problem (Padberg/Rinaldi)
+pr76.tsp - 76-city problem (Padberg/Rinaldi)
+pr76.opt.tour - Optimum tour for pr76
+rat195.tsp - Rattled grid (Pulleyblank)
+rat575.tsp - Rattled grid (Pulleyblank)
+rat783.tsp - Rattled grid (Pulleyblank)
+rat99.tsp - Rattled grid (Pulleyblank)
+rd100.tsp - 100-city random TSP (Reinelt)
+rd100.opt.tour - Optimum solution for rd100
+rd400.tsp - 400-city random TSP (Reinelt)
+rl11849.tsp - 11849-city TSP (Reinelt)
+rl1304.tsp - 1304-city TSP (Reinelt)
+rl1323.tsp - 1323-city TSP (Reinelt)
+rl1889.tsp - 1889-city TSP (Reinelt)
+rl5915.tsp - 5915-city TSP (Reinelt)
+rl5934.tsp - 5934-city TSP (Reinelt)
+si1032.tsp - 1032-vertex TSP (M. Hofmeister)
+si175.tsp - 175-vertex TSP (M. Hofmeister)
+si535.tsp - 535-vertex TSP (M. Hofmeister)
+st70.tsp - 70-city problem (Smith/Thompson)
+st70.opt.tour - Optimum tour for st70
+swiss42.tsp - 42 cities Switzerland (Fricker)
+ts225.tsp - 225-city problem (Juenger,Raecke,Tschoecke)
+tsp225.tsp - A TSP problem (Reinelt)
+225.opt.tour"> - Optimal solution for tsp225.tsp
+u1060.tsp - Drilling problem (Reinelt)
+u1432.tsp - Drilling problem (Reinelt)
+u159.tsp - Drilling problem (Reinelt)
+u1817.tsp - Drilling problem (Reinelt)
+u2152.tsp - Drilling problem (Reinelt)
+u2319.tsp - Drilling problem (Reinelt)
+u574.tsp - Drilling problem (Reinelt)
+u724.tsp - Drilling problem (Reinelt)
+ulysses16.tsp - Odyssey of Ulysses (Groetschel and Padberg)
+ulysses16.opt.tour - Optimum tour for ulysses16
+ulysses22.tsp - Odyssey of Ulysses (Groetschel and Padberg)
+ulysses22.opt.tour - Optimum tour for ulysses22
+usa13509.tsp - Cities with population at least 500 in the continental US (David Applegate and Andre Rohe)
+vm1084.tsp - 1084-city problem (Reinelt)
+vm1748.tsp - 1784-city problem (Reinelt)
+xray.problems - Xray crystallography TSP (F. Nielsen, D. Shallcross) (source code for generator)
