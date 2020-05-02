@@ -1,7 +1,7 @@
 CPLEX_HOME = /home/jarvis/ibm/ILOG/CPLEX_Studio1210/cplex
 LIBS = -L${CPLEX_HOME}/lib/x86-64_linux/static_pic -L. -lcplex -lm -lpthread -ldl
 INC = -I. -I${CPLEX_HOME}/include/ilcplex
-ARGS = -input data_trainset/att12.tsp -model_type 0 -max_nodes 10000 -
+ARGS = -input data_heavy/ali535.tsp -model_type 8 -v 1000 -nthread 4 -time_limit 10.0
 EXE = mainTSP
 OBJ = tsp.o chrono.o mainTSP.o
 MODELS = 0
@@ -57,9 +57,9 @@ $(EXE): $(OBJ)
 	gcc -o $(EXE) $(OBJ) $(LIBS)
 
 $(OBJ): mainTSP.c tsp.c chrono.c
-	gcc $(INC) -c chrono.c
-	gcc $(INC) -c tsp.c
-	gcc $(INC) -c mainTSP.c
+	gcc $(INC) -Wall -g -c chrono.c
+	gcc $(INC) -Wall -g -c tsp.c
+	gcc $(INC) -Wall -g -c mainTSP.c
 
 clean:
 	rm *.o *.x mainTSP
