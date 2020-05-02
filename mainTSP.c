@@ -23,8 +23,8 @@ int main(int argc, char **argv)
 	read_input(&inst);
 
 	// TSP optimization
-	if ( TSPopt(&inst) ) print_error(" error within VRPopt()");
-	if ( (&inst)->verbose >= 1) printf(" ... Executed in %6.3lf s\n", (&inst)->opt_time);
+	if ( TSPopt(&inst) ) print_error(" error within TSPopt()");
+	if ( (&inst)->verbose >= 1) printf(" ... Executed in %6.3lf s\n", (&inst)->opt_time); 
 
 	if ( (&inst)->verbose >= 1 ) plot_instance(&inst);
 	if ( (&inst)->verbose < 10) save_results(&inst, "res.csv");

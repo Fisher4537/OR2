@@ -16,11 +16,11 @@
 #endif
 
 //hard-wired parameters
-#define XSMALL		  		  1e-5 		    // 1e-4*	// tolerance used to decide
-                                      //    ingerality of 0-1 var.s
+#define XSMALL		  		  1e-5 		// 1e-4*	// tolerance used to decide
+										// ingerality of 0-1 var.s
 #define EPS 1e-5
 #define TICKS_PER_SECOND 	  1000.0  	// cplex's ticks on Intel Core i7 quadcore
-                                      //@2.3GHZ
+										// @2.3GHZ
 
 //data structures
 
@@ -33,31 +33,37 @@ typedef struct {
 	int verbose;
 
 	// parameters
-	int model_type;         // TSP
+	int setup_model;
+	int model_type;					// TSP
 	int randomseed;
-	int nthread;						// number of threads
+	int nthread;					// number of threads
 	double timelimit;				// overall time limit, in sec.s
-	char input_file[100];	// input file
-	char node_file[1000];		// cplex node file
+	char input_file[100];			// input file
+	char node_file[1000];			// cplex node file
 	int available_memory;
 	int max_nodes; 					// max n. of branching nodes in the final run
-                          // (-1 unlimited)
-	// double cutoff; 					// cutoff (upper bound) for master
+									// (-1 unlimited)
+	// double cutoff; 				// cutoff (upper bound) for master
 	int integer_costs;
 
 	//global data
-	double opt_time;					// optimization time
+	double opt_time;				// optimization time
 	double	tstart;
-	double zbest;							// best sol. available
-	double tbest;							// time for the best sol. available
-	double *best_sol;						// best sol. available
-	double	best_lb;						// best lower bound available
-	int nedges;									// number of edges in best_sol
-	// double *load_min;						// minimum load when leaving a node
-	// double *load_max;						// maximum load when leaving a node
+	double zbest;					// best sol. available
+	double tbest;					// time for the best sol. available
+	double *best_sol;				// best sol. available
+	double	best_lb;				// best lower bound available
+	int nedges;						// number of edges in best_sol
+	// double *load_min;			// minimum load when leaving a node
+	// double *load_max;			// maximum load when leaving a node
 
 	double ncols;
 	int callback;
+	int mip_opt;
+	int build_sol;
+	int heuristic;
+	int plot_style;
+	int plot_edge;
 
 	// model;
 	// int xstart;
@@ -76,28 +82,35 @@ inline double dmin(double d1, double d2) { return ( d1 < d2 ) ? d1 : d2; }
 inline double dmax(double d1, double d2) { return ( d1 > d2 ) ? d1 : d2; }
 
 
+char* model_name(int i);
 int TSPopt(tspinstance *inst);
 int xpos(int i, int j, tspinstance *inst);
 int asym_xpos(int i, int j, tspinstance *inst);
 int asym_upos(int i, tspinstance *inst);
+int asym_ypos(int i, int j, tspinstance* inst);
 
 void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp); 		// interface
-void build_sym_std(tspinstance *inst, CPXENVptr env, CPXLPptr lp); 	// sym, std
+void build_sym_std(tspinstance *inst, CPXENVptr env, CPXLPptr lp); 		// sym, std
 void build_mtz(tspinstance *inst, CPXENVptr env, CPXLPptr lp); 			// asym, MTZ
 void build_flow1(tspinstance *inst, CPXENVptr env, CPXLPptr lp);
-void build_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
+void build_mtz_lazy(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
+void add_lazy_mtz(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 
-void mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
+void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+
+int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
 int subtour_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
+int subtour_heur_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, int heuristic);
 
 void switch_callback(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 static int CPXPUBLIC lazycallback(CPXCENVptr env, void* cbdata, int wherefrom, void* cbhandle, int* useraction_p);
 static int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void* cbhandle);
+int mylazy_separation(tspinstance* inst, const double* xstar, CPXCENVptr env, void* cbdata, int wherefrom);
 int mygeneric_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONTEXTptr context);
-int mylazy_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONTEXTptr context);
 
 void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp);
 void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp);
+void build_sol_lazy_std(tspinstance* inst, double* xstar, int* succ, int* comp, int* ncomp);
 void build_sol_mtz(tspinstance *inst, int *succ, int *comp, int *ncomp);
 void build_sol_flow1(tspinstance *inst, int *succ, int *comp, int *ncomp);
 
