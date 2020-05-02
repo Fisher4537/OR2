@@ -34,6 +34,8 @@ char * model_name(int i) {
 		case 5: return "subtour_heur";						// Subtour with HEUR
 		case 6: return "subtour_callback_lazy";				// Subtour_callback_lazy
 		case 7: return "subtour_callback_general";			// Subtour_callback_general
+		
+		case 9: return "local_branching";
 	}
 }
 
@@ -123,12 +125,12 @@ void setup_model(tspinstance* inst) {
 		case 9:
 			inst->model_type = 0;
 			inst->heuristic = 2;
-			inst->callback = 0;
+			inst->callback = 1;
 			inst->mip_opt = 0;
 			inst->build_sol = 0;
 			inst->plot_style = 0;
 			inst->plot_edge = 0;
-			return "local_branching";					// Soft-Fixing => Local Branching		//SCEGLIERE I VALORI!!
+			return "local_branching";					// Soft-Fixing => Local Branching
 	}
 }
 
@@ -762,7 +764,7 @@ void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		break;
 		
 		case 2:													// Local-Branching
-			//*status = local_branching(env, lp, inst, status);
+			*status = local_branching(env, lp, inst, status);
 		break;
 
 		default:
@@ -771,6 +773,93 @@ void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	}
 }
 
+int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
+
+	int rounds = 6;
+	int k_index = 0;
+	double k[6] = { 2.0, 3.0, 5.0, 10.0, 20.0, 30.0 };
+
+	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 1);			// abort Cplex after the first incument update
+	CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit);
+	CPXmipopt(env, lp);
+	CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
+	
+	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 99999999);			// default
+
+	double lb = -CPX_INFBOUND;
+
+	int* succ = (int*)calloc(inst->nnodes, sizeof(int));
+	int* comp = (int*)calloc(inst->nnodes, sizeof(int));
+	int* ncomp = (int*)calloc(1, sizeof(int));
+
+	for (int h = 0; h < rounds; h++) {
+
+		int nnz = 0;
+		// sizeof(inst->best_sol) / sizeof(inst->best_sol[0])				=> length of array
+		for (int i = 0; i < inst->nnodes * (inst->nnodes - 1) / 2; i++) {
+			if (inst->best_sol[i] == 1) {
+				nnz++;
+			}
+		}
+
+		int izero = 0;
+		int* index = (int*)calloc(nnz, sizeof(int));
+		double* value = (double*)calloc(nnz, sizeof(double));
+
+		nnz = 0;
+
+		char** cname = (char**)calloc(1, sizeof(char*));
+		cname[0] = (char*)calloc(100, sizeof(char));
+
+		double rhs;
+		
+		if (inst->best_lb > lb) {
+			h = 0;
+			lb = inst->best_lb;
+			k_index = 0;
+			rhs = (double)inst->nnodes - k[k_index];
+		}else {
+			if(k_index < 6)
+				k_index++;
+			CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit * k_index);
+			rhs = (double)inst->nnodes - k[k_index];
+		}
+		
+		sprintf(cname[0], "local-branching constraint, k = %f", k[k_index]);
+
+		char sense = 'G';
+
+		if (inst->verbose >= 100)
+			printf("Round : %d\t- Local Branching with K = %f\n", h, k[k_index]);
+
+
+		for (int i = 0; i < inst->nnodes; i++){
+			for (int j = i + 1; j < inst->nnodes; j++) {
+				if (inst->best_sol[xpos(i, j, inst)] == 1) {
+					index[nnz] = xpos(i, j, inst);
+					value[nnz] = 1.0;
+					nnz++;
+				}
+			}
+		}
+		if (CPXaddrows(env, lp, 0, 1, nnz, &rhs, &sense, &izero, index, value, NULL, cname))
+			print_error("wrong CPXpreaddrows() for adding local-branching constraint\n");
+
+		free(index);
+		free(value);
+
+		if (CPXmipopt(env, lp)) {
+			printf("Error in CPXmipopt\n");
+		}
+		if (CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL)) {
+			printf("Error in CPXsolution\n");
+		}
+		
+		if(CPXdelrows(env, lp, CPXgetnumrows(env, lp) - 1, CPXgetnumrows(env, lp) - 1))
+			print_error("wrong CPXdelrows() for deleting local-branching constraint\n");
+
+	}
+}
 
 // optimization methods run the problem optimization
 int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status) {
@@ -886,11 +975,15 @@ int subtour_heur_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* st
 
 
 	if (heuristic == 0) {
-		CPXsetintparam(env, CPX_PARAM_NODELIM, 5);
+		CPXsetintparam(env, CPX_PARAM_NODELIM, 1);
 		//CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 1);	// abort Cplex after the first incument update
 		//CPXsetdblparam(env, CPX_PARAM_EPGAP, 0.01);  	// abort Cplex when gap below 10%
 		
-		CPXmipopt(env, lp);
+		if (CPXmipopt(env, lp)) {
+			CPXsetintparam(env, CPX_PARAM_NODELIM, 7);
+			CPXmipopt(env, lp);
+		}
+
 		CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
 		build_sol(inst, succ, comp, ncomp);
 		if (inst->verbose >= 100) printf("Iter %3d partial solution on Root node, ncomp = %d\n", subtour_counter, *ncomp);
@@ -943,7 +1036,7 @@ int subtour_heur_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* st
 		subtour_heur_iter_opt(env, lp, inst, status, 1);
 	}
 	else {
-		CPXsetintparam(env, CPX_PARAM_NODELIM, 9999999);	//CPX_INFBOUND
+		CPXsetintparam(env, CPX_PARAM_NODELIM, CPX_INFBOUND);
 
 		CPXmipopt(env, lp);
 		CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
