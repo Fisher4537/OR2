@@ -56,6 +56,7 @@ typedef struct {
 	int nedges;						// number of edges in best_sol
 	// double *load_min;			// minimum load when leaving a node
 	// double *load_max;			// maximum load when leaving a node
+	double best_int;
 
 	double ncols;
 	int callback;

@@ -125,7 +125,7 @@ void setup_model(tspinstance* inst) {
 		case 9:
 			inst->model_type = 0;
 			inst->heuristic = 2;
-			inst->callback = 2;
+			inst->callback = 3;
 			inst->mip_opt = 2;
 			inst->build_sol = 0;
 			inst->plot_style = 0;
@@ -272,8 +272,8 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 		char name[sizeof(inst->input_file)];
 		snprintf(lpname, sizeof(lpname),
 								"%s%c%s_%d.lp",
+								"model", DIR_DELIM,
 								get_file_name(inst->input_file, name),
-								DIR_DELIM, ""
 								inst->setup_model);  // TODO: input_file check
 		// printf("saving %s\n", lpname);
 		CPXwriteprob(env, lp, lpname, NULL);
@@ -775,20 +775,29 @@ void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
 int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
-	int rounds = 6;
+	int rounds = 5;
 	int k_index = 0;
-	double k[6] = { 2.0, 3.0, 5.0, 10.0, 20.0, 30.0 };
+	double k[5] = { 3.0, 5.0, 10.0, 15.0, 20.0};
+	double timelimit = 100;
+	double remaining_time = inst->timelimit;
 
 	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 1);			// abort Cplex after the first incument update
-	CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit);
+	CPXsetdblparam(env, CPX_PARAM_TILIM, timelimit);
+
+	inst->best_int = CPX_INFBOUND;
+	double best_int = CPX_INFBOUND;
+	double best_lb = -CPX_INFBOUND;
+
 	CPXmipopt(env, lp);
 	CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
 	
-	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 99999999);			// default
+	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 99999999);	
 
-	double lb = -CPX_INFBOUND;
+	if (best_int == CPX_INFBOUND)
+		best_int = 0.0;
 
-	for (int h = 0; h < rounds; h++) {
+	for (int h = 0; remaining_time > 0.0; h++) {
+		double ini = second();
 
 		int nnz = 0;
 		// sizeof(inst->best_sol) / sizeof(inst->best_sol[0])				=> length of array
@@ -809,24 +818,27 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 
 		double rhs;
 		
-		if (inst->best_lb > lb) {
-			h = 0;
-			lb = inst->best_lb;
-			k_index = 0;
+		if (inst->best_int < best_int || inst->best_lb > best_lb) {
+			//h = 0;
+			//k_index = 0;
+			best_int = inst->best_int;
+			best_lb = inst->best_lb;
 			rhs = (double)inst->nnodes - k[k_index];
 		}else {
-			if(k_index < 6)
+			if(k_index < 4)
 				k_index++;
-			CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit * k_index);
 			rhs = (double)inst->nnodes - k[k_index];
+			CPXsetdblparam(env, CPX_PARAM_TILIM, (timelimit * k_index));
+			
 		}
 		
-		sprintf(cname[0], "local-branching constraint, k = %f", k[k_index]);
+		sprintf(cname[0], "local-branching constraint, k_index = %d", k[k_index]);
 
 		char sense = 'G';
 
-		if (inst->verbose >= 100)
-			printf("Round : %d\t- Local Branching with K = %f\n", h, k[k_index]);
+		if (inst->verbose >= 100) {
+			printf("\n********** Round = %d  -  K = %d  -  Remaining_time = %6.3lf **********\n\n", h, k[k_index], remaining_time);
+		}
 
 
 		for (int i = 0; i < inst->nnodes; i++){
@@ -848,10 +860,21 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 			printf("Error in CPXmipopt\n");
 		}
 
+		double fin = second();
+		remaining_time -= (fin - ini);
+
+		if (remaining_time <= 0.0) {
+			if (CPXdelrows(env, lp, CPXgetnumrows(env, lp) - 1, CPXgetnumrows(env, lp) - 1))
+				print_error("wrong CPXdelrows() for deleting local-branching constraint\n");
+
+			printf("*** Better soluzion found! ***\n", rounds);
+			return;
+		}
+
 		if (CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL)) {
 			printf("Error in CPXsolution\n");
 		}
-
+		
 		if(CPXdelrows(env, lp, CPXgetnumrows(env, lp) - 1, CPXgetnumrows(env, lp) - 1))
 			print_error("wrong CPXdelrows() for deleting local-branching constraint\n");
 
@@ -1106,8 +1129,16 @@ void switch_callback(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 	}
 	else if (inst->callback == 2) {									// Generic Callback
 		CPXsetintparam(env, CPX_PARAM_MIPCBREDLP, CPX_OFF);
-		if (CPXcallbacksetfunc(env, lp, CPX_CALLBACKCONTEXT_CANDIDATE, genericcallback, inst)) {		// CPX_CALLBACKCONTEXT_CANDIDATE can be used with other params with |
-			print_error(" Error in setGenericCallback()\n");
+		if (CPXcallbacksetfunc(env, lp, CPX_CALLBACKCONTEXT_CANDIDATE, genericcallback, inst)) {
+			print_error(" Error in setGenericCallback2()\n");
+			CPXsetintparam(env, CPX_PARAM_MIPCBREDLP, CPX_ON);
+			return;
+		}
+	}
+	else if (inst->callback == 3) {
+		CPXsetintparam(env, CPX_PARAM_MIPCBREDLP, CPX_OFF);
+		if (CPXcallbacksetfunc(env, lp, CPX_CALLBACKCONTEXT_CANDIDATE | CPX_CALLBACKCONTEXT_GLOBAL_PROGRESS, genericcallback, inst)) {
+			print_error(" Error in setGenericCallback3()\n");
 			CPXsetintparam(env, CPX_PARAM_MIPCBREDLP, CPX_ON);
 			return;
 		}
@@ -1152,7 +1183,7 @@ static int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG cont
 		double objval = CPX_INFBOUND;
 		if (CPXcallbackgetcandidatepoint(context, xstar, 0, inst->ncols - 1, &objval))			// xstar = current x from CPLEX-- xstar starts from position 0 (getx is not defined)
 			return 1;
-
+		
 		int mythread = -1; CPXcallbackgetinfoint(context, CPXCALLBACKINFO_THREADS, &mythread);
 		double zbest; CPXcallbackgetinfodbl(context, CPXCALLBACKINFO_BEST_SOL, &zbest);				//valore incumbent al nodo corrente
 
@@ -1162,30 +1193,26 @@ static int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG cont
 
 		return 0; 												// return 1 would mean error --> abort Cplex's execution
 	}
-	else if (contextid == CPX_CALLBACK_INFO_MIP_REL_GAP) {
-		tspinstance* inst = (tspinstance*)cbhandle; 			// casting of cbhandle (which is pointing to the above parameter inst)
-		
-		double gap = 110.0; CPXcallbackgetinfodbl(context, CPX_CALLBACK_INFO_MIP_REL_GAP, &gap);
-																
-		printf("\nActual GAP : %f\n", gap);
-			
-		/*
-		// get solution xstar
-		double* xstar = (double*)malloc(inst->ncols * sizeof(double));
-		double objval = CPX_INFBOUND;
-		if (CPXcallbackgetcandidatepoint(context, xstar, 0, inst->ncols - 1, &objval))			// xstar = current x from CPLEX-- xstar starts from position 0 (getx is not defined)
-			return 1;
+	if (contextid == CPX_CALLBACKCONTEXT_GLOBAL_PROGRESS) {
+		tspinstance* inst = (tspinstance*)cbhandle;
+		double best_int = CPX_INFBOUND; CPXcallbackgetinfodbl(context, CPXCALLBACKINFO_BEST_SOL, &best_int);			// WARNING : it's not globally if callback isn't CPX_CALLBACKCONTEXT_GLOBAL_PROGRESS
+		double best_lb = -CPX_INFBOUND; CPXcallbackgetinfodbl(context, CPXCALLBACKINFO_BEST_BND, &best_lb);
 
-		int mythread = -1; CPXcallbackgetinfoint(context, CPXCALLBACKINFO_THREADS, &mythread);
-		double zbest; CPXcallbackgetinfodbl(context, CPXCALLBACKINFO_BEST_SOL, &zbest);				//valore incumbent al nodo corrente
+		//printf("\t\t____BEST SOL___ : %f, ____BEST BOUND___ : %f, ____Actual GAP___ : %f\n", best_sol, best_bound, best_sol - best_bound);
+		//printf("Actual Gap : [%f]\n", best_sol - best_bound);
 
-		//apply cut separator and possibly add violated cuts
-		int ncuts = mygeneric_separation(inst, xstar, context);
-		free(xstar);											//avoid memory leak
-		*/
-		return 0; 												// return 1 would mean error --> abort Cplex's execution
-	}else
+		if (inst->best_int > best_int) {
+			printf("BEST_INT update from -> to : [%f] -> [%f]\n", inst->best_int, best_int);
+			inst->best_int = best_int;
+		}
+		if (inst->best_lb < best_lb) {
+			printf("BEST_LB update from -> to : [%f] -> [%f]\n", inst->best_lb, best_lb);
+			inst->best_lb = best_lb;
+		}
+
 		return 0;
+	}
+	return 0;
 }
 
 int mylazy_separation(tspinstance* inst, const double* xstar, CPXCENVptr env, void* cbdata, int wherefrom) {
