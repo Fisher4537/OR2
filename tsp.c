@@ -125,7 +125,7 @@ void setup_model(tspinstance* inst) {
 		case 9:
 			inst->model_type = 0;
 			inst->heuristic = 2;
-			inst->callback = 1;
+			inst->callback = 2;
 			inst->mip_opt = 2;
 			inst->build_sol = 0;
 			inst->plot_style = 0;
@@ -268,13 +268,13 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 
 	// save model in .lp file
 	if ( inst->verbose >= 1 ){
-		char lpname[sizeof(inst->input_file)+20+sizeof(inst->model_type)];
+		char lpname[sizeof(inst->input_file)+20+sizeof(inst->setup_model)];
 		char name[sizeof(inst->input_file)];
 		snprintf(lpname, sizeof(lpname),
 								"%s%c%s_%d.lp",
 								get_file_name(inst->input_file, name),
-								"model", DIR_DELIM,
-								inst->model_type);  // TODO: input_file check
+								DIR_DELIM,
+								inst->setup_model);  // TODO: input_file check
 		// printf("saving %s\n", lpname);
 		CPXwriteprob(env, lp, lpname, NULL);
 	}
@@ -1162,7 +1162,29 @@ static int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG cont
 
 		return 0; 												// return 1 would mean error --> abort Cplex's execution
 	}
-	else
+	else if (contextid == CPX_CALLBACK_INFO_MIP_REL_GAP) {
+		tspinstance* inst = (tspinstance*)cbhandle; 			// casting of cbhandle (which is pointing to the above parameter inst)
+		
+		double gap = 110.0; CPXcallbackgetinfodbl(context, CPX_CALLBACK_INFO_MIP_REL_GAP, &gap);
+																
+		printf("\nActual GAP : %f\n", gap);
+			
+		/*
+		// get solution xstar
+		double* xstar = (double*)malloc(inst->ncols * sizeof(double));
+		double objval = CPX_INFBOUND;
+		if (CPXcallbackgetcandidatepoint(context, xstar, 0, inst->ncols - 1, &objval))			// xstar = current x from CPLEX-- xstar starts from position 0 (getx is not defined)
+			return 1;
+
+		int mythread = -1; CPXcallbackgetinfoint(context, CPXCALLBACKINFO_THREADS, &mythread);
+		double zbest; CPXcallbackgetinfodbl(context, CPXCALLBACKINFO_BEST_SOL, &zbest);				//valore incumbent al nodo corrente
+
+		//apply cut separator and possibly add violated cuts
+		int ncuts = mygeneric_separation(inst, xstar, context);
+		free(xstar);											//avoid memory leak
+		*/
+		return 0; 												// return 1 would mean error --> abort Cplex's execution
+	}else
 		return 0;
 }
 
