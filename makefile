@@ -1,7 +1,7 @@
 CPLEX_HOME = /home/jarvis/ibm/ILOG/CPLEX_Studio1210/cplex
 LIBS = -L${CPLEX_HOME}/lib/x86-64_linux/static_pic -L. -lcplex -lm -lpthread -ldl
 INC = -I. -I${CPLEX_HOME}/include/ilcplex
-ARGS = -input data_heavy/ali535.tsp -model_type 8 -v 1000 -nthread 4 -time_limit 10.0
+ARGS = -input data_heavy/ali535.tsp -setup_model 8 -v 1000 -nthread 4 -time_limit 500.0
 EXE = mainTSP
 OBJ = tsp.o chrono.o mainTSP.o
 MODELS = 0

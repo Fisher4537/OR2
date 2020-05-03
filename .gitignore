@@ -45,3 +45,7 @@ Latex/Report.fls
 Latex/Report.out
 
 Latex/Report.toc
+
+.atom-dbg.cson
+
+core
