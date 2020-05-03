@@ -273,7 +273,7 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 		snprintf(lpname, sizeof(lpname),
 								"%s%c%s_%d.lp",
 								get_file_name(inst->input_file, name),
-								DIR_DELIM,
+								DIR_DELIM, ""
 								inst->setup_model);  // TODO: input_file check
 		// printf("saving %s\n", lpname);
 		CPXwriteprob(env, lp, lpname, NULL);
