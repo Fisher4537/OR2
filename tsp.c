@@ -780,7 +780,7 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 	int rounds = 5;
 	int k_index = 0;
 	double k[5] = { 3.0, 5.0, 10.0, 15.0, 20.0};
-	double timelimit = 20;
+	double timelimit = 300;
 	double temp_timelimit = timelimit;
 	double remaining_time = inst->timelimit;
 
@@ -794,7 +794,12 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 
 	CPXmipopt(env, lp);
 	CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
-	
+	if (CPXgetstat(env, lp) != 101 && CPXgetstat(env, lp) != 102) {
+		CPXsetdblparam(env, CPX_PARAM_TILIM, timelimit * timelimit);
+		CPXmipopt(env, lp);
+		CPXsetdblparam(env, CPX_PARAM_TILIM, timelimit);
+	}
+
 	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 99999999);	
 
 	for (int h = 0; remaining_time > 0.0; h++) {
@@ -882,8 +887,9 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 		remaining_time -= (fin - ini);
 		
 		if (remaining_time <= 0.01) {
-			if (CPXgetstat(env, lp) != (CPXMIP_TIME_LIM_FEAS | CPXMIP_OPTIMAL | CPXMIP_OPTIMAL_TOL)) {
-				inst->best_sol = best_sol;
+			if (CPXgetstat(env, lp) == 101 || CPXgetstat(env, lp) == 102) {
+				if(best_lb > inst->best_lb)
+					inst->best_sol = best_sol;
 			}
 			if (CPXdelrows(env, lp, CPXgetnumrows(env, lp) - 1, CPXgetnumrows(env, lp) - 1))
 				print_error("wrong CPXdelrows() for deleting local-branching constraint\n");
@@ -897,7 +903,7 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 		}
 
 		int status = CPXgetstat(env, lp);
-		printf("********************************* CPXgetstat: %d\n",status);
+		printf("CPXgetstat: %s\n", status==101 ? "Optimal integer solution found" : (status==102) ? "Optimal sol. within epgap or epagap tolerance found " : "Time limit exceeded, integer solution exists");
 
 ;		if (CPXgetstat(env, lp) == 107 || CPXgetstat(env, lp) == 101 || CPXgetstat(env, lp) == 102) {
 			best_sol = inst->best_sol;
