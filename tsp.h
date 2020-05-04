@@ -99,6 +99,8 @@ void add_lazy_mtz(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 
 void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 
+int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+
 int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
 int subtour_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
 int subtour_heur_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, int heuristic);
