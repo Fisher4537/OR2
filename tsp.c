@@ -781,7 +781,7 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 	int rounds = 5;
 	int k_index = 0;
 	double k[5] = { 3.0, 5.0, 10.0, 15.0, 20.0};
-	double timelimit = 100;
+	double timelimit = 300;
 	double temp_timelimit = timelimit;
 	double remaining_time = inst->timelimit;
 
