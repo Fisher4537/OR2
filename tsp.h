@@ -65,15 +65,14 @@ typedef struct {
 	int plot_style;
 	int plot_edge;
 
-	// model;
-	// int xstart;
-	// int qstart;
-	// int bigqstart;
-	// int sstart;
-	// int bigsstart;
-	// int ystart;
-	// int fstart;
-	// int zstart;
+	// hard fixing
+	double max_fr;		// maximum fixing_ratio
+	double incr_fr;		// increase of fixing_ratio when good gap
+	double decr_fr;		// decreasing of fixing_ratio when bad gap
+
+	double good_gap;			// a good gap allow to decrease fixing_ratio
+	double optimal_gap; 	// under this value, solution is optimal
+
 } tspinstance;
 
 //inline
@@ -100,7 +99,7 @@ void add_lazy_mtz(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 
 int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
-void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, double fixing_ratio);
 
 int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
 int subtour_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);

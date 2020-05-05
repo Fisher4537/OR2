@@ -35,6 +35,8 @@ char * model_name(int i) {
 		case 5: return "subtour_heur";						// Subtour with HEUR
 		case 6: return "subtour_callback_lazy";				// Subtour_callback_lazy
 		case 7: return "subtour_callback_general";			// Subtour_callback_general
+		case 8: return "hard_fixing";
+		case 9: return "local_branching";
 		default: return "not_supported";
 	}
 }
@@ -774,37 +776,50 @@ void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
 	double external_time_limit = inst->timelimit;
-	double internal_time_limit = 100.0;
+	double internal_time_limit = 50.0;
 	double init_time = second();
 	double next_time_limit = internal_time_limit;
 	double remaining_time = external_time_limit - (second()-init_time);
+	double objval_p = 0.0;
+	double gap = 1.0;						// best_lb - objval_p / best_lb
+	double fr = 0.9;				// fixing_ratio
+
 
 	// structure init
 	// int *succ = (int*) calloc(inst->nnodes, sizeof(int));
 	// int *comp = (int*) calloc(inst->nnodes, sizeof(int));
 	// int *ncomp = (int*) calloc(1, sizeof(int));
 
-
+	// set next internal time limit
+	remaining_time = external_time_limit - (second()-init_time);
 	if (remaining_time > internal_time_limit*2)
 		next_time_limit = internal_time_limit;
 	else
 		next_time_limit = remaining_time;
 	CPXsetdblparam(env, CPX_PARAM_TILIM, next_time_limit);
 
+	// first optimization step
 	mip_optimization(env, lp, inst, status);
+
+	// get first step solution gap
 	CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
+	CPXgetbestobjval(env, lp, &objval_p);
+	gap = (inst->best_lb - objval_p) / inst->best_lb;
+
 	// build_sol(inst, succ, comp, ncomp);
 	// if (inst->verbose >= 100) printf("Partial solution, ncomp = %d\n",*ncomp );
 	if (inst->verbose >= 1000) plot_instance(inst);
 
 
-	while (second()-init_time < external_time_limit)  // TODO: end time limit
+	while (second()-init_time < external_time_limit &&
+	 (fr > 0.0 || gap > inst->optimal_gap))
 	{
-		printf("BEST SOLUTION: %lf\n", inst->best_lb);
+		// printf("BEST SOLUTION: %lf\n", inst->best_lb);
 
 		// fix a % of bounds
-		fix_bound(env, lp, inst, status);
+		fix_bound(env, lp, inst, status, fr);
 
+		// set next internal time limit
 		remaining_time = external_time_limit - (second()-init_time);
 		if (remaining_time > internal_time_limit*2)
 			next_time_limit = internal_time_limit;
@@ -813,8 +828,19 @@ int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		CPXsetdblparam(env, CPX_PARAM_TILIM, next_time_limit);
 
 		// run again with fixed bound
-		mip_optimization(env, lp, inst, status);
+		mip_optimization(env, lp, inst, status); // this might not be the best solution
+
+		// update gap
 		CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
+		CPXgetbestobjval(env, lp, &objval_p);
+		gap = (inst->best_lb - objval_p) / inst->best_lb;
+
+		// update fixing_ratio
+		if (gap < inst->good_gap) // the solution is good, relax fixing_ration
+			fr = fr - inst->decr_fr >= 0.0 ? fr - inst->decr_fr : 0.0;
+		else	// the solution is not good, increase frn to get
+			fr = fr + inst->incr_fr <= inst->max_fr ? fr + inst->incr_fr : inst->max_fr;
+
 		// build_sol(inst, succ, comp, ncomp);
 		// if (inst->verbose >= 100) printf("Partial solution, ncomp = %d\n", *ncomp);
 		if (inst->verbose >= 1000) plot_instance(inst);
@@ -826,7 +852,9 @@ int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	return 0;
 }
 
-void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
+void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, double fixing_ratio) {
+
+	if (inst->verbose >= 100) printf("FIXING %.5lf %%\n", fixing_ratio);
 
 	int k = 0; // position of the ij-th arch in best_sol: xpos(i, j, inst);
 
@@ -835,7 +863,6 @@ void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	double bd[inst->nnodes];
 
 	double random;
-	double fixing_ratio = 0.9;
 	int cnt = 0;  // from 0 to inst->nnodes = nedges
 
 	switch (inst->model_type) {
@@ -1844,6 +1871,13 @@ void parse_command_line(int argc, char** argv, tspinstance *inst) {
 	inst->integer_costs = 0;
 	inst->verbose = 1000;							// VERBOSE
 
+	// hard fixing
+	inst->max_fr = 0.9;		// maximum fixing_ratio
+	inst->incr_fr = 0.1;		// increase of fixing_ratio when good gap
+	inst->decr_fr = 0.1;		// decreasing of fixing_ratio when bad gap
+	inst->good_gap = 0.1;			// a good gap allow to decrease fixing_ratio
+	inst->optimal_gap = 0.05; 	// under this value, solution is optimal
+
   int help = 0; if ( argc < 1 ) help = 1;
 	for ( int i = 1; i < argc; i++ )
   {
@@ -1851,7 +1885,15 @@ void parse_command_line(int argc, char** argv, tspinstance *inst) {
 		if ( strcmp(argv[i],"-input") == 0 ) { strcpy(inst->input_file,argv[++i]); continue; } 			// input file
 		if ( strcmp(argv[i],"-f") == 0 ) { strcpy(inst->input_file,argv[++i]); continue; } 				// input file
 		if ( strcmp(argv[i],"-time_limit") == 0 ) { inst->timelimit = atof(argv[++i]); continue; }		// total time limit
-		if (strcmp(argv[i], "-setup_model") == 0) { inst->setup_model = atoi(argv[++i]); continue; } 	// model type
+
+		// hard fixing
+		if ( strcmp(argv[i],"-max_fr") == 0 ) { inst->max_fr = atof(argv[++i]); continue; }
+		if ( strcmp(argv[i],"-incr_fr") == 0 ) { inst->incr_fr = atof(argv[++i]); continue; }
+		if ( strcmp(argv[i],"-decr_fr") == 0 ) { inst->decr_fr = atof(argv[++i]); continue; }
+		if ( strcmp(argv[i],"-good_gap") == 0 ) { inst->good_gap = atof(argv[++i]); continue; }
+		if ( strcmp(argv[i],"-optimal_gap") == 0 ) { inst->optimal_gap = atof(argv[++i]); continue; }
+
+		if ( strcmp(argv[i],"-setup_model") == 0) { inst->setup_model = atoi(argv[++i]); continue; } 	// model type
 		if ( strcmp(argv[i],"-model_type") == 0 ) { inst->model_type = atoi(argv[++i]); continue; } 	// model type
 		if ( strcmp(argv[i],"-model") == 0 ) { inst->model_type = atoi(argv[++i]); continue; } 			// model type
 		if ( strcmp(argv[i],"-randomseed") == 0 ) { inst->randomseed = abs(atoi(argv[++i])); continue; } 		// random seed
@@ -1859,7 +1901,7 @@ void parse_command_line(int argc, char** argv, tspinstance *inst) {
 		if ( strcmp(argv[i],"-memory") == 0 ) { inst->available_memory = atoi(argv[++i]); continue; }	// available memory (in MB)
 		if ( strcmp(argv[i],"-node_file") == 0 ) { strcpy(inst->node_file,argv[++i]); continue; }		// cplex's node file
 		if ( strcmp(argv[i],"-max_nodes") == 0 ) { inst->max_nodes = atoi(argv[++i]); continue; } 		// max n. of nodesfile
-        if (strcmp(argv[i], "-callback") == 0) { inst->callback = atoi(argv[++i]); continue; }			// 1 = lazy_callback, 2 = generic_callback
+    if ( strcmp(argv[i],"-callback") == 0) { inst->callback = atoi(argv[++i]); continue; }			// 1 = lazy_callback, 2 = generic_callback
 		if ( strcmp(argv[i],"-v") == 0 ) { inst->verbose = atoi(argv[++i]); continue; } 		// max n. of nodes
 		if ( strcmp(argv[i],"-int") == 0 ) { inst->integer_costs = 1; continue; } 						// inteher costs
 		if ( strcmp(argv[i],"-help") == 0 ) { help = 1; continue; } 									// help
@@ -2073,10 +2115,25 @@ int save_results(tspinstance *inst, char *f_name) {
 	outfile = fopen(f_name, "a");
 	char dataToAppend[sizeof(inst->input_file)+sizeof(inst->nnodes)*4+ sizeof(inst->opt_time) + 20];
 	char name[sizeof(inst->input_file)];
-	snprintf(dataToAppend, sizeof(dataToAppend), "%s; %d; %s; %d; %d; %d; %lf;\n",
-	 												get_file_name(inst->input_file, name), inst->nnodes,
-													model_name(inst->model_type), inst->setup_model,
-													inst->randomseed, inst->nthread, inst->opt_time );
+	switch (inst->setup_model) {
+		case 8:
+			snprintf(dataToAppend, sizeof(dataToAppend),
+				"%s; %d; %s_%.3lf_%.3lf_%.3lf_%.3lf_%.3lf; %d; %d; %lf; %lf\n",
+				get_file_name(inst->input_file, name),
+				inst->nnodes,
+				model_name(inst->setup_model),
+				inst->max_fr, inst->incr_fr, inst->decr_fr, inst->good_gap, inst->optimal_gap,
+				inst->randomseed, inst->nthread, inst->opt_time, inst->best_lb);
+			break;
+
+		default:
+			snprintf(dataToAppend, sizeof(dataToAppend),
+								"%s; %d; %s; %d; %d; %lf; %lf\n",
+								get_file_name(inst->input_file, name), inst->nnodes,
+								model_name(inst->setup_model),
+								inst->randomseed, inst->nthread, inst->opt_time, inst->best_lb);
+			break;
+	}
 
 	/* fopen() return NULL if unable to open file in given mode. */
 	if (outfile == NULL)
