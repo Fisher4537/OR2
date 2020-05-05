@@ -861,7 +861,6 @@ void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, doubl
 	if (inst->verbose >= 100) printf("FIXING %.5lf %%\n", fixing_ratio);
 
 	int k = 0; // position of the ij-th arch in best_sol: xpos(i, j, inst);
-	int nnodes = inst->nnodes;
 	int* indices = (int*) calloc(inst->nnodes,sizeof(int));
 	char* lu = (char*)calloc(inst->nnodes, sizeof(char));
 	double* bd = (double*)calloc(inst->nnodes, sizeof(double));
@@ -911,7 +910,6 @@ void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, doubl
 
 int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
-	int rounds = 5;
 	int k_index = 0;
 	double k[5] = { 3.0, 5.0, 10.0, 15.0, 20.0};
 	double timelimit = 300;
@@ -927,7 +925,7 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 	CPXmipopt(env, lp);
 	CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
 
-	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 99999999);	
+	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, INT_MAX);	
 
 	for (int h = 0; remaining_time > 0.0; h++) {
 		double ini = second();
@@ -978,7 +976,7 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 			
 		}
 		
-		sprintf(cname[0], "local-branching constraint, k_index = %d", k_index < 5 ? k[k_index] : k[4]);
+		sprintf(cname[0], "local-branching constraint, k_index = %f", k_index < 5 ? k[k_index] : k[4]);
 
 		char sense = 'G';
 
@@ -1159,16 +1157,12 @@ int subtour_heur_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* st
 	*ncomp = inst->nnodes;
 	int subtour_counter = 0;
 
-
 	if (heuristic == 0) {
-		CPXsetintparam(env, CPX_PARAM_NODELIM, 1);
-		//CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 1);	// abort Cplex after the first incument update
+		CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 1);	// abort Cplex after the first incument update
+		//CPXsetintparam(env, CPX_PARAM_NODELIM, 0);	// Solve only root node
 		//CPXsetdblparam(env, CPX_PARAM_EPGAP, 0.01);  	// abort Cplex when gap below 10%
 		
-		if (CPXmipopt(env, lp)) {
-			CPXsetintparam(env, CPX_PARAM_NODELIM, 7);
-			CPXmipopt(env, lp);
-		}
+		CPXmipopt(env, lp);
 
 		CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
 		build_sol(inst, succ, comp, ncomp);
@@ -1222,8 +1216,8 @@ int subtour_heur_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* st
 		subtour_heur_iter_opt(env, lp, inst, status, 1);
 	}
 	else {
-		CPXsetintparam(env, CPX_PARAM_NODELIM, CPX_INFBOUND);
-
+		CPXsetintparam(env, CPX_PARAM_INTSOLLIM, INT_MAX);
+		
 		CPXmipopt(env, lp);
 		CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
 		build_sol(inst, succ, comp, ncomp);
@@ -1388,7 +1382,7 @@ int mylazy_separation(tspinstance* inst, const double* xstar, CPXCENVptr env, vo
 	// structure init
 	int* succ = (int*)calloc(inst->nnodes, sizeof(int));
 	int* comp = (int*)calloc(inst->nnodes, sizeof(int));
-	int ncomp = 99999;
+	int ncomp = INT_MAX;
 	char sense = 'L';
 	double rhs;
 	int nnz;
@@ -1457,7 +1451,7 @@ int mygeneric_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONT
 	// structure init
 	int* succ = (int*)calloc(inst->nnodes, sizeof(int));
 	int* comp = (int*)calloc(inst->nnodes, sizeof(int));
-	int ncomp = 99999;
+	int ncomp = INT_MAX;
 	char sense = 'L';
 	double rhs;
 	int nnz;

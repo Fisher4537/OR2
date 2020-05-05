@@ -6,7 +6,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <limits.h>
 #include <cplex.h>
 
 #ifdef _WIN32
@@ -21,7 +21,6 @@
 #define EPS 1e-5
 #define TICKS_PER_SECOND 	  1000.0  	// cplex's ticks on Intel Core i7 quadcore
 										// @2.3GHZ
-
 //data structures
 
 typedef struct {
