@@ -152,8 +152,6 @@ int TSPopt(tspinstance *inst) {
 	//	CPX_MIPEMPHASIS_BESTBOUND, CPX_MIPEMPHASIS_HIDDENFEAS)
 	// CPX_PARAM_MIPSEARCH: Dynamic search or B&C ?
 	// CPXsetintparam(env, CPX_PARAM_MIPDISPLAY, 4);			// Display new incumbents, and display a log line every n nodes
-	
-	//inst->randomseed = now();		// for fast testing
 
 	// set all the parameters of model chosen
 	setup_model(inst);
