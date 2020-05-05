@@ -50,54 +50,36 @@ char * setup_model(tspinstance* inst) {
 			inst->heuristic = 0;
 			inst->callback = 0;
 			inst->mip_opt = 0;
-			inst->build_sol = 0;
-			inst->plot_style = 0;
-			inst->plot_edge = 0;
 			return "subtour";							// basic model with asymmetric x and q
 		case 1:
 			inst->model_type = 1;
 			inst->heuristic = 0;
 			inst->callback = 0;
 			inst->mip_opt = 2;
-			inst->build_sol = 1;
-			inst->plot_style = 1;
-			inst->plot_edge = 1;
 			return "mtz";								// MTZ contraints
 		case 2:
 			inst->model_type = 2;
 			inst->heuristic = 0;
 			inst->callback = 0;
 			inst->mip_opt = 2;
-			inst->build_sol = 2;
-			inst->plot_style = 1;
-			inst->plot_edge = 1;
 			return "flow1_n-2";							// FLOW 1 with y_0j <= x_0j*(n-2) if i != 0
 		case 3:
 			inst->model_type = 2;
 			inst->heuristic = 0;
 			inst->callback = 0;
 			inst->mip_opt = 2;
-			inst->build_sol = 2;
-			inst->plot_style = 1;
-			inst->plot_edge = 1;
 			return "flow1_n-1";							// FLOW 1 with y_0j <= x_0j*(n-1)
 		case 4:
 			inst->model_type = 3;
 			inst->heuristic = 0;
 			inst->callback = 0;
 			inst->mip_opt = 2;
-			inst->build_sol = 1;
-			inst->plot_style = 1;
-			inst->plot_edge = 1;
 			return "mtz_lazy";							// MTZ with LAZY
 		case 5:
 			inst->model_type = 0;
 			inst->heuristic = 0;
 			inst->callback = 0;
 			inst->mip_opt = 1;
-			inst->build_sol = 0;
-			inst->plot_style = 0;
-			inst->plot_edge = 0;
 			return "subtour_heur";						// Subtour with HEUR
 		case 6:
 			inst->model_type = 0;
@@ -113,27 +95,18 @@ char * setup_model(tspinstance* inst) {
 			inst->heuristic = 0;
 			inst->callback = 2;
 			inst->mip_opt = 0;
-			inst->build_sol = 0;
-			inst->plot_style = 0;
-			inst->plot_edge = 0;
 			return "subtour_callback_general";			// Subtour_callback_general
 		case 8:
 			inst->model_type = 0;
 			inst->heuristic = 1;
 			inst->callback = 1;
 			inst->mip_opt = 2;
-			inst->build_sol = 0;
-			inst->plot_style = 0;
-			inst->plot_edge = 0;
 			return "hard_fixing";						// Hard-Fixing
 		case 9:
 			inst->model_type = 0;
 			inst->heuristic = 2;
 			inst->callback = 2;
 			inst->mip_opt = 2;
-			inst->build_sol = 0;
-			inst->plot_style = 0;
-			inst->plot_edge = 0;
 			return "local_branching";					// Soft-Fixing => Local Branching
 		default: return "not_supported";
 	}
@@ -816,7 +789,7 @@ int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
 
 	while (second()-init_time < external_time_limit &&
-	 (fr > 0.0 || gap > inst->optimal_gap))
+	 (fr > 0.0 || gap > inst->hf_param->optimal_gap))
 	{
 		// printf("BEST SOLUTION: %lf\n", inst->best_lb);
 
@@ -840,10 +813,10 @@ int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		gap = (inst->best_lb - objval_p) / inst->best_lb;
 
 		// update fixing_ratio
-		if (gap < inst->good_gap) // the solution is good, relax fixing_ration
-			fr = fr - inst->decr_fr >= 0.0 ? fr - inst->decr_fr : 0.0;
+		if (gap < inst->hf_param->good_gap) // the solution is good, relax fixing_ration
+			fr = fr - inst->hf_param->decr_fr >= 0.0 ? fr - inst->hf_param->decr_fr : 0.0;
 		else	// the solution is not good, increase frn to get
-			fr = fr + inst->incr_fr <= inst->max_fr ? fr + inst->incr_fr : inst->max_fr;
+			fr = fr + inst->hf_param->incr_fr <= inst->hf_param->max_fr ? fr + inst->hf_param->incr_fr : inst->hf_param->max_fr;
 
 		// build_sol(inst, succ, comp, ncomp);
 		// if (inst->verbose >= 100) printf("Partial solution, ncomp = %d\n", *ncomp);
@@ -925,7 +898,7 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 	CPXmipopt(env, lp);
 	CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
 
-	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, INT_MAX);	
+	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, INT_MAX);
 
 	for (int h = 0; remaining_time > 0.0; h++) {
 		double ini = second();
@@ -975,7 +948,7 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 				CPXsetdblparam(env, CPX_PARAM_TILIM, temp_timelimit);
 
 		}
-		
+
 		sprintf(cname[0], "local-branching constraint, k_index = %f", k_index < 5 ? k[k_index] : k[4]);
 
 		sprintf(cname[0], "local-branching constraint, k_index = %f", k_index < 5 ? k[k_index] : k[4]);
@@ -1163,7 +1136,7 @@ int subtour_heur_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* st
 		CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 1);	// abort Cplex after the first incument update
 		//CPXsetintparam(env, CPX_PARAM_NODELIM, 0);	// Solve only root node
 		//CPXsetdblparam(env, CPX_PARAM_EPGAP, 0.01);  	// abort Cplex when gap below 10%
-		
+
 		CPXmipopt(env, lp);
 
 		CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
@@ -1219,7 +1192,7 @@ int subtour_heur_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* st
 	}
 	else {
 		CPXsetintparam(env, CPX_PARAM_INTSOLLIM, INT_MAX);
-		
+
 		CPXmipopt(env, lp);
 		CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
 		build_sol(inst, succ, comp, ncomp);
@@ -1944,7 +1917,7 @@ void read_input(tspinstance *inst) { // simplified CVRP parser, not all SECTIONs
 		{
 			active_section = 0;
 			token1 = strtok(NULL, "");
-			if ( inst->verbose >= 2000 ) printf("read_input: solving instance: %s\b with model %d...\n", token1, inst->model_type);
+			if ( inst->verbose >= 2000 ) printf("read_input: solving instance: %s\b with model %d...\n", token1, inst->setup_model);
 			continue;
 		}
 
@@ -2046,11 +2019,11 @@ void parse_command_line(int argc, char** argv, tspinstance *inst) {
 	inst->verbose = 1000;							// VERBOSE
 
 	// hard fixing
-	inst->max_fr = 0.9;		// maximum fixing_ratio
-	inst->incr_fr = 0.1;		// increase of fixing_ratio when good gap
-	inst->decr_fr = 0.1;		// decreasing of fixing_ratio when bad gap
-	inst->good_gap = 0.1;			// a good gap allow to decrease fixing_ratio
-	inst->optimal_gap = 0.05; 	// under this value, solution is optimal
+	double max_fr = 0.9;		// maximum fixing_ratio
+	double incr_fr = 0.1;		// increase of fixing_ratio when good gap
+	double decr_fr = 0.1;		// decreasing of fixing_ratio when bad gap
+	double good_gap = 0.1;			// a good gap allow to decrease fixing_ratio
+	double optimal_gap = 0.05; 	// under this value, solution is optimal
 
   int help = 0; if ( argc < 1 ) help = 1;
 	for ( int i = 1; i < argc; i++ )
@@ -2061,15 +2034,14 @@ void parse_command_line(int argc, char** argv, tspinstance *inst) {
 		if ( strcmp(argv[i],"-time_limit") == 0 ) { inst->timelimit = atof(argv[++i]); continue; }		// total time limit
 
 		// hard fixing
-		if ( strcmp(argv[i],"-max_fr") == 0 ) { inst->max_fr = atof(argv[++i]); continue; }
-		if ( strcmp(argv[i],"-incr_fr") == 0 ) { inst->incr_fr = atof(argv[++i]); continue; }
-		if ( strcmp(argv[i],"-decr_fr") == 0 ) { inst->decr_fr = atof(argv[++i]); continue; }
-		if ( strcmp(argv[i],"-good_gap") == 0 ) { inst->good_gap = atof(argv[++i]); continue; }
-		if ( strcmp(argv[i],"-optimal_gap") == 0 ) { inst->optimal_gap = atof(argv[++i]); continue; }
+		if ( strcmp(argv[i],"-max_fr") == 0 ) { max_fr = atof(argv[++i]); continue; }
+		if ( strcmp(argv[i],"-incr_fr") == 0 ) { incr_fr = atof(argv[++i]); continue; }
+		if ( strcmp(argv[i],"-decr_fr") == 0 ) { decr_fr = atof(argv[++i]); continue; }
+		if ( strcmp(argv[i],"-good_gap") == 0 ) { good_gap = atof(argv[++i]); continue; }
+		if ( strcmp(argv[i],"-optimal_gap") == 0 ) { optimal_gap = atof(argv[++i]); continue; }
 
 		if ( strcmp(argv[i],"-setup_model") == 0) { inst->setup_model = atoi(argv[++i]); continue; } 	// model type
-		if ( strcmp(argv[i],"-model_type") == 0 ) { inst->model_type = atoi(argv[++i]); continue; } 	// model type
-		if ( strcmp(argv[i],"-model") == 0 ) { inst->model_type = atoi(argv[++i]); continue; } 			// model type
+		if ( strcmp(argv[i],"-model") == 0 ) { inst->setup_model = atoi(argv[++i]); continue; } 			// model type
 		if ( strcmp(argv[i],"-randomseed") == 0 ) { inst->randomseed = abs(atoi(argv[++i])); continue; } 		// random seed
 		if ( strcmp(argv[i],"-nthread") == 0 ) { inst->nthread = abs(atoi(argv[++i])); continue; } 		// random seed
 		if ( strcmp(argv[i],"-memory") == 0 ) { inst->available_memory = atoi(argv[++i]); continue; }	// available memory (in MB)
@@ -2083,13 +2055,23 @@ void parse_command_line(int argc, char** argv, tspinstance *inst) {
 		help = 1;
   }
 
+	if (inst->setup_model == 8) {
+		hardfix hf_param;
+		(&hf_param)->max_fr = max_fr;		// maximum fixing_ratio
+		(&hf_param)->incr_fr = incr_fr;		// increase of fixing_ratio when good gap
+		(&hf_param)->decr_fr = decr_fr;		// decreasing of fixing_ratio when bad gap
+		(&hf_param)->good_gap = good_gap;			// a good gap allow to decrease fixing_ratio
+		(&hf_param)->optimal_gap = optimal_gap;
+		inst->hf_param = &hf_param;
+	}
+
+
 	if ( help || (inst->verbose >= 2000) )		// print current parameters
 	{
 		printf("\nAvailable parameters:\n");
 		printf("-file %s\n", inst->input_file);
 		printf("-time_limit %f\n", inst->timelimit);
 		printf("-setup_model %d\n", inst->setup_model);
-		printf("-model_type %d\n", inst->model_type);
 		printf("-randomseed %d\n", inst->randomseed);
 		printf("-max_nodes %d\n", inst->max_nodes);
 		printf("-memory %d\n", inst->available_memory);
@@ -2141,13 +2123,13 @@ void plot_instance(tspinstance *inst) {
 		return;
 	}
 
-	char pngname[sizeof(inst->input_file)+20+sizeof(inst->model_type)];
+	char pngname[sizeof(inst->input_file)+20+sizeof(inst->setup_model)];
 	char name[sizeof(inst->input_file)];
 	snprintf(pngname, sizeof(pngname),
 		"plot%c%s_%d.png",
 		DIR_DELIM,
 		get_file_name(inst->input_file, name),
-		inst->model_type);  // TODO: input_file check
+		inst->setup_model);  // TODO: input_file check
 
 	// set up line and point style depending on the model
 	setup_style(gnuplot, inst);
@@ -2301,7 +2283,8 @@ int save_results(tspinstance *inst, char *f_name) {
 				get_file_name(inst->input_file, name),
 				inst->nnodes,
 				model_name(inst->setup_model),
-				inst->max_fr, inst->incr_fr, inst->decr_fr, inst->good_gap, inst->optimal_gap,
+				inst->hf_param->max_fr, inst->hf_param->incr_fr, inst->hf_param->decr_fr,
+				inst->hf_param->good_gap, inst->hf_param->optimal_gap,
 				inst->randomseed, inst->nthread, inst->opt_time, inst->best_lb);
 			break;
 
