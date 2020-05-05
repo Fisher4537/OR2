@@ -1,21 +1,22 @@
 CPLEX_HOME = /home/jarvis/ibm/ILOG/CPLEX_Studio1210/cplex
 LIBS = -L${CPLEX_HOME}/lib/x86-64_linux/static_pic -L. -lcplex -lm -lpthread -ldl
 INC = -I. -I${CPLEX_HOME}/include/ilcplex
-ARGS = -input data_trainset/att12.tsp -model_type 0 -max_nodes 10000 -
+ARGS = -input data_heavy/ali535.tsp -setup_model 8 -v 1000 -nthread 4 -time_limit 600
 EXE = mainTSP
 OBJ = tsp.o chrono.o mainTSP.o
-MODELS = 0
+MODELS = 8
 TEST_LIGHT = `ls data_light/*.tsp`
 TEST_AVERAGE = `ls data_average/*.tsp`
 TEST_SET = `ls Test_Set/*.tsp`
 TRAINSET_FILES = `ls data_trainset/*.tsp`
+TRAINSET_HEAVY = data_heavy/att532.tsp data_heavy/fl417.tsp data_heavy/d657.tsp
 SEED = 0 123456 666 777 1995
 
 testlight: $(EXE)
 	for file in $(TEST_LIGHT); do \
 		for model in $(MODELS); do \
 			for seed in $(SEED); do \
-				./$(EXE) -input $$file -model_type $$model -randomseed $$seed -v 1; \
+				./$(EXE) -input $$file -setup_model $$model -randomseed $$seed -v 1 -nthread 4 -time_limit 600; \
 			done \
 		done \
 	done
@@ -24,7 +25,7 @@ testaverage: $(EXE)
 	for file in $(TEST_AVERAGE); do \
 		for model in $(MODELS); do \
 			for seed in $(SEED); do \
-				./$(EXE) -input $$file -model_type $$model -randomseed $$seed -v 1; \
+				./$(EXE) -input $$file -setup_model $$model -randomseed $$seed -v 1 -nthread 4 -time_limit 600; \
 			done \
 		done \
 	done
@@ -33,7 +34,7 @@ testall: $(EXE)
 	for file in $(TEST_SET); do \
 		for model in $(MODELS); do \
 			for seed in $(SEED); do \
-				./$(EXE) -input $$file -model_type $$model -randomseed $$seed -v 1; \
+				./$(EXE) -input $$file -setup_model $$model -randomseed $$seed -v 1 -nthread 4 -time_limit 600; \
 			done \
 		done \
 	done
@@ -42,10 +43,21 @@ trainset: $(EXE)
 	for file in $(TRAINSET_FILES); do \
 		for model in $(MODELS); do \
 			for seed in $(SEED); do \
-				./$(EXE) -input $$file -model_type $$model -randomseed $$seed -v 10; \
+				./$(EXE) -input $$file -setup_model $$model -randomseed $$seed -v 10 -nthread 4 -time_limit 600; \
 			done \
 		done \
 	done
+
+trainsetheavy: $(EXE)
+	for file in $(TRAINSET_HEAVY); do \
+		for model in $(MODELS); do \
+			for seed in $(SEED); do \
+				./$(EXE) -input $$file -setup_model $$model -randomseed $$seed -v 10 -nthread 4 -time_limit 600; \
+			done \
+		done \
+	done
+
+
 
 run: $(EXE)
 	./mainTSP $(ARGS)  >> log/`date +%y%m%d-%H%M%S`.log
@@ -57,9 +69,9 @@ $(EXE): $(OBJ)
 	gcc -o $(EXE) $(OBJ) $(LIBS)
 
 $(OBJ): mainTSP.c tsp.c chrono.c
-	gcc $(INC) -c chrono.c
-	gcc $(INC) -c tsp.c
-	gcc $(INC) -c mainTSP.c
+	gcc $(INC) -Wall -g -c chrono.c
+	gcc $(INC) -Wall -g -c tsp.c
+	gcc $(INC) -Wall -g -c mainTSP.c
 
 clean:
 	rm *.o *.x mainTSP

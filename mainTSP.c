@@ -24,7 +24,7 @@ int main(int argc, char **argv)
 
 	// TSP optimization
 	if ( TSPopt(&inst) ) print_error(" error within TSPopt()");
-	if ( (&inst)->verbose >= 1) printf(" ... Executed in %6.3lf s\n", (&inst)->opt_time); 
+	if ( (&inst)->verbose >= 1) printf(" ... Executed in %.2lf s, best_lb: %.1lf\n", (&inst)->opt_time, (&inst)->best_lb); 
 
 	if ( (&inst)->verbose >= 1 ) plot_instance(&inst);
 	if ( (&inst)->verbose < 10) save_results(&inst, "res.csv");
