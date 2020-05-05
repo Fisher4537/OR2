@@ -56,6 +56,7 @@ typedef struct {
 	int nedges;						// number of edges in best_sol
 	// double *load_min;			// minimum load when leaving a node
 	// double *load_max;			// maximum load when leaving a node
+	double best_int;
 
 	double ncols;
 	int callback;
@@ -97,6 +98,8 @@ void build_mtz_lazy(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 void add_lazy_mtz(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 
 void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+
+int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 
 int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, double fixing_ratio);
