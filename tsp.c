@@ -7,13 +7,13 @@
 #include <string.h>
 #include <time.h>
 #include <math.h>
-#include <unistd.h>
 
 
 #ifdef _WIN32
 	#define DIR_DELIM '\\'
 #else
 	#define DIR_DELIM '/'
+	#include <unistd.h>
 #endif
 
 /**
@@ -23,6 +23,8 @@
 
 			- Latex: how to use generic callback (if it's write good he can take the part for next year courses)
 			- User_cut di Concorde (difficile implementarle e non è possibile utilizzarle ogni volta bensì solo ogni tot..)		-> per la lode
+
+			- Struct a parte per euristiche e inizializzazione tramite variabili locali in parse_command_line
 */
 
 char * model_name(int i) {
@@ -859,10 +861,10 @@ void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, doubl
 	if (inst->verbose >= 100) printf("FIXING %.5lf %%\n", fixing_ratio);
 
 	int k = 0; // position of the ij-th arch in best_sol: xpos(i, j, inst);
-
-	int indices[inst->nnodes];
-	char lu[inst->nnodes];
-	double bd[inst->nnodes];
+	int nnodes = inst->nnodes;
+	int* indices = (int*) calloc(inst->nnodes,sizeof(int));
+	char* lu = (char*)calloc(inst->nnodes, sizeof(char));
+	double* bd = (double*)calloc(inst->nnodes, sizeof(double));
 
 	double random;
 	int cnt = 0;  // from 0 to inst->nnodes = nedges
@@ -890,7 +892,7 @@ void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, doubl
 			if (cnt > inst->nnodes) print_error("unaspected value of cnt in fix_bound!");
 
 			*status = CPXchgbds(env, lp, cnt, indices, lu, bd);
-
+			
 			break;
 
 		case 1:
@@ -901,6 +903,9 @@ void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, doubl
 			print_error(" model type unknown!!");
 			break;
 	}
+	free(indices);
+	free(lu);
+	free(bd);
 }
 
 
@@ -1017,7 +1022,7 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 		}
 		if (k[4] == inst->nnodes) {
 			int status = CPXgetstat(env, lp);
-			if (CPXgetstat(env, lp) == 101 || CPXgetstat(env, lp) == 102) {
+			if (CPXgetstat(env, lp) == 101 || CPXgetstat(env, lp) == 102) {						
 				printf("CPXgetstat: %s", status == 101 ? "Optimal integer solution found\n" :
 														"Optimal sol. within epgap or epagap tolerance found\n");
 				return;
@@ -2165,8 +2170,13 @@ void plot_instance(tspinstance *inst) {
 	plot_edges(gnuplot, pngname, inst);
 
 	// show plot or save in file and close
-  fflush(gnuplot);
-	if (inst->verbose >= 1000) sleep(2); // pause execution to see the plot
+	fflush(gnuplot);
+	if (inst->verbose >= 1000) 
+		#ifdef _WIN32
+			Sleep(2000); // pause execution to see the plot
+		#else
+			sleep(2); // pause execution to see the plot
+		#endif
 	fclose(gnuplot);
 }
 
