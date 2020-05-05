@@ -891,7 +891,7 @@ void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, doubl
 			if (cnt > inst->nnodes) print_error("unaspected value of cnt in fix_bound!");
 
 			*status = CPXchgbds(env, lp, cnt, indices, lu, bd);
-			
+
 			break;
 
 		case 1:
@@ -973,9 +973,11 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 				CPXsetdblparam(env, CPX_PARAM_TILIM, remaining_time);
 			else
 				CPXsetdblparam(env, CPX_PARAM_TILIM, temp_timelimit);
-			
+
 		}
 		
+		sprintf(cname[0], "local-branching constraint, k_index = %f", k_index < 5 ? k[k_index] : k[4]);
+
 		sprintf(cname[0], "local-branching constraint, k_index = %f", k_index < 5 ? k[k_index] : k[4]);
 
 		char sense = 'G';
@@ -1003,10 +1005,10 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 		if (CPXmipopt(env, lp)) {
 			printf("Error in CPXmipopt\n");
 		}
-		
+
 		double fin = second();
 		remaining_time -= (fin - ini);
-		
+
 		if (remaining_time <= 0.01) {
 			if (CPXgetstat(env, lp) == 101 || CPXgetstat(env, lp) == 102) {
 				if(best_lb > inst->best_lb)
@@ -1020,7 +1022,7 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 		}
 		if (k[4] == inst->nnodes) {
 			int status = CPXgetstat(env, lp);
-			if (CPXgetstat(env, lp) == 101 || CPXgetstat(env, lp) == 102) {						
+			if (CPXgetstat(env, lp) == 101 || CPXgetstat(env, lp) == 102) {
 				printf("CPXgetstat: %s", status == 101 ? "Optimal integer solution found\n" :
 														"Optimal sol. within epgap or epagap tolerance found\n");
 				return;
@@ -1031,8 +1033,8 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 		CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
 
 		int status = CPXgetstat(env, lp);
-		printf("CPXgetstat: %s", status==101 ? "Optimal integer solution found\n" : 
-											(status==102) ? "Optimal sol. within epgap or epagap tolerance found\n " : 
+		printf("CPXgetstat: %s", status==101 ? "Optimal integer solution found\n" :
+											(status==102) ? "Optimal sol. within epgap or epagap tolerance found\n " :
 													(status==107)? "Time limit exceeded, integer solution exists" : "debug this to see");
 
 ;		if (CPXgetstat(env, lp) == 101 || CPXgetstat(env, lp) == 102) {
@@ -1343,7 +1345,7 @@ static int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG cont
 		double objval = CPX_INFBOUND;
 		if (CPXcallbackgetcandidatepoint(context, xstar, 0, inst->ncols - 1, &objval))			// xstar = current x from CPLEX-- xstar starts from position 0 (getx is not defined)
 			return 1;
-		
+
 		int mythread = -1; CPXcallbackgetinfoint(context, CPXCALLBACKINFO_THREADS, &mythread);
 		double zbest; CPXcallbackgetinfodbl(context, CPXCALLBACKINFO_BEST_SOL, &zbest);				//valore incumbent al nodo corrente
 		double best_int = -CPX_INFBOUND; CPXcallbackgetinfodbl(context, CPXCALLBACKINFO_BEST_BND, &best_int);
@@ -1362,17 +1364,17 @@ static int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG cont
 
 		//printf("\t\t____BEST SOL___ : %f, ____BEST BOUND___ : %f, ____Actual GAP___ : %f\n", best_sol, best_bound, best_sol - best_bound);
 		//printf("Actual Gap : [%f]\n", best_sol - best_bound);
-		
+
 		if (inst->best_int > best_int) {
 			printf("BEST_INT update from -> to : [%f] -> [%f]\n", inst->best_int, best_int);
 			inst->best_int = best_int;
 		}
-		
+
 		if (inst->best_lb < best_lb) {
 			printf("BEST_LB update from -> to : [%f] -> [%f]\n", inst->best_lb, best_lb);
 			inst->best_lb = best_lb;
 		}
-		
+
 		return 0;
 	}
 	return 0;
@@ -2165,7 +2167,7 @@ void plot_instance(tspinstance *inst) {
 
 	// show plot or save in file and close
 	fflush(gnuplot);
-	if (inst->verbose >= 1000) 
+	if (inst->verbose >= 1000)
 		#ifdef _WIN32
 			Sleep(2000); // pause execution to see the plot
 		#else
