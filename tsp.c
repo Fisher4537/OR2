@@ -39,6 +39,7 @@ char * model_name(int i) {
 		case 7: return "subtour_callback_general";			// Subtour_callback_general
 		case 8: return "hard_fixing";
 		case 9: return "local_branching";
+		case 10: return "heuristic_greedy";
 		default: return "not_supported";
 	}
 }
@@ -108,6 +109,12 @@ char * setup_model(tspinstance* inst) {
 			inst->callback = 2;
 			inst->mip_opt = 2;
 			return "local_branching";					// Soft-Fixing => Local Branching
+		case 10:
+			inst->model_type = 0;
+			inst->heuristic = 3;
+			inst->callback = 0;
+			inst->mip_opt = 2;
+			return "heuristic_greedy";					// Heuristic Greedy (no CPLEX)
 		default: return "not_supported";
 	}
 }
@@ -743,6 +750,10 @@ void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 			*status = local_branching(env, lp, inst, status);
 		break;
 
+		case 3:													// Heuristic greedy (no CPLEX)
+			*status = heur_greedy(env, lp, inst, status);
+			break;
+
 		default:
 			print_error("model ì_type not implemented in optimization method");
 		break;
@@ -880,7 +891,6 @@ void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, doubl
 	free(bd);
 }
 
-
 int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
 	int k_index = 0;
@@ -1017,6 +1027,14 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 
 	}
 }
+
+int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
+
+	for (int i = 0; i < inst->nnodes; i++) {
+
+	}
+}
+
 
 // optimization methods run the problem optimization
 int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status) {
