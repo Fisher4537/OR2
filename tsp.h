@@ -16,12 +16,18 @@
 #endif
 
 //hard-wired parameters
-#define XSMALL		  		  1e-5 		// 1e-4*	// tolerance used to decide
-										// ingerality of 0-1 var.s
+#define XSMALL		  		  1e-5 		// 1e-4*	// tolerance used to decide // ingerality of 0-1 var.s
 #define EPS 1e-5
-#define TICKS_PER_SECOND 	  1000.0  	// cplex's ticks on Intel Core i7 quadcore
-										// @2.3GHZ
+#define TICKS_PER_SECOND 	  1000.0  	// cplex's ticks on Intel Core i7 quadcore // @2.3GHZ
+
 //data structures
+typedef struct {
+	double max_fr;		// maximum fixing_ratio
+	double incr_fr;		// increase of fixing_ratio when good gap
+	double decr_fr;		// decreasing of fixing_ratio when bad gap
+	double good_gap;			// a good gap allow to decrease fixing_ratio
+	double optimal_gap; 	// under this value, solution is optimal
+} hardfix;
 
 typedef struct {
 
@@ -66,14 +72,10 @@ typedef struct {
 	int plot_edge;
 
 	// hard fixing
-	double max_fr;		// maximum fixing_ratio
-	double incr_fr;		// increase of fixing_ratio when good gap
-	double decr_fr;		// decreasing of fixing_ratio when bad gap
-
-	double good_gap;			// a good gap allow to decrease fixing_ratio
-	double optimal_gap; 	// under this value, solution is optimal
+	hardfix *hf_param;
 
 } tspinstance;
+
 
 //inline
 inline int imax(int i1, int i2) { return ( i1 > i2 ) ? i1 : i2; }
