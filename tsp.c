@@ -912,7 +912,7 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 
 	int k_index = 0;
 	double k[5] = { 3.0, 5.0, 10.0, 15.0, 20.0};
-	double timelimit = 300;
+	double timelimit = 300;									// internal timelimit
 	double temp_timelimit = timelimit;
 	double remaining_time = inst->timelimit;
 
@@ -976,8 +976,6 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 
 		}
 		
-		sprintf(cname[0], "local-branching constraint, k_index = %f", k_index < 5 ? k[k_index] : k[4]);
-
 		sprintf(cname[0], "local-branching constraint, k_index = %f", k_index < 5 ? k[k_index] : k[4]);
 
 		char sense = 'G';
