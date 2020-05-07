@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "chrono.h"
 
 double myWallTime()

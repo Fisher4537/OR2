@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "tsp.h"
 #include "chrono.h"
 
@@ -7,7 +6,6 @@
 #include <string.h>
 #include <time.h>
 #include <math.h>
-
 
 #ifdef _WIN32
 	#define DIR_DELIM '\\'
