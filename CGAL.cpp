@@ -1,40 +1,23 @@
-#include <CGAL/Simple_cartesian.h>
 #include <iostream>
+#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
+#include <CGAL/convex_hull_2.h>
 
-typedef CGAL::Simple_cartesian<double> Kernel;
-typedef Kernel::Point_2 Point_2;
-typedef Kernel::Segment_2 Segment_2;
+typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
+typedef K::Point_2 Point_2;
 
 #if __cplusplus
 extern "C" {
 #endif 
     
-    int first(){
-        Point_2 p(1, 1), q(10, 10);
-        std::cout << "p = " << p << std::endl;
-        std::cout << "q = " << q.x() << " " << q.y() << std::endl;
-        std::cout << "sqdist(p,q) = "
-            << CGAL::squared_distance(p, q) << std::endl;
-
-        Segment_2 s(p, q);
-        Point_2 m(5, 9);
-
-        std::cout << "m = " << m << std::endl;
-        std::cout << "sqdist(Segment_2(p,q), m) = "
-            << CGAL::squared_distance(s, m) << std::endl;
-        std::cout << "p, q, and m ";
-        switch (CGAL::orientation(p, q, m)) {
-        case CGAL::COLLINEAR:
-            std::cout << "are collinear\n";
-            break;
-        case CGAL::LEFT_TURN:
-            std::cout << "make a left turn\n";
-            break;
-        case CGAL::RIGHT_TURN:
-            std::cout << "make a right turn\n";
-            break;
+    int cgal()
+    {
+        Point_2 points[5] = { Point_2(0,0), Point_2(10,0), Point_2(10,10), Point_2(6,5), Point_2(4,1) };
+        Point_2 result[5];
+        Point_2* ptr = CGAL::convex_hull_2(points, points + 5, result);
+        std::cout << ptr - result << " points on the convex hull:" << std::endl;
+        for (int i = 0; i < ptr - result; i++) {
+            std::cout << result[i] << std::endl;
         }
-        std::cout << " midpoint(p,q) = " << CGAL::midpoint(p, q) << std::endl;
         return 0;
     }
 
