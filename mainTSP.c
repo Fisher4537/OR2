@@ -4,12 +4,12 @@
 
 #define  VERBOSE 2
 
-int cgal();
+int load_point(char* pathFileTSP);
+int order_by_dis(int firstPoint);
 
 int main(int argc, char **argv)
 {
-	cgal();
-	return;
+	
 	
 	if ( argc < 2 ) { printf("Usage: %s -help for help\n", argv[0]); exit(1); }
 	if ( VERBOSE >= 2 ) {
@@ -25,6 +25,11 @@ int main(int argc, char **argv)
 
 	// read input files
 	read_input(&inst);
+
+	char* pathFileTSP = (&inst)->input_file;
+	load_point(pathFileTSP);
+	order_by_dis(0);
+	return;
 
 	// TSP optimization
 	if ( TSPopt(&inst) ) print_error(" error within TSPopt()");

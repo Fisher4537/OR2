@@ -1,26 +1,65 @@
-#include <iostream>
+#include <sstream>
+#include <string>
+#include <fstream>
+#include <CGAL/squared_distance_2.h>
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
-#include <CGAL/convex_hull_2.h>
+#include <CGAL/ch_graham_andrew.h>
+#include <CGAL/Cartesian.h>
 
-typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
-typedef K::Point_2 Point_2;
+//typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
+typedef CGAL::Cartesian<double> K;
 
-#if __cplusplus
+using namespace std;
+
+vector<K::Point_2> points;
+double f_x, f_y;
+
+int status;                         // 0 : all OK
+                                    // 1 : error on loading points
+                                    // 2 : error, points are not loaded into vector
+
 extern "C" {
-#endif 
     
-    int cgal()
-    {
-        Point_2 points[5] = { Point_2(0,0), Point_2(10,0), Point_2(10,10), Point_2(6,5), Point_2(4,1) };
-        Point_2 result[5];
-        Point_2* ptr = CGAL::convex_hull_2(points, points + 5, result);
-        std::cout << ptr - result << " points on the convex hull:" << std::endl;
-        for (int i = 0; i < ptr - result; i++) {
-            std::cout << result[i] << std::endl;
+    int load_point(char* pathFileTSP){
+
+        ifstream tspFile;
+        tspFile.open(pathFileTSP);
+
+        string line;
+        bool startPoint = false;
+        while (getline(tspFile, line)){
+            if (line == "EOF")
+                break;
+            if (startPoint) {
+                istringstream iss(line);
+                double id, x, y;
+                if (!(iss >> id >> x >> y)) { 
+                    printf("Error pushing Point number: %d\n", (int)id);
+                    return status = 1;
+                }
+                points.push_back(K::Point_2(x, y));
+                printf("Coordinate: [%f, %f]\n", x, y);
+                f_x = x;
+                f_y = y;
+            }
+            if (line == "NODE_COORD_SECTION")
+                startPoint = true;
         }
-        return 0;
+        return status = 0;
     }
 
-#if __cplusplus
+    int order_by_dis(int firstPoint) {
+        if (status) {
+
+           K::Point_2 firstPoint(f_x, f_y); //points.at(firstPoint).x, points.at(firstPoint).y);
+
+            sort(points.begin(), points.end(), [&firstPoint](const K::Point_2& point1, const K::Point_2& point2 ) {
+                return CGAL::squared_distance(firstPoint, point1) < CGAL::squared_distance(firstPoint, point2) ?
+                    point1 : point2;
+                });
+
+            return 0;
+        }
+        else return status = 2;
+    }
 }
-#endif
