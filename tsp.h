@@ -143,4 +143,12 @@ void plot_arrow_asym(FILE *gnuplot, char *pngname, tspinstance *inst);
 void pause_execution();
 void print_error(const char *err);
 
+
+//*********************************** CGAL methods ***********************************
+void set_verbose(int v);
+int load_point(char* pathFileTSP);
+int order_by_dis(int firstPoint, int with_sqrt_distance);
+int get_first();
+int get_second();
+
 #endif   /* TSP_H_ */

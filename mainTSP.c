@@ -4,8 +4,6 @@
 
 #define  VERBOSE 2
 
-int load_point(char* pathFileTSP);
-int order_by_dis(int firstPoint);
 
 int main(int argc, char **argv)
 {
@@ -25,11 +23,6 @@ int main(int argc, char **argv)
 
 	// read input files
 	read_input(&inst);
-
-	char* pathFileTSP = (&inst)->input_file;
-	load_point(pathFileTSP);
-	order_by_dis(0);
-	return;
 
 	// TSP optimization
 	if ( TSPopt(&inst) ) print_error(" error within TSPopt()");

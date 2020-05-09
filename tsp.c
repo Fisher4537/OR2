@@ -1028,9 +1028,63 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 
 int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
+	CPXsetintparam(env, CPX_PARAM_ADVIND, 2);
+
+	double best_lb;
+	double val = 1.0;
+
+	int** neib_point = (int**)calloc(2, sizeof(int*));		
+	neib_point[0] = (int*)calloc(inst->nnodes, sizeof(int));
+	neib_point[1] = (int*)calloc(inst->nnodes, sizeof(int));
+
+	int stat = load_point(inst->input_file);
+	
+	for (int i = 0; i < inst->nnodes; i++) {
+		order_by_dis(i, 1);
+
+		neib_point[0][i] = get_first();
+		neib_point[1][i] = get_second();
+		
+	}
+	if (inst->verbose > 10) {
+		for (int i = 0; i < inst->nnodes; i++) {
+			printf("%d\t", i);
+		}
+		printf("\n");
+		for (int i = 0; i < inst->nnodes; i++) {
+			printf("%d\t", neib_point[0][i]);
+		}
+		printf("\n");
+		for (int i = 0; i < inst->nnodes; i++) {
+			printf("%d\t", neib_point[1][i]);
+		}
+	}
 	for (int i = 0; i < inst->nnodes; i++) {
 
+		int* sol = (int*)calloc(inst->nnodes, sizeof(int));
+		int idx_pred = i;
+		int succ = neib_point[0][i];
+
+		sol[0] = xpos(idx_pred, succ, inst);
+
+		for (int j = 1; j < inst->nnodes; j++) {
+			succ = (neib_point[0][succ] == idx_pred) ? neib_point[1][succ] : neib_point[0][succ];
+			sol[j] = xpos(idx_pred, succ, inst);
+			idx_pred = succ;
+			 
+		}
+		
+		
+		CPXsolution(env, lp, &status, &best_lb, sol, NULL, NULL, NULL);
+		if (inst->best_lb > best_lb) {
+			printf("BEST_LB update from -> to : [%f] -> [%f]\n", inst->best_lb, best_lb );
+			inst->best_lb = best_lb;
+			inst->best_sol = sol;
+		}
+
+		free(sol);
 	}
+	//CPXcopymipstart(env, lp, inst->nnodes, sol, &val);
 }
 
 
@@ -2338,3 +2392,5 @@ void pause_execution() {
 void print_error(const char *err) {
 	printf("\n\n ERROR: %s \n\n", err); fflush(NULL); exit(1);
 }
+
+
