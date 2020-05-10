@@ -1032,13 +1032,31 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
 	double best_lb;
 	double val = 1.0;
-
-	int** neib_point = (int**)calloc(2, sizeof(int*));		
-	neib_point[0] = (int*)calloc(inst->nnodes, sizeof(int));
-	neib_point[1] = (int*)calloc(inst->nnodes, sizeof(int));
+	inst->best_lb = CPX_INFBOUND;
+	double* sol = (double*)calloc(inst->nnodes, sizeof(double));
 
 	int stat = load_point(inst->input_file);
 	
+	greedy_alg();
+
+	for (int i = 0; i < inst->nnodes; i++) {
+		
+		sol = get_greedy_sol(i);
+		
+		for (int j = 0; j < inst->nnodes - 1; j++) {
+			sol[j] = xpos(sol[j], sol[j+1], inst);
+		}
+		sol[inst->nnodes - 1] = xpos(sol[inst->nnodes - 1], i, inst);
+
+		CPXsolution(env, lp, &status, &best_lb,  sol, NULL, NULL, NULL);
+		if (inst->best_lb > best_lb) {
+			printf("BEST_LB update from -> to : [%f] -> [%f]\n", inst->best_lb, best_lb);
+			inst->best_lb = best_lb;
+			inst->best_sol = sol;
+		}
+	}
+
+	/*
 	for (int i = 0; i < inst->nnodes; i++) {
 		order_by_dis(i, 1);
 
@@ -1083,7 +1101,7 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		}
 
 		free(sol);
-	}
+	}*/
 	//CPXcopymipstart(env, lp, inst->nnodes, sol, &val);
 }
 

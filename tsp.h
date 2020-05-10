@@ -148,7 +148,7 @@ void print_error(const char *err);
 void set_verbose(int v);
 int load_point(char* pathFileTSP);
 int order_by_dis(int firstPoint, int with_sqrt_distance);
-int get_first();
-int get_second();
+int greedy_alg();
+double* get_greedy_sol(int i);
 
 #endif   /* TSP_H_ */

@@ -20,11 +20,14 @@ typedef Neighbor_search::Tree Tree;
 using namespace std;
 
 int verbose = 0;
+int nnodes = 0;
 
 vector<K::Point_2> points;
 vector<K::Point_2> points_ordered;
 vector<int> indexes;
 vector<double> sqrt_distance;
+
+vector<vector<double>> sol;
 
 int status;                         // 0 : all OK
                                     // 1 : error on loading points
@@ -55,6 +58,7 @@ extern "C" {
                     return status = 1;
                 }
                 points.push_back(K::Point_2(x, y));
+                nnodes++;
                 if(verbose > 100)
                     printf("Coordinate: [%f, %f]\n", x, y);
             }
@@ -65,6 +69,9 @@ extern "C" {
     }
 
     int order_by_dis(int firstPoint, int with_sqrt_distance) {
+
+        if(verbose > 100)
+            printf("\n____ Euclidean Distances Solutions: ____\n");
 
         points_ordered.clear();
         indexes.clear();
@@ -82,10 +89,7 @@ extern "C" {
             
         // report the N nearest neighbors and their distance
         // This should sort all N points by increasing distance from origin
-
-        Neighbor_search::iterator it = search.begin();
-        ++it;                                                       //don't consider first_point
-        for (int i = 0; it != search.end() && i < 2; ++it, i++) {
+        for (Neighbor_search::iterator it = search.begin(); it != search.end(); ++it) {
             
             //points_ordered.push_back(it->first);
             int id = distance(points.begin(), find(points.begin(), points.end(), it->first));
@@ -94,17 +98,63 @@ extern "C" {
                 sqrt_distance.push_back(sqrt(it->second));
 
             if(verbose > 100)
-                printf("Point %d [%.0f,%.0f]\tat distance: %.4f\n", id, it->first.x(), it->first.y(), sqrt(it->second));
-
+                //printf("Point %d [%.0f,%.0f]\tat distance: %.4f\n", id, it->first.x(), it->first.y(), sqrt(it->second));
+                printf("%d\t", id);
         }
         return 0;
     }
 
-    int get_first() {
-        return indexes.at(0);
+    int greedy_alg() {
+
+        vector<vector<int>> neigh_sol_idx(nnodes);
+        
+        sol = vector<vector<double>>(nnodes);
+
+        if (verbose > 100)
+            printf("\n____ Track Solutions: ____\n");
+        
+        for (int i = 0; i < nnodes; i++) {
+
+            order_by_dis(i, 1);
+            
+            if (verbose > 100)
+                printf("\n");
+            
+            neigh_sol_idx[i] = indexes;
+            sol[i] = vector<double>(nnodes);
+            fill(sol[i].begin(), sol[i].end(), -1);
+        }
+        if (verbose > 100)
+            printf("\n");
+        
+        for (int i = 0; i < nnodes; i++) {
+            if (verbose > 100)
+                printf("\n");
+            
+            sol[i][0] = neigh_sol_idx[i][0];                // first_point ( euclidean distance = 0 from itself)
+            sol[i][1] = neigh_sol_idx[i][1];
+            double succ = neigh_sol_idx[i][1];
+            
+            if (verbose > 100)
+                printf("%f\t%f\t", sol[i][0], sol[i][1]);
+
+            for (int j = 2; j < nnodes; j++) {
+                
+                vector<int>::iterator it = find_if(neigh_sol_idx[succ].begin(), neigh_sol_idx[succ].end(), [&](int neig) {
+                    return find(sol[i].begin(), sol[i].end(), neig) == sol[i].end();
+                });
+
+                succ = *it;
+                sol[i][j] = (double)succ;
+
+                if (verbose > 100)
+                    printf("%f\t", succ);
+            }
+        }
+        return 0;
     }
 
-    int get_second() {
-        return indexes.at(1);
+    double* get_greedy_sol(int i) {
+        return sol[i].data();
     }
 }
