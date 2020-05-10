@@ -110,7 +110,7 @@ char * setup_model(tspinstance* inst) {
 		case 10:
 			inst->model_type = 0;
 			inst->heuristic = 3;
-			inst->callback = 0;
+			inst->callback = 2;
 			inst->mip_opt = 2;
 			return "heuristic_greedy";					// Heuristic Greedy (no CPLEX)
 		default: return "not_supported";
@@ -1028,32 +1028,53 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 
 int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
-	CPXsetintparam(env, CPX_PARAM_ADVIND, 2);
+	CPXsetintparam(env, CPX_PARAM_ADVIND, 1);
+	CPXsetdblparam(env, CPX_PARAM_TILIM, 5);
 
+	double gap = 1.0;
 	double best_lb;
 	double val = 1.0;
 	inst->best_lb = CPX_INFBOUND;
-	double* sol = (double*)calloc(inst->nnodes, sizeof(double));
+	int* sol_f = (int*)malloc(inst->nnodes, sizeof(int));
+	int izero = 0;
+
+	set_verbose(inst->verbose);
 
 	int stat = load_point(inst->input_file);
 	
 	greedy_alg();
 
 	for (int i = 0; i < inst->nnodes; i++) {
+		int* sol = (int*)malloc(inst->nnodes, sizeof(int));
 		
 		sol = get_greedy_sol(i);
 		
 		for (int j = 0; j < inst->nnodes - 1; j++) {
+			//printf("%d,%d\n", sol[j], sol[j + 1]);
 			sol[j] = xpos(sol[j], sol[j+1], inst);
 		}
+		//printf("%d,%d\n\n", sol[inst->nnodes - 1], i);
 		sol[inst->nnodes - 1] = xpos(sol[inst->nnodes - 1], i, inst);
 
-		CPXsolution(env, lp, &status, &best_lb,  sol, NULL, NULL, NULL);
+		for (int k = 0; k < inst->nnodes; k++) {
+			inst->best_sol[k] = sol[k];
+		}
+		CPXcopystart(env, lp, inst->best_sol, &val, NULL, NULL, NULL, NULL);
+		
+		CPXmipopt(env, lp);
+		
+		if (gap < 0.09) {
+			return;
+		}
+		CPXsolution(env, lp, &status, &best_lb, inst->best_sol, NULL, NULL, NULL);
+		
 		if (inst->best_lb > best_lb) {
 			printf("BEST_LB update from -> to : [%f] -> [%f]\n", inst->best_lb, best_lb);
 			inst->best_lb = best_lb;
-			inst->best_sol = sol;
 		}
+		
+		gap = ((inst->best_lb - inst->best_int) / inst->best_lb) * 100;
+		
 	}
 
 	/*
@@ -1102,7 +1123,6 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
 		free(sol);
 	}*/
-	//CPXcopymipstart(env, lp, inst->nnodes, sol, &val);
 }
 
 

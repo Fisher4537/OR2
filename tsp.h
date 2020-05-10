@@ -149,6 +149,7 @@ void set_verbose(int v);
 int load_point(char* pathFileTSP);
 int order_by_dis(int firstPoint, int with_sqrt_distance);
 int greedy_alg();
-double* get_greedy_sol(int i);
+int greedy2_alg();
+int* get_greedy_sol(int i);
 
 #endif   /* TSP_H_ */
