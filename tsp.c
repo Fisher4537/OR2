@@ -150,6 +150,7 @@ int TSPopt(tspinstance *inst) {
 
 	// set callback if selected
 	switch_callback(inst, env, lp);
+		
 	// setup struct to save solution
 	inst->nedges = CPXgetnumcols(env, lp);
 	inst->best_sol = (double *) calloc(inst->nedges, sizeof(double)); 	// all entries to zero
@@ -159,31 +160,11 @@ int TSPopt(tspinstance *inst) {
 	if (inst->verbose >= 100) printf("optimizing model...\n");
 
 	// compute cplex and calculate opt_time w.r.t. OS used
-	#ifdef __linux__
-		double ini = second();
-		optimization(env, lp, inst, &status);
-		double fin = second();
-		inst->opt_time = (double)(fin - ini);
-	#elif _WIN32
+	double ini = second();
+	optimization(env, lp, inst, &status);
+	double fin = second();
+	inst->opt_time = (double)(fin - ini);
 
-		/* Metodo 1 -> QueryPerformanceCounter*/
-		double ini = second();
-		optimization(env, lp, inst, &status);
-		double fin = second();
-		inst->opt_time = (double)(fin - ini);
-
-		/* Metodo 2	-> CPXgettime
-		struct timespec ts, ts2;
-		CPXgettime(env, &ts);
-		mip_optimization(env, lp, inst, &status);
-		CPXgettime(env, &ts2);
-		inst->opt_time = (double)ts2.tv_nsec + 1.0e-9 * ((double)ts2.tv_nsec) - (double)ts.tv_nsec + 1.0e-9 * ((double)ts.tv_nsec);
-		*/
-	#else
-		clock_t init_time = clock();
-		mip_optimization(env, lp, inst, &status);
-		inst->opt_time = (double)(clock() - init_time) / CLOCKS_PER_SEC;
-	#endif
 
 	if (inst->verbose >= 100) printf("optimization complete!\n");
 	mip_optimization(env, lp, inst, &status);
@@ -1126,7 +1107,7 @@ int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status)
 		}
 
 						   (env, lp, #mip_start, #elem foreach mip_start, start_point, xstar, value, effort, name)
-		if (CPXaddmipstarts(env, lp, inst->nnodes, inst->nnodes, &all_izero, all_sol, &val, &nocheck_warmstart, NULL)) {
+		if (CPXaddmipstarts(env, lp, inst->nnodes, &inst->nnodes, &all_izero, all_sol, &val, &nocheck_warmstart, NULL)) {
 			print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
 			return status;
 		}
