@@ -148,10 +148,10 @@ void print_error(const char *err);
 
 //*********************************** CGAL methods ***********************************
 void set_verbose(int v);
-int load_point(double* nodes);
 int load_point(char* pathFileTSP);
 int order_by_dis(int firstPoint, int with_sqrt_distance);
 int greedy_alg();
 int* get_greedy_sol(int i);
+void free_cgal();
 
 #endif   /* TSP_H_ */

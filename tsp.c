@@ -186,11 +186,11 @@ int TSPopt(tspinstance *inst) {
 	#endif
 
 	if (inst->verbose >= 100) printf("optimization complete!\n");
-
+	mip_optimization(env, lp, inst, &status);
 	// get best solution
 	if (inst->verbose >= 100) printf("getting succ and comp...\n");
 	// CPXgetbestobjval(env, lp, &inst->best_lb);
-	if(inst->setup_model < 9)
+	if(inst->setup_model != 9)
 		CPXsolution(env, lp, &status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
 
 	// use the optimal solution found by CPLEX
@@ -1038,9 +1038,6 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
 	CPXsetintparam(env, CPX_PARAM_ADVIND, 1);
-	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 1);
-	if(inst->verbose < 100)
-		CPXsetintparam(env, CPX_PARAM_SCRIND, CPX_OFF);
 
 	double best_lb = CPX_INFBOUND;
 	inst->best_lb = CPX_INFBOUND;
@@ -1053,9 +1050,10 @@ int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status)
 
 	set_verbose(inst->verbose);
 
-	int stat = load_point(inst->input_file);
+	load_point(inst->input_file);
 	
 	greedy_alg();
+
 	for (int i = 0; i < inst->nnodes; i++) {
 		int* sol = (int*)calloc(inst->nnodes, sizeof(int));
 		for (int k = 0; k < inst->nnodes; k++) {
@@ -1087,8 +1085,16 @@ int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status)
 		}
 		free(sol);
 	}
+	free_cgal();
+	printf("BEST_LB Greedy Heuristic CGAL found: [%f]\n", inst->best_lb);
 
-	printf("\nBEST_LB Greedy Heuristic CGAL found: [%f]\n", inst->best_lb);
+	if (CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) {
+		print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
+		return status;
+	}
+
+	
+	mip_optimization(env, lp, inst, status);
 
 	/********* Add a mip start
 
@@ -1099,8 +1105,6 @@ int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status)
 
 		mip_optimization(env, lp, inst, &status);
 		CPXsolution(env, lp, &status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
-
-		printf("BEST_LB found: [%f]\n\n", inst->best_lb);
 
 	/******** Delete a mip start :
 		
@@ -1127,10 +1131,16 @@ int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status)
 			return status;
 		}
 
-	/******** If avoid Out of Memory :
+	/******** Try if Out of Memory :
 
+		CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 1);
 		CPXsetintparam(env, CPX_PARAM_NODEFILEIND, 3);
 		CPXsetintparam(env, CPX_PARAM_WORKMEM, 6144);
+
+	/******** Stop ad first incumbent found :
+
+		CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 1);
+	
 	*/
 		
 }
@@ -1138,9 +1148,6 @@ int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status)
 int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
 	CPXsetintparam(env, CPX_PARAM_ADVIND, 1);
-	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 1);
-	if (inst->verbose < 100)
-		CPXsetintparam(env, CPX_PARAM_SCRIND, CPX_OFF);
 
 	double best_lb = CPX_INFBOUND;
 	double val = 1.0;
@@ -1162,14 +1169,16 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		int succ = succ_not_contained(i, sol, inst);
 		sol[0] = i;
 		sol[1] = succ;
-		//printf("%d\n%d\n", sol[0], sol[1]);
+		if(inst->verbose > 1000)
+			printf("%d\n%d\n", sol[0], sol[1]);
 		int idx_pred = succ;
 
 		for (int j = 2; j < inst->nnodes; j++) {
 			succ = succ_not_contained(idx_pred, sol, inst);
 			sol[j] = succ;
 			idx_pred = succ;
-			//printf("%d\n", sol[j]);
+			if (inst->verbose > 1000)
+				printf("%d\n", sol[j]);
 
 		}
 
@@ -1198,7 +1207,14 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		free(sol);
 	}
 
-	printf("\nBEST_LB Greedy Heuristic found: [%f]\n", inst->best_lb);
+	printf("BEST_LB Greedy Heuristic found: [%f]\n", inst->best_lb);
+
+	if (CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) {
+		print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
+		return status;
+	}
+
+	mip_optimization(env, lp, inst, status);
 }
 
 int succ_not_contained(int node, int* sol, tspinstance *inst) {
