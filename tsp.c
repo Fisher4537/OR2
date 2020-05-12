@@ -46,11 +46,11 @@ char * model_name(int i) {
 char * setup_model(tspinstance* inst) {
 	switch (inst->setup_model) {
 		case 0:
-			inst->model_type = 0;
-			inst->heuristic = 0;
-			inst->callback = 0;
-			inst->mip_opt = 0;
-			return "subtour";							// basic model with asymmetric x and q
+			inst->model_type = 0;		// symmetric, no subtour constraints
+			inst->heuristic = 0;		// No Heuristic used
+			inst->callback = 0;			// No Lazy, No Generic, No callback
+			inst->mip_opt = 0;			// subtour_iter_opt, symmetric, without callback
+			return "subtour";
 		case 1:
 			inst->model_type = 1;
 			inst->heuristic = 0;
@@ -139,6 +139,8 @@ int TSPopt(tspinstance *inst) {
 
 	// set callback if selected
 	switch_callback(inst, env, lp);
+	status = CPXsetheuristiccallbackfunc(env, heur_GRASP, inst);
+
 	// setup struct to save solution
 	inst->nedges = CPXgetnumcols(env, lp);
 	inst->best_sol = (double *) calloc(inst->nedges, sizeof(double)); 	// all entries to zero
@@ -882,7 +884,7 @@ void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, doubl
 
 
 int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
-
+	// TODO resolve returning value
 	int k_index = 0;
 	double k[5] = { 3.0, 5.0, 10.0, 15.0, 20.0};
 	double timelimit = 300;									// internal timelimit
@@ -989,14 +991,14 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 				print_error("wrong CPXdelrows() for deleting local-branching constraint\n");
 
 			printf("*** Better soluzion found! ***\n");
-			return;
+			return 0;
 		}
 		if (k[4] == inst->nnodes) {
 			int status = CPXgetstat(env, lp);
 			if (CPXgetstat(env, lp) == 101 || CPXgetstat(env, lp) == 102) {
 				printf("CPXgetstat: %s", status == 101 ? "Optimal integer solution found\n" :
 														"Optimal sol. within epgap or epagap tolerance found\n");
-				return;
+				return 0;
 			}
 			printf("CPXgetstat: %s", (status == 107) ? "Time limit exceeded, integer solution exists" : "debug this to see");
 		}
@@ -1008,7 +1010,7 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 											(status==102) ? "Optimal sol. within epgap or epagap tolerance found\n " :
 													(status==107)? "Time limit exceeded, integer solution exists" : "debug this to see");
 
-;		if (CPXgetstat(env, lp) == 101 || CPXgetstat(env, lp) == 102) {
+		if (CPXgetstat(env, lp) == 101 || CPXgetstat(env, lp) == 102) {
 			best_sol = inst->best_sol;
 		}
 
@@ -1016,6 +1018,7 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 			print_error("wrong CPXdelrows() for deleting local-branching constraint\n");
 
 	}
+	return 0;
 }
 
 // optimization methods run the problem optimization
@@ -1024,7 +1027,7 @@ int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status)
 	switch (inst->mip_opt)
 	{
 
-		case 0:			// basic model with asymmetric x and q => Subtour
+		case 0:			// subtour_iter_opt, symmetric, without callback
 			*status = subtour_iter_opt(env, lp, inst, status);
 			break;
 
@@ -1284,7 +1287,7 @@ void switch_callback(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 	inst->ncols = CPXgetnumcols(env, lp);							// è necessario ricontrollare il numero di colonne?
 }
 
-static int CPXPUBLIC lazycallback(CPXCENVptr env, void* cbdata, int wherefrom, void* cbhandle, int* useraction_p){			// Dynamic Search is disabled
+int CPXPUBLIC lazycallback(CPXCENVptr env, void* cbdata, int wherefrom, void* cbhandle, int* useraction_p){			// Dynamic Search is disabled
 	*useraction_p = CPX_CALLBACK_DEFAULT;					// solution is ok, don't add cuts
 	tspinstance* inst = (tspinstance*)cbhandle; 			// casting of cbhandle (which is pointing to the above parameter inst)
 
@@ -1307,7 +1310,7 @@ static int CPXPUBLIC lazycallback(CPXCENVptr env, void* cbdata, int wherefrom, v
 	return 0; 												// return 1 would mean error --> abort Cplex's execution
 }
 
-static int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void* cbhandle) {			// Dynamic Search is used anyway
+int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void* cbhandle) {			// Dynamic Search is used anyway
 
 	if (contextid == CPX_CALLBACKCONTEXT_CANDIDATE) {
 		tspinstance* inst = (tspinstance*)cbhandle; 			// casting of cbhandle (which is pointing to the above parameter inst)
@@ -1487,6 +1490,85 @@ int mygeneric_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONT
 	free(cname);
 	return 0;
 }
+
+// heuristic
+int CPXPUBLIC heur_GRASP(CPXCENVptr env, void *cbdata, int wherefrom, void *cbhandle,
+						double *objval_p, double *x, int *checkfeas_p, int *useraction_p) {
+	printf("heur_GRASP helloworld!\n");
+
+	// from the input nodes
+	tspinstance * inst = (tspinstance *) cbhandle;
+
+	// get first node, randomly selected
+	int* succ = (int*)malloc(inst->nnodes * sizeof(int));
+	printf("sizeof(succ) = %ld\n", sizeof(succ) );
+	for (int i = 0; i < inst->nnodes; i++) succ[i] = -1;
+
+	int cur_node = round(((double)rand()/RAND_MAX)*(inst->nnodes-1));
+	int first_node = cur_node;
+
+	// find the three nearest node of each node
+	int cur_nearest[3];  // index of the nearest from current node
+	double cur_dist[3];  // distance from current node
+
+
+	int tour_length = 0;
+
+	while (tour_length < inst->nnodes) {
+		for (int k = 0; k < 3; k++) { cur_dist[k] = INT_MAX; cur_nearest[k] = -1; } // initialization
+
+		for (int j = 0; j < inst->nnodes; j++) {	// for each other node
+			if (cur_node == j) continue;  					// except cur_node == j
+			if (succ[j] != -1)
+				continue;						// the node is in the tour
+
+			// get distances of last added node and j
+			double d_ij = dist(cur_node, j, inst);
+
+			// check insertion condition
+			for (int k = 0; k < 3; k++) {
+				if (d_ij < cur_dist[k]) {
+					// insert the new candidate in the vector
+					for(int l = k; l < 3-1; l++) {
+						cur_dist[l+1] = cur_dist[l];
+ 						cur_nearest[l+1] = cur_nearest[l];
+					}
+					cur_dist[k] = d_ij;
+					cur_nearest[k] = j;
+					break;
+				}
+			}
+
+		}
+
+		// select succ randomly
+		int rand_node = rand() % 3;
+		int next_node;
+		if (cur_nearest[0] != -1) {
+			next_node = cur_nearest[rand_node] != -1 ? cur_nearest[rand_node] : cur_nearest[0];
+		} else {  // last node, close the tour
+			next_node = first_node;
+		}
+		succ[cur_node] = next_node;
+		cur_node = next_node;
+		tour_length++;
+
+		printf("\ni:      "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", i);
+		printf("\nsucc:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", succ[i]);
+		printf("\n");
+		fflush(stdout);
+	}
+
+
+	// save the tour and the cost
+	printf("\ni:      "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", i);
+	printf("\nsucc:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", succ[i]);
+	printf("\n");
+	free(succ);
+
+	return 0;
+}
+
 
 
 // build_sol methods use the optimized solution to plot
@@ -2296,6 +2378,29 @@ int save_results(tspinstance *inst, char *f_name) {
 	}
 
 	/* fopen() return NULL if unable to open file in given mode. */
+	if (outfile == NULL)
+	{
+		/* Unable to open file hence exit */
+		printf("\nUnable to open '%s' file.\n", f_name);
+		printf("Please check whether file exists and you have write privilege.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	/* Append data to file */
+	fputs(dataToAppend, outfile);
+
+	fclose(outfile);
+	return 0;
+}
+
+int save_res(char * input_file, char * user_name, char * method, double opt_time, double best_lb) {
+	FILE *outfile;
+	char * f_name = "res.csv";
+	outfile = fopen(f_name, "a");
+	char dataToAppend[sizeof(input_file)+ sizeof(user_name)+ sizeof(method)+ sizeof(opt_time)+sizeof(best_lb) + 20];
+	snprintf(dataToAppend, sizeof(dataToAppend),
+						"%s; %s; %s; %lf; %lf\n",
+						input_file, user_name, method, opt_time, best_lb);
 	if (outfile == NULL)
 	{
 		/* Unable to open file hence exit */
