@@ -67,6 +67,7 @@ typedef struct {
 	int callback;
 	int mip_opt;
 	int build_sol;
+	int warm_start;
 	int heuristic;
 	int plot_style;
 	int plot_edge;
@@ -116,6 +117,8 @@ static int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG cont
 int mylazy_separation(tspinstance* inst, const double* xstar, CPXCENVptr env, void* cbdata, int wherefrom);
 int mygeneric_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONTEXTptr context);
 
+void switch_warm_start(inst, env, lp);
+
 void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp);
 void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp);
 void build_sol_lazy_std(tspinstance* inst, const double* xstar, int* succ, int* comp, int* ncomp);
@@ -146,7 +149,7 @@ void pause_execution();
 void print_error(const char *err);
 
 
-//*********************************** CGAL methods ***********************************
+//*********************************** CGAL Methods ***********************************
 void set_verbose(int v);
 int load_point(char* pathFileTSP);
 int order_by_dis(int firstPoint, int with_sqrt_distance);

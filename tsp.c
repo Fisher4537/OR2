@@ -43,62 +43,50 @@ char * model_name(int i) {
 }
 
 char * setup_model(tspinstance* inst) {
+
+	inst->callback = 0;
+	inst->heuristic = 0;
+	inst->warm_start = 0;
+
 	switch (inst->setup_model) {
 		case 0:
 			inst->model_type = 0;
-			inst->heuristic = 0;
-			inst->callback = 0;
 			inst->mip_opt = 0;
 			return "subtour";							// basic model with asymmetric x and q
 		case 1:
 			inst->model_type = 1;
-			inst->heuristic = 0;
-			inst->callback = 0;
 			inst->mip_opt = 2;
 			return "mtz";								// MTZ contraints
 		case 2:
 			inst->model_type = 2;
-			inst->heuristic = 0;
-			inst->callback = 0;
 			inst->mip_opt = 2;
 			return "flow1_n-2";							// FLOW 1 with y_0j <= x_0j*(n-2) if i != 0
 		case 3:
 			inst->model_type = 2;
-			inst->heuristic = 0;
-			inst->callback = 0;
 			inst->mip_opt = 2;
 			return "flow1_n-1";							// FLOW 1 with y_0j <= x_0j*(n-1)
 		case 4:
 			inst->model_type = 3;
-			inst->heuristic = 0;
-			inst->callback = 0;
 			inst->mip_opt = 2;
-			return "mtz_lazy";							// MTZ with LAZY
+			return "mtz_lazy";							// MTZ with LAZY constraints
 		case 5:
 			inst->model_type = 0;
-			inst->heuristic = 0;
-			inst->callback = 0;
 			inst->mip_opt = 1;
-			return "subtour_heur";						// Subtour with HEUR
+			return "subtour_ffi";						// Subtour with fast first incumb 
 		case 6:
 			inst->model_type = 0;
-			inst->heuristic = 0;
 			inst->callback = 1;
-			inst->mip_opt = 0;
-			inst->build_sol = 0;
-			inst->plot_style = 0;
-			inst->plot_edge = 0;
+			inst->mip_opt = 2;
 			return "subtour_callback_lazy";				// Subtour_callback_lazy
 		case 7:
 			inst->model_type = 0;
-			inst->heuristic = 0;
 			inst->callback = 2;
-			inst->mip_opt = 0;
+			inst->mip_opt = 2;
 			return "subtour_callback_general";			// Subtour_callback_general
 		case 8:
 			inst->model_type = 0;
 			inst->heuristic = 1;
-			inst->callback = 1;
+			inst->callback = 2;
 			inst->mip_opt = 2;
 			return "hard_fixing";						// Hard-Fixing
 		case 9:
@@ -109,16 +97,20 @@ char * setup_model(tspinstance* inst) {
 			return "local_branching";					// Soft-Fixing => Local Branching
 		case 10:
 			inst->model_type = 0;
-			inst->heuristic = 3;
-			inst->callback = 0;
+			inst->warm_start = 1;
 			inst->mip_opt = 2;
 			return "heuristic_greedy";					// Heuristic Greedy (no CPLEX)
 		case 11:
 			inst->model_type = 0;
-			inst->heuristic = 4;
-			inst->callback = 0;
+			inst->warm_start = 2;
 			inst->mip_opt = 2;
 			return "heuristic_greedy cgal";				// Heuristic Greedy CGAL (no CPLEX)
+		case 12:
+			inst->model_type = 0;
+			inst->warm_start = 3;
+			inst->mip_opt = 2;
+			return "heuristic_grasp";					// Heuristic GRASP (no CPLEX)
+		
 		default: return "not_supported";
 	}
 }
@@ -150,7 +142,10 @@ int TSPopt(tspinstance *inst) {
 
 	// set callback if selected
 	switch_callback(inst, env, lp);
-		
+	
+	// set warm start if used
+	switch_warm_start(inst, env, lp);
+
 	// setup struct to save solution
 	inst->nedges = CPXgetnumcols(env, lp);
 	inst->best_sol = (double *) calloc(inst->nedges, sizeof(double)); 	// all entries to zero
@@ -720,6 +715,32 @@ void add_lazy_mtz(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 }
 
 
+void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* status) {
+
+	switch (inst->warm_start) {
+
+		case 0:
+		break;
+		
+		case 1:													// Heuristic greedy (no CPLEX)
+			*status = heur_greedy(env, lp, inst, status);
+		break;
+
+		case 2:													// Heuristic greedy CGAL (no CPLEX)
+			*status = heur_greedy_cgal(env, lp, inst, status);
+		break;
+
+		case 3:													// Heuristic GRASP (no CPLEX)
+			//*status = heur_grasp(env, lp, inst, status);
+		break;
+
+		default:
+			print_error(" model type unknown!!");
+		break;
+	}
+}
+
+
 void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	switch (inst->heuristic){
 
@@ -734,13 +755,6 @@ void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		case 2:													// Local-Branching
 			*status = local_branching(env, lp, inst, status);
 		break;
-
-		case 3:													// Heuristic greedy (no CPLEX)
-			*status = heur_greedy(env, lp, inst, status);
-			break;
-		case 4:													// Heuristic greedy CGAL (no CPLEX)
-			*status = heur_greedy_cgal(env, lp, inst, status);
-			break;
 
 		default:
 			print_error("model ì_type not implemented in optimization method");
@@ -1074,9 +1088,6 @@ int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status)
 		return status;
 	}
 
-	
-	mip_optimization(env, lp, inst, status);
-
 	/********* Add a mip start
 
 		if (CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) {
@@ -1194,8 +1205,6 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
 		return status;
 	}
-
-	mip_optimization(env, lp, inst, status);
 }
 
 int succ_not_contained(int node, int* sol, tspinstance *inst) {
@@ -1449,6 +1458,7 @@ int subtour_heur_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* st
 		}
 		if (inst->verbose >= 100) printf("best solution found. ncomp = %d\n", *ncomp);
 	}
+
 	free(cname);
 	free(succ);
 	free(comp);
@@ -2222,7 +2232,7 @@ void parse_command_line(int argc, char** argv, tspinstance *inst) {
 	inst->max_nodes = -1; 						// max n. of branching nodes in the final run (-1 unlimited)
 	inst->integer_costs = 0;
 	inst->verbose = 1000;							// VERBOSE
-
+	
 	// hard fixing
 	double max_fr = 0.9;		// maximum fixing_ratio
 	double incr_fr = 0.1;		// increase of fixing_ratio when good gap
