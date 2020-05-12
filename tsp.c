@@ -723,11 +723,11 @@ void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* statu
 		break;
 		
 		case 1:													// Heuristic greedy (no CPLEX)
-			*status = heur_greedy(env, lp, inst, status);
+			heur_greedy(env, lp, inst, status);
 		break;
 
 		case 2:													// Heuristic greedy CGAL (no CPLEX)
-			*status = heur_greedy_cgal(env, lp, inst, status);
+			heur_greedy_cgal(env, lp, inst, status);
 		break;
 
 		case 3:													// Heuristic GRASP (no CPLEX)
