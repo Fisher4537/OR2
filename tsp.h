@@ -102,7 +102,9 @@ void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, double fixing_ratio);
+int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+int succ_not_contained(int node, int* sol, tspinstance* inst);
 
 int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
 int subtour_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
@@ -146,10 +148,10 @@ void print_error(const char *err);
 
 //*********************************** CGAL methods ***********************************
 void set_verbose(int v);
+int load_point(double* nodes);
 int load_point(char* pathFileTSP);
 int order_by_dis(int firstPoint, int with_sqrt_distance);
 int greedy_alg();
-int greedy2_alg();
 int* get_greedy_sol(int i);
 
 #endif   /* TSP_H_ */

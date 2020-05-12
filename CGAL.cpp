@@ -39,7 +39,7 @@ extern "C" {
         verbose = v;
     }
 
-    int load_point(char* pathFileTSP)   {
+    int load_point(char* pathFileTSP) {
 
         points.clear();
         ifstream tspFile;
@@ -47,25 +47,25 @@ extern "C" {
 
         string line;
         bool startPoint = false;
-        while (getline(tspFile, line)){
+        while (getline(tspFile, line)) {
             if (line == "EOF")
                 break;
             if (startPoint) {
                 istringstream iss(line);
                 double id, x, y;
-                
-                if (!(iss >> id >> x >> y)) { 
+
+                if (!(iss >> id >> x >> y)) {
                     printf("Error pushing Point number: %d\n", (int)id);
                     return status = 1;
                 }
-                
+
                 if (verbose > 100)
                     printf("Id:\t%.0f,\tCoordinate:\t[%.0f, %.0f]\n", id, x, y);
                 nnodes++;
 
                 points.push_back(K::Point_2(x, y));
-                
-                
+
+
             }
             if (line == "NODE_COORD_SECTION")
                 startPoint = true;
@@ -172,60 +172,6 @@ extern "C" {
 
                 succ = *it;
                 sol[i][j] = succ;
-
-                if (verbose > 100)
-                    printf("%d\t", succ);
-            }
-        }
-        return 0;
-    }
-
-    int greedy2_alg() {
-
-        vector<vector<int>> neigh_sol_idx(nnodes);
-
-        sol = vector<vector<int>>(nnodes);
-
-        if (verbose > 100)
-            printf("\n____ Track Solutions: ____\n");
-
-        for (int i = 0; i < nnodes; i++) {
-
-            order_by_dis(i, 1);
-
-            if (verbose > 100)
-                printf("\n");
-
-            neigh_sol_idx[i] = indexes;
-            sol[i] = vector<int>(nnodes);
-            fill(sol[i].begin(), sol[i].end(), -1);
-        }
-        if (verbose > 100)
-            printf("\n");
-
-        for (int i = 0; i < nnodes; i++) {
-            if (verbose > 100)
-                printf("\n");
-
-            sol[i][0] = neigh_sol_idx[i][0];                // first_point ( euclidean distance = 0 from itself)
-            sol[i][1] = neigh_sol_idx[i][1];
-            int succ = neigh_sol_idx[i][1];
-
-            if (verbose > 100)
-                printf("%d\t%d\t", sol[i][0], sol[i][1]);
-
-            for (int j = 2; j < nnodes; j++) {
-
-                vector<int>::iterator it = find_if(neigh_sol_idx[succ].begin(), neigh_sol_idx[succ].end(), [&](int neig) {
-                    return find(sol[i].begin(), sol[i].end(), neig) == sol[i].end();
-                    });
-
-                if (j == 278)
-                    printf("");
-                
-                succ = *it;
-                sol[i][j] = succ;
-                neigh_sol_idx[succ].erase(it);
 
                 if (verbose > 100)
                     printf("%d\t", succ);
