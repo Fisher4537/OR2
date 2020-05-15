@@ -38,6 +38,8 @@ char * model_name(int i) {
 		case 8: return "hard_fixing";
 		case 9: return "local_branching";
 		case 10: return "heuristic_greedy";
+		case 11: return "heuristic_greedy_cgal";
+		case 12: return "heuristic_grasp";
 		default: return "not_supported";
 	}
 }
@@ -115,7 +117,7 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->model_type = 0;
 			inst->warm_start = 2;
 			inst->mip_opt = 1;
-			return "heuristic_greedy cgal";				// Heuristic Greedy CGAL (no CPLEX)
+			return "heuristic_greedy_cgal";				// Heuristic Greedy CGAL (no CPLEX)
 		case 12:
 			inst->model_type = 0;
 			inst->warm_start = 3;
