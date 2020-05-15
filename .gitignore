@@ -36,6 +36,9 @@ Release
 Makefile
 pch.cpp
 Hmw1
+packages/
+packages.config
+*.dll
 
 Latex/Report.fdb_latexmk
 Latex/Report.synctex(busy)

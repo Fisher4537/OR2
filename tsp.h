@@ -67,6 +67,7 @@ typedef struct {
 	int callback;
 	int mip_opt;
 	int build_sol;
+	int warm_start;
 	int heuristic;
 	int plot_style;
 	int plot_edge;
@@ -99,11 +100,12 @@ void build_mtz_lazy(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 void add_lazy_mtz(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 
 void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
-
 int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
-
 int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, double fixing_ratio);
+int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+int succ_not_contained(int node, int* sol, tspinstance* inst);
 
 int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
 int subtour_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
@@ -115,6 +117,8 @@ int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, 
 int mylazy_separation(tspinstance* inst, const double* xstar, CPXCENVptr env, void* cbdata, int wherefrom);
 int mygeneric_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONTEXTptr context);
 int heur_grasp(tspinstance* inst, CPXCENVptr env, CPXLPptr lp, int* status);
+
+void switch_warm_start(inst, env, lp);
 
 void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp);
 void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp);
@@ -144,5 +148,14 @@ void plot_arrow_asym(FILE *gnuplot, char *pngname, tspinstance *inst);
 // Debug functions
 void pause_execution();
 void print_error(const char *err);
+
+
+//*********************************** CGAL Methods ***********************************
+void set_verbose(int v);
+int load_point(char* pathFileTSP);
+int order_by_dis(int firstPoint, int with_sqrt_distance);
+int greedy_alg();
+int* get_greedy_sol(int i);
+void free_cgal();
 
 #endif   /* TSP_H_ */
