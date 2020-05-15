@@ -139,7 +139,8 @@ int TSPopt(tspinstance *inst) {
 
 	// set callback if selected
 	switch_callback(inst, env, lp);
-	status = CPXsetheuristiccallbackfunc(env, heur_GRASP, inst);
+	// status = CPXsetheuristiccallbackfunc(env, heur_GRASP, inst);
+	status = heur_grasp(inst, env, lp, &status);
 
 	// setup struct to save solution
 	inst->nedges = CPXgetnumcols(env, lp);
@@ -1492,16 +1493,16 @@ int mygeneric_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONT
 }
 
 // heuristic
-int CPXPUBLIC heur_GRASP(CPXCENVptr env, void *cbdata, int wherefrom, void *cbhandle,
-						double *objval_p, double *x, int *checkfeas_p, int *useraction_p) {
+int heur_grasp(tspinstance* inst, CPXCENVptr env, CPXLPptr lp, int* status) {
 	printf("heur_GRASP helloworld!\n");
 
-	// from the input nodes
-	tspinstance * inst = (tspinstance *) cbhandle;
+	int izero = 0;
+	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
+	double val = 1.0;
+	int nocheck_warmstart = CPX_MIPSTART_CHECKFEAS;  // CPX_MIPSTART_SOLVEFIXED;
 
 	// get first node, randomly selected
 	int* succ = (int*)malloc(inst->nnodes * sizeof(int));
-	printf("sizeof(succ) = %ld\n", sizeof(succ) );
 	for (int i = 0; i < inst->nnodes; i++) succ[i] = -1;
 
 	int cur_node = round(((double)rand()/RAND_MAX)*(inst->nnodes-1));
@@ -1550,6 +1551,7 @@ int CPXPUBLIC heur_GRASP(CPXCENVptr env, void *cbdata, int wherefrom, void *cbha
 			next_node = first_node;
 		}
 		succ[cur_node] = next_node;
+		best_sol[tour_length] = xpos(cur_node, next_node, inst);
 		cur_node = next_node;
 		tour_length++;
 
@@ -1565,6 +1567,11 @@ int CPXPUBLIC heur_GRASP(CPXCENVptr env, void *cbdata, int wherefrom, void *cbha
 	printf("\nsucc:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", succ[i]);
 	printf("\n");
 	free(succ);
+
+	if ( (*status = CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) ) {
+		print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
+		return *status;
+	}
 
 	return 0;
 }

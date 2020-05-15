@@ -114,9 +114,7 @@ int CPXPUBLIC lazycallback(CPXCENVptr env, void* cbdata, int wherefrom, void* cb
 int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void* cbhandle);
 int mylazy_separation(tspinstance* inst, const double* xstar, CPXCENVptr env, void* cbdata, int wherefrom);
 int mygeneric_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONTEXTptr context);
-int CPXPUBLIC heur_GRASP(CPXCENVptr env, void *cbdata, int wherefrom,
-													void *cbhandle, double *objval_p, double *x,
-													int *checkfeas_p, int *useraction_p);
+int heur_grasp(tspinstance* inst, CPXCENVptr env, CPXLPptr lp, int* status);
 
 void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp);
 void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp);
