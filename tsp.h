@@ -73,7 +73,11 @@ typedef struct {
 	int plot_edge;
 
 	// hard fixing
-	hardfix *hf_param;
+	double max_fr;		// maximum fixing_ratio
+	double incr_fr;		// increase of fixing_ratio when good gap
+	double decr_fr;		// decreasing of fixing_ratio when bad gap
+	double good_gap;			// a good gap allow to decrease fixing_ratio
+	double optimal_gap; 	// under this value, solution is optimal
 
 } tspinstance;
 
@@ -116,9 +120,9 @@ int CPXPUBLIC lazycallback(CPXCENVptr env, void* cbdata, int wherefrom, void* cb
 int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void* cbhandle);
 int mylazy_separation(tspinstance* inst, const double* xstar, CPXCENVptr env, void* cbdata, int wherefrom);
 int mygeneric_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONTEXTptr context);
-int heur_grasp(tspinstance* inst, CPXCENVptr env, CPXLPptr lp, int* status);
+int heur_grasp(CPXCENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 
-void switch_warm_start(inst, env, lp);
+void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* status);
 
 void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp);
 void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp);
