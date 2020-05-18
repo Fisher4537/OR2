@@ -175,25 +175,17 @@ int TSPopt(tspinstance *inst) {
 
 
 	if (inst->verbose >= 100) printf("optimization complete!\n");
-	mip_optimization(env, lp, inst, &status);
-	// get best solution
-	if (inst->verbose >= 100) printf("getting succ and comp...\n");
-	// CPXgetbestobjval(env, lp, &inst->best_lb);
+
 	if(inst->setup_model != 9)
 		CPXsolution(env, lp, &status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
 
-	// use the optimal solution found by CPLEX
-	int *succ = (int*) calloc(inst->nnodes, sizeof(int));
-	int *comp = (int*) calloc(inst->nnodes, sizeof(int));
-	int *ncomp = (int*) calloc(1, sizeof(int));
-	build_sol(inst, succ, comp, ncomp);
 	if (inst->verbose >= 100) printf("free instance object...\n");
 
 	// free and close cplex model
 	CPXfreeprob(env, &lp);
 	CPXcloseCPLEX(&env);
 
-	return !status; // status 0 is ok
+	return 0; // status 0 is ok
 }
 
 int xpos(int i, int j, tspinstance *inst) {
@@ -948,7 +940,11 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 		double gap = 1.0;
 		gap = ((inst->best_lb - inst->best_int) / inst->best_lb) * 100;
 		if (best_lb > inst->best_lb &&  gap > 0.09) {
-			printf("BEST_LB update from -> to : [%f] -> [%f]\tBEST_INT : %f\tGAP : %f\n", best_lb, inst->best_lb, inst->best_int, gap);
+			if (inst->verbose >= 100) {
+				printf("BEST_LB update from -> to : [%f] -> [%f]\tBEST_INT : %f\tGAP : %f\n",
+									best_lb, inst->best_lb, inst->best_int, gap);
+			}
+
 			best_lb = inst->best_lb;
 			if(k_index < 5)
 				rhs = (double)inst->nnodes - k[k_index];
@@ -1019,19 +1015,23 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 		if (k[4] == inst->nnodes) {
 			int status = CPXgetstat(env, lp);
 			if (CPXgetstat(env, lp) == 101 || CPXgetstat(env, lp) == 102) {
-				printf("CPXgetstat: %s", status == 101 ? "Optimal integer solution found\n" :
+				if (inst->verbose >= 100)
+					printf("CPXgetstat: %s", status == 101 ? "Optimal integer solution found\n" :
 														"Optimal sol. within epgap or epagap tolerance found\n");
 				return 0;
 			}
-			printf("CPXgetstat: %s", (status == 107) ? "Time limit exceeded, integer solution exists" : "debug this to see");
+			if (inst->verbose >= 100)
+				printf("CPXgetstat: %s", (status == 107) ? "Time limit exceeded, integer solution exists" : "debug this to see");
 		}
 
 		CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
 
 		int status = CPXgetstat(env, lp);
-		printf("CPXgetstat: %s", status==101 ? "Optimal integer solution found\n" :
-											(status==102) ? "Optimal sol. within epgap or epagap tolerance found\n " :
-													(status==107)? "Time limit exceeded, integer solution exists" : "debug this to see");
+		if (inst->verbose >= 100)
+			printf("CPXgetstat: %s",
+							(status==101) ? "Optimal integer solution found\n" :
+							(status==102) ? "Optimal sol. within epgap or epagap tolerance found\n " :
+							(status==107) ? "Time limit exceeded, integer solution exists" : "debug this to see");
 
 		if (CPXgetstat(env, lp) == 101 || CPXgetstat(env, lp) == 102) {
 			best_sol = inst->best_sol;
@@ -1084,10 +1084,10 @@ int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status)
 			best_lb += dist(sol[inst->nnodes - 1], i, inst);
 			sol[inst->nnodes - 1] = xpos(sol[inst->nnodes - 1], i, inst);
 
-			if (inst->verbose > 10)
+			if (inst->verbose >= 100)
 				printf("Solution: %d\tBEST_LB found: [%f]\n", i, best_lb);
 			if (best_lb < inst->best_lb) {
-				if (inst->verbose > 10)
+				if (inst->verbose >= 100)
 					printf("BEST_LB update from -> to : [%f] -> [%f]\n", inst->best_lb, best_lb);
 				inst->best_lb = best_lb;
 				for (int k = 0; k < inst->nnodes; k++)
@@ -1096,7 +1096,8 @@ int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status)
 			free(sol);
 		}
 		free_cgal();
-		printf("BEST_LB Greedy Heuristic CGAL found: [%f]\n", inst->best_lb);
+		if (inst->verbose >= 100)
+			printf("BEST_LB Greedy Heuristic CGAL found: [%f]\n", inst->best_lb);
 
 		if (CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) {
 			print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
@@ -1204,10 +1205,10 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		best_lb += dist(sol[inst->nnodes - 1], i, inst);
 		sol[inst->nnodes - 1] = xpos(sol[inst->nnodes - 1], i, inst);
 
-		if (inst->verbose > 10)
+		if (inst->verbose >= 100)
 			printf("Solution: %d\tBEST_LB found: [%f]\n",i, best_lb);
 		if (best_lb < inst->best_lb) {
-			if (inst->verbose > 10)
+			if (inst->verbose >= 100)
 				printf("BEST_LB update from -> to : [%f] -> [%f]\n", inst->best_lb, best_lb);
 			inst->best_lb = best_lb;
 			for (int k = 0; k < inst->nnodes; k++)
@@ -1216,7 +1217,8 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		free(sol);
 	}
 
-	printf("BEST_LB Greedy Heuristic found: [%f]\n", inst->best_lb);
+	if (inst->verbose >= 100)
+		printf("BEST_LB Greedy Heuristic found: [%f]\n", inst->best_lb);
 
 	if (CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) {
 		print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
@@ -1571,12 +1573,14 @@ int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, 
 		//printf("Actual Gap : [%f]\n", best_sol - best_bound);
 
 		if (inst->best_int > best_int) {
-			printf("BEST_INT update from -> to : [%f] -> [%f]\n", inst->best_int, best_int);
+			if (inst->verbose >= 100)
+				printf("BEST_INT update from -> to : [%f] -> [%f]\n", inst->best_int, best_int);
 			inst->best_int = best_int;
 		}
 
 		if (inst->best_lb < best_lb) {
-			printf("BEST_LB update from -> to : [%f] -> [%f]\n", inst->best_lb, best_lb);
+			if (inst->verbose >= 100)
+				printf("BEST_LB update from -> to : [%f] -> [%f]\n", inst->best_lb, best_lb);
 			inst->best_lb = best_lb;
 		}
 
