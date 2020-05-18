@@ -4,7 +4,8 @@ INC = -I. -I${CPLEX_HOME}/include/ilcplex
 ARGS = -input data_heavy/ali535.tsp -setup_model 8 -v 1000 -nthread 4 -time_limit 600
 EXE = mainTSP
 OBJ = tsp.o chrono.o mainTSP.o
-MODELS = 8
+MODELS = 12
+ALL_MODELS = 0 1 2 3 4 5 6 7 8 9 10 11 12
 TEST_LIGHT = `ls data_light/*.tsp`
 TEST_AVERAGE = `ls data_average/*.tsp`
 TEST_SET = `ls Test_Set/*.tsp`
@@ -55,6 +56,11 @@ trainsetheavy: $(EXE)
 				./$(EXE) -input $$file -setup_model $$model -randomseed $$seed -v 10 -nthread 4 -time_limit 600; \
 			done \
 		done \
+	done
+
+test_methods: $(EXE)
+	for model in $(ALL_MODELS); do \
+			./$(EXE) -input data_light/att48.tsp -setup_model $$model -v 10 -nthread 4 -time_limit 100; \
 	done
 
 
