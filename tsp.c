@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "tsp.h"
 #include "chrono.h"
 
@@ -7,7 +6,6 @@
 #include <string.h>
 #include <time.h>
 #include <math.h>
-
 
 #ifdef _WIN32
 	#define DIR_DELIM '\\'
@@ -39,67 +37,69 @@ char * model_name(int i) {
 		case 7: return "subtour_callback_general";			// Subtour_callback_general
 		case 8: return "hard_fixing";
 		case 9: return "local_branching";
+		case 10: return "heuristic_greedy";
+		case 11: return "heuristic_greedy_cgal";
+		case 12: return "heuristic_grasp";
 		default: return "not_supported";
 	}
 }
 
 char * setup_model(tspinstance* inst) {
+/**
+NUM			model_type				warm_start					heuristic						mip_opt							callback
+
+ 0		build_sym_std												mip_optimization		subtour_iter_opt
+ 1		  build_mtz					heur_greedy				hard_fixing			subtour_heur_iter_opt				lazy
+ 2		 build_flow1			heur_greedy_cgal	local_branching				 CPXmipopt					 generic CAND
+ 3		build_mtz_lazy			heur_grasp																							generic CAND, GLOBAL
+ 4
+ 5
+ 6
+*/
+
+	inst->callback = 0;
+	inst->heuristic = 0;
+	inst->warm_start = 0;
+
 	switch (inst->setup_model) {
 		case 0:
 			inst->model_type = 0;
-			inst->heuristic = 0;
-			inst->callback = 0;
 			inst->mip_opt = 0;
 			return "subtour";							// basic model with asymmetric x and q
 		case 1:
 			inst->model_type = 1;
-			inst->heuristic = 0;
-			inst->callback = 0;
 			inst->mip_opt = 2;
 			return "mtz";								// MTZ contraints
 		case 2:
 			inst->model_type = 2;
-			inst->heuristic = 0;
-			inst->callback = 0;
 			inst->mip_opt = 2;
 			return "flow1_n-2";							// FLOW 1 with y_0j <= x_0j*(n-2) if i != 0
 		case 3:
 			inst->model_type = 2;
-			inst->heuristic = 0;
-			inst->callback = 0;
 			inst->mip_opt = 2;
 			return "flow1_n-1";							// FLOW 1 with y_0j <= x_0j*(n-1)
 		case 4:
 			inst->model_type = 3;
-			inst->heuristic = 0;
-			inst->callback = 0;
 			inst->mip_opt = 2;
-			return "mtz_lazy";							// MTZ with LAZY
+			return "mtz_lazy";							// MTZ with LAZY constraints
 		case 5:
 			inst->model_type = 0;
-			inst->heuristic = 0;
-			inst->callback = 0;
 			inst->mip_opt = 1;
-			return "subtour_heur";						// Subtour with HEUR
+			return "subtour_ffi";						// Subtour with fast first incumb
 		case 6:
 			inst->model_type = 0;
-			inst->heuristic = 0;
 			inst->callback = 1;
-			inst->mip_opt = 0;
-			inst->build_sol = 0;
-			inst->plot_style = 0;
-			inst->plot_edge = 0;
+			inst->mip_opt = 2;
 			return "subtour_callback_lazy";				// Subtour_callback_lazy
 		case 7:
 			inst->model_type = 0;
-			inst->heuristic = 0;
 			inst->callback = 2;
-			inst->mip_opt = 0;
+			inst->mip_opt = 2;
 			return "subtour_callback_general";			// Subtour_callback_general
 		case 8:
 			inst->model_type = 0;
 			inst->heuristic = 1;
-			inst->callback = 1;
+			inst->callback = 2;
 			inst->mip_opt = 2;
 			return "hard_fixing";						// Hard-Fixing
 		case 9:
@@ -108,6 +108,22 @@ char * setup_model(tspinstance* inst) {
 			inst->callback = 2;
 			inst->mip_opt = 2;
 			return "local_branching";					// Soft-Fixing => Local Branching
+		case 10:
+			inst->model_type = 0;
+			inst->warm_start = 1;
+			inst->mip_opt = 1;
+			return "heuristic_greedy";					// Heuristic Greedy (no CPLEX)
+		case 11:
+			inst->model_type = 0;
+			inst->warm_start = 2;
+			inst->mip_opt = 1;
+			return "heuristic_greedy_cgal";				// Heuristic Greedy CGAL (no CPLEX)
+		case 12:
+			inst->model_type = 0;
+			inst->warm_start = 3;
+			inst->mip_opt = 1;
+			return "heuristic_grasp";					// Heuristic GRASP (no CPLEX)
+
 		default: return "not_supported";
 	}
 }
@@ -139,6 +155,10 @@ int TSPopt(tspinstance *inst) {
 
 	// set callback if selected
 	switch_callback(inst, env, lp);
+
+	// set warm start if used
+	switch_warm_start(inst, env, lp, &status);
+
 	// setup struct to save solution
 	inst->nedges = CPXgetnumcols(env, lp);
 	inst->best_sol = (double *) calloc(inst->nedges, sizeof(double)); 	// all entries to zero
@@ -148,52 +168,24 @@ int TSPopt(tspinstance *inst) {
 	if (inst->verbose >= 100) printf("optimizing model...\n");
 
 	// compute cplex and calculate opt_time w.r.t. OS used
-	#ifdef __linux__
-		double ini = second();
-		optimization(env, lp, inst, &status);
-		double fin = second();
-		inst->opt_time = (double)(fin - ini);
-	#elif _WIN32
+	double ini = second();
+	optimization(env, lp, inst, &status);
+	double fin = second();
+	inst->opt_time = (double)(fin - ini);
 
-		/* Metodo 1 -> QueryPerformanceCounter*/
-		double ini = second();
-		optimization(env, lp, inst, &status);
-		double fin = second();
-		inst->opt_time = (double)(fin - ini);
-
-		/* Metodo 2	-> CPXgettime
-		struct timespec ts, ts2;
-		CPXgettime(env, &ts);
-		mip_optimization(env, lp, inst, &status);
-		CPXgettime(env, &ts2);
-		inst->opt_time = (double)ts2.tv_nsec + 1.0e-9 * ((double)ts2.tv_nsec) - (double)ts.tv_nsec + 1.0e-9 * ((double)ts.tv_nsec);
-		*/
-	#else
-		clock_t init_time = clock();
-		mip_optimization(env, lp, inst, &status);
-		inst->opt_time = (double)(clock() - init_time) / CLOCKS_PER_SEC;
-	#endif
 
 	if (inst->verbose >= 100) printf("optimization complete!\n");
 
-	// get best solution
-	if (inst->verbose >= 100) printf("getting succ and comp...\n");
-	// CPXgetbestobjval(env, lp, &inst->best_lb);
 	if(inst->setup_model != 9)
 		CPXsolution(env, lp, &status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
 
-	// use the optimal solution found by CPLEX
-	int *succ = (int*) calloc(inst->nnodes, sizeof(int));
-	int *comp = (int*) calloc(inst->nnodes, sizeof(int));
-	int *ncomp = (int*) calloc(1, sizeof(int));
-	build_sol(inst, succ, comp, ncomp);
 	if (inst->verbose >= 100) printf("free instance object...\n");
 
 	// free and close cplex model
 	CPXfreeprob(env, &lp);
 	CPXcloseCPLEX(&env);
 
-	return !status; // status 0 is ok
+	return 0; // status 0 is ok
 }
 
 int xpos(int i, int j, tspinstance *inst) {
@@ -575,7 +567,7 @@ void build_flow1(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {  // auto adapt
 			if (CPXchgcoef(env, lp, lastrow, asym_ypos(i, j, inst), 1.0)) // y_ij
 				print_error(" wrong CPXchgcoef [y_cut()]");
 
-			if (i == 0 || inst->model_type == 3) {		// y_0j <= x_0j*(n-1)
+			if (i == 0 || inst->setup_model == 3) {		// y_0j <= x_0j*(n-1)
 				if (CPXchgcoef(env, lp, lastrow, asym_xpos(i, j, inst), -(double)inst->nnodes + 1.0))
 					print_error(" wrong CPXchgcoef [y_cut()]");
 			}	else {  																// y_ij <= x_ij*(n-2)
@@ -728,6 +720,32 @@ void add_lazy_mtz(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 }
 
 
+void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* status) {
+
+	switch (inst->warm_start) {
+
+		case 0:
+		break;
+
+		case 1:													// Heuristic greedy (no CPLEX)
+			heur_greedy(env, lp, inst, status);
+		break;
+
+		case 2:													// Heuristic greedy CGAL (no CPLEX)
+			heur_greedy_cgal(env, lp, inst, status);
+		break;
+
+		case 3:													// Heuristic GRASP (no CPLEX)
+			*status = heur_grasp(env, lp, inst, status);
+		break;
+
+		default:
+			print_error(" model type unknown!!");
+		break;
+	}
+}
+
+
 void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	switch (inst->heuristic){
 
@@ -788,8 +806,8 @@ int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	if (inst->verbose >= 1000) plot_instance(inst);
 
 
-	while (second()-init_time < external_time_limit &&
-	 (fr > 0.0 || gap > inst->hf_param->optimal_gap))
+	while ( (second()-init_time) < external_time_limit &&
+	 (fr > 0.0 || gap > (inst->optimal_gap)))
 	{
 		// printf("BEST SOLUTION: %lf\n", inst->best_lb);
 
@@ -808,15 +826,15 @@ int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		mip_optimization(env, lp, inst, status); // this might not be the best solution
 
 		// update gap
-		CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
+		CPXsolution(env, lp, status, &(inst->best_lb), inst->best_sol, NULL, NULL, NULL);
 		CPXgetbestobjval(env, lp, &objval_p);
-		gap = (inst->best_lb - objval_p) / inst->best_lb;
+		gap = (inst->best_lb - objval_p) / (inst->best_lb);
 
 		// update fixing_ratio
-		if (gap < inst->hf_param->good_gap) // the solution is good, relax fixing_ration
-			fr = fr - inst->hf_param->decr_fr >= 0.0 ? fr - inst->hf_param->decr_fr : 0.0;
+		if (gap < inst->good_gap) // the solution is good, relax fixing_ration
+			fr = fr - inst->decr_fr >= 0.0 ? fr - inst->decr_fr : 0.0;
 		else	// the solution is not good, increase frn to get
-			fr = fr + inst->hf_param->incr_fr <= inst->hf_param->max_fr ? fr + inst->hf_param->incr_fr : inst->hf_param->max_fr;
+			fr = fr + inst->incr_fr <= inst->max_fr ? fr + inst->incr_fr : inst->max_fr;
 
 		// build_sol(inst, succ, comp, ncomp);
 		// if (inst->verbose >= 100) printf("Partial solution, ncomp = %d\n", *ncomp);
@@ -880,9 +898,8 @@ void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, doubl
 	free(bd);
 }
 
-
 int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
-
+	// TODO resolve returning value
 	int k_index = 0;
 	double k[5] = { 3.0, 5.0, 10.0, 15.0, 20.0};
 	double timelimit = 300;									// internal timelimit
@@ -895,7 +912,7 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 	double* best_sol = (double*)calloc(inst->nedges, sizeof(double));
 	double best_lb = CPX_INFBOUND;
 
-	CPXmipopt(env, lp);
+	mip_optimization(env, lp, inst, status);
 	CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
 
 	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, INT_MAX);
@@ -923,7 +940,11 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 		double gap = 1.0;
 		gap = ((inst->best_lb - inst->best_int) / inst->best_lb) * 100;
 		if (best_lb > inst->best_lb &&  gap > 0.09) {
-			printf("BEST_LB update from -> to : [%f] -> [%f]\tBEST_INT : %f\tGAP : %f\n", best_lb, inst->best_lb, inst->best_int, gap);
+			if (inst->verbose >= 100) {
+				printf("BEST_LB update from -> to : [%f] -> [%f]\tBEST_INT : %f\tGAP : %f\n",
+									best_lb, inst->best_lb, inst->best_int, gap);
+			}
+
 			best_lb = inst->best_lb;
 			if(k_index < 5)
 				rhs = (double)inst->nnodes - k[k_index];
@@ -973,7 +994,7 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 		free(index);
 		free(value);
 
-		if (CPXmipopt(env, lp)) {
+		if (mip_optimization(env, lp, inst, status)) {
 			printf("Error in CPXmipopt\n");
 		}
 
@@ -989,26 +1010,30 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 				print_error("wrong CPXdelrows() for deleting local-branching constraint\n");
 
 			printf("*** Better soluzion found! ***\n");
-			return;
+			return 0;
 		}
 		if (k[4] == inst->nnodes) {
 			int status = CPXgetstat(env, lp);
 			if (CPXgetstat(env, lp) == 101 || CPXgetstat(env, lp) == 102) {
-				printf("CPXgetstat: %s", status == 101 ? "Optimal integer solution found\n" :
+				if (inst->verbose >= 100)
+					printf("CPXgetstat: %s", status == 101 ? "Optimal integer solution found\n" :
 														"Optimal sol. within epgap or epagap tolerance found\n");
-				return;
+				return 0;
 			}
-			printf("CPXgetstat: %s", (status == 107) ? "Time limit exceeded, integer solution exists" : "debug this to see");
+			if (inst->verbose >= 100)
+				printf("CPXgetstat: %s", (status == 107) ? "Time limit exceeded, integer solution exists" : "debug this to see");
 		}
 
 		CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
 
 		int status = CPXgetstat(env, lp);
-		printf("CPXgetstat: %s", status==101 ? "Optimal integer solution found\n" :
-											(status==102) ? "Optimal sol. within epgap or epagap tolerance found\n " :
-													(status==107)? "Time limit exceeded, integer solution exists" : "debug this to see");
+		if (inst->verbose >= 100)
+			printf("CPXgetstat: %s",
+							(status==101) ? "Optimal integer solution found\n" :
+							(status==102) ? "Optimal sol. within epgap or epagap tolerance found\n " :
+							(status==107) ? "Time limit exceeded, integer solution exists" : "debug this to see");
 
-;		if (CPXgetstat(env, lp) == 101 || CPXgetstat(env, lp) == 102) {
+		if (CPXgetstat(env, lp) == 101 || CPXgetstat(env, lp) == 102) {
 			best_sol = inst->best_sol;
 		}
 
@@ -1016,6 +1041,216 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 			print_error("wrong CPXdelrows() for deleting local-branching constraint\n");
 
 	}
+	return 0;
+}
+
+int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
+
+	#ifdef _WIN32
+		CPXsetintparam(env, CPX_PARAM_ADVIND, 1);
+
+		double best_lb = CPX_INFBOUND;
+		inst->best_lb = CPX_INFBOUND;
+		double val = 1.0;
+		int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
+		int izero = 0;
+
+		int nocheck_warmstart = CPX_MIPSTART_SOLVEFIXED;	// CPLEX solves the fixed problem specified by the MIP start (requires to provide values for all discrete variables)
+								//CPX_MIPSTART_NOCHECK;		// CPLEX accepts the MIP start without any checks. The MIP start needs to be complete.
+
+		set_verbose(inst->verbose);
+
+		load_point(inst->input_file);
+
+		greedy_alg();
+
+		for (int i = 0; i < inst->nnodes; i++) {
+			int* sol = (int*)calloc(inst->nnodes, sizeof(int));
+			for (int k = 0; k < inst->nnodes; k++) {
+				sol[k] = -1;
+			}
+
+			sol = get_greedy_sol(i);
+
+			best_lb = 0.0;
+			for (int j = 0; j < inst->nnodes - 1; j++) {
+				if(inst->verbose > 100)
+					printf("%d,%d\n", sol[j], sol[j + 1]);
+				best_lb += dist(sol[j], sol[j + 1], inst);
+				sol[j] = xpos(sol[j], sol[j + 1], inst);
+			}
+			if (inst->verbose > 100)
+				printf("%d,%d\n\n", sol[inst->nnodes - 1], i);
+			best_lb += dist(sol[inst->nnodes - 1], i, inst);
+			sol[inst->nnodes - 1] = xpos(sol[inst->nnodes - 1], i, inst);
+
+			if (inst->verbose >= 100)
+				printf("Solution: %d\tBEST_LB found: [%f]\n", i, best_lb);
+			if (best_lb < inst->best_lb) {
+				if (inst->verbose >= 100)
+					printf("BEST_LB update from -> to : [%f] -> [%f]\n", inst->best_lb, best_lb);
+				inst->best_lb = best_lb;
+				for (int k = 0; k < inst->nnodes; k++)
+					best_sol[k] = sol[k];
+			}
+			free(sol);
+		}
+		free_cgal();
+		if (inst->verbose >= 100)
+			printf("BEST_LB Greedy Heuristic CGAL found: [%f]\n", inst->best_lb);
+
+		if (CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) {
+			print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
+			return *status;
+		}
+
+		/********* Add a mip start
+
+			if (CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) {
+				print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
+				return status;
+			}
+
+			mip_optimization(env, lp, inst, &status);
+			CPXsolution(env, lp, &status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
+
+		******** Delete a mip start :
+
+			if (CPXdelmipstarts(env, lp, 0, 0)) {
+				print_error("Error post warm start: deleting previous start, check CPXdelmipstarts\n");
+				return status;
+			}
+
+		******** Add multi-mip start:
+
+			int* all_sol = (int*)calloc((int)(inst->nnodes * inst->nnodes), sizeof(int));
+			int* all_izero = (int*)calloc(inst->nnodes, sizeof(int));
+			for (int j = 0; j < inst->nnodes - 1; j++) {
+				all_sol[i * inst->nnodes + j] = xpos(sol[j], sol[j + 1], inst);
+
+			}
+			all_sol[(i+1)*inst->nnodes - 1] = xpos(sol[inst->nnodes - 1], i, inst);
+			all_izero[i] = i * inst->nnodes;
+			}
+
+							   (env, lp, #mip_start, #elem foreach mip_start, start_point, xstar, value, effort, name)
+			if (CPXaddmipstarts(env, lp, inst->nnodes, &inst->nnodes, &all_izero, all_sol, &val, &nocheck_warmstart, NULL)) {
+				print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
+				return status;
+			}
+
+		******** Try if Out of Memory :
+
+			CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 1);
+			CPXsetintparam(env, CPX_PARAM_NODEFILEIND, 3);
+			CPXsetintparam(env, CPX_PARAM_WORKMEM, 6144);
+
+		******** Stop ad first incumbent found :
+
+			CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 1);
+
+		*/
+	#endif
+
+	return *status;
+}
+
+int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
+
+	CPXsetintparam(env, CPX_PARAM_ADVIND, 1);
+
+	double best_lb = CPX_INFBOUND;
+	double val = 1.0;
+	inst->best_lb = CPX_INFBOUND;
+	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
+	int izero = 0;
+
+	int nocheck_warmstart = CPX_MIPSTART_SOLVEFIXED;	// CPLEX solves the fixed problem specified by the MIP start (requires to provide values for all discrete variables)
+							//CPX_MIPSTART_NOCHECK;		// CPLEX accepts the MIP start without any checks. The MIP start needs to be complete.
+
+
+	for (int i = 0; i < inst->nnodes; i++) {
+
+		int* sol = (int*)calloc(inst->nnodes, sizeof(int));
+		for (int k = 0; k < inst->nnodes; k++) {
+			sol[k] = -1;
+		}
+
+		int succ = succ_not_contained(i, sol, inst);
+		sol[0] = i;
+		sol[1] = succ;
+		if(inst->verbose > 1000)
+			printf("%d\n%d\n", sol[0], sol[1]);
+		int idx_pred = succ;
+
+		for (int j = 2; j < inst->nnodes; j++) {
+			succ = succ_not_contained(idx_pred, sol, inst);
+			sol[j] = succ;
+			idx_pred = succ;
+			if (inst->verbose > 1000)
+				printf("%d\n", sol[j]);
+
+		}
+
+		best_lb = 0.0;
+		for (int j = 0; j < inst->nnodes - 1; j++) {
+			if (inst->verbose > 100)
+				printf("%d,%d\n", sol[j], sol[j + 1]);
+			best_lb += dist(sol[j], sol[j + 1], inst);
+			sol[j] = xpos(sol[j], sol[j + 1], inst);
+
+		}
+		if (inst->verbose > 100)
+			printf("%d,%d\n\n", sol[inst->nnodes - 1], i);
+		best_lb += dist(sol[inst->nnodes - 1], i, inst);
+		sol[inst->nnodes - 1] = xpos(sol[inst->nnodes - 1], i, inst);
+
+		if (inst->verbose >= 100)
+			printf("Solution: %d\tBEST_LB found: [%f]\n",i, best_lb);
+		if (best_lb < inst->best_lb) {
+			if (inst->verbose >= 100)
+				printf("BEST_LB update from -> to : [%f] -> [%f]\n", inst->best_lb, best_lb);
+			inst->best_lb = best_lb;
+			for (int k = 0; k < inst->nnodes; k++)
+				best_sol[k] = sol[k];
+		}
+		free(sol);
+	}
+
+	if (inst->verbose >= 100)
+		printf("BEST_LB Greedy Heuristic found: [%f]\n", inst->best_lb);
+
+	if (CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) {
+		print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
+		return *status;
+	}
+}
+
+int succ_not_contained(int node, int* sol, tspinstance *inst) {
+	double d = INT_MAX;
+	int succ = -1;
+	int contained;
+
+	for (int i = 0; i < inst->nnodes; i++) {
+		if (node != i) {
+			contained = 0;
+			for (int j = 0; j < inst->nnodes; j++) {
+				if (i == sol[j]) {
+					contained = 1;
+					break;
+				}else if (sol[j] == -1) {
+					break;
+				}
+			}
+			if (!contained) {
+				if (d > dist(node, i, inst)) {
+					d = dist(node, i, inst);
+					succ = i;
+				}
+			}
+		}
+	}
+	return succ;
 }
 
 // optimization methods run the problem optimization
@@ -1024,7 +1259,7 @@ int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status)
 	switch (inst->mip_opt)
 	{
 
-		case 0:			// basic model with asymmetric x and q => Subtour
+		case 0:			// subtour_iter_opt, symmetric, without callback
 			*status = subtour_iter_opt(env, lp, inst, status);
 			break;
 
@@ -1242,6 +1477,7 @@ int subtour_heur_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* st
 		}
 		if (inst->verbose >= 100) printf("best solution found. ncomp = %d\n", *ncomp);
 	}
+
 	free(cname);
 	free(succ);
 	free(comp);
@@ -1284,7 +1520,7 @@ void switch_callback(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 	inst->ncols = CPXgetnumcols(env, lp);							// è necessario ricontrollare il numero di colonne?
 }
 
-static int CPXPUBLIC lazycallback(CPXCENVptr env, void* cbdata, int wherefrom, void* cbhandle, int* useraction_p){			// Dynamic Search is disabled
+int CPXPUBLIC lazycallback(CPXCENVptr env, void* cbdata, int wherefrom, void* cbhandle, int* useraction_p){			// Dynamic Search is disabled
 	*useraction_p = CPX_CALLBACK_DEFAULT;					// solution is ok, don't add cuts
 	tspinstance* inst = (tspinstance*)cbhandle; 			// casting of cbhandle (which is pointing to the above parameter inst)
 
@@ -1307,7 +1543,7 @@ static int CPXPUBLIC lazycallback(CPXCENVptr env, void* cbdata, int wherefrom, v
 	return 0; 												// return 1 would mean error --> abort Cplex's execution
 }
 
-static int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void* cbhandle) {			// Dynamic Search is used anyway
+int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void* cbhandle) {			// Dynamic Search is used anyway
 
 	if (contextid == CPX_CALLBACKCONTEXT_CANDIDATE) {
 		tspinstance* inst = (tspinstance*)cbhandle; 			// casting of cbhandle (which is pointing to the above parameter inst)
@@ -1337,12 +1573,14 @@ static int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG cont
 		//printf("Actual Gap : [%f]\n", best_sol - best_bound);
 
 		if (inst->best_int > best_int) {
-			printf("BEST_INT update from -> to : [%f] -> [%f]\n", inst->best_int, best_int);
+			if (inst->verbose >= 100)
+				printf("BEST_INT update from -> to : [%f] -> [%f]\n", inst->best_int, best_int);
 			inst->best_int = best_int;
 		}
 
 		if (inst->best_lb < best_lb) {
-			printf("BEST_LB update from -> to : [%f] -> [%f]\n", inst->best_lb, best_lb);
+			if (inst->verbose >= 100)
+				printf("BEST_LB update from -> to : [%f] -> [%f]\n", inst->best_lb, best_lb);
 			inst->best_lb = best_lb;
 		}
 
@@ -1488,6 +1726,91 @@ int mygeneric_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONT
 	return 0;
 }
 
+// heuristic
+int heur_grasp(CPXCENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
+	if (inst->verbose >= 100) printf("heur_grasp helloworld!\n");
+
+	int izero = 0;
+	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
+	double val = 1.0;
+	int nocheck_warmstart = CPX_MIPSTART_CHECKFEAS;  // CPX_MIPSTART_SOLVEFIXED;
+
+	// get first node, randomly selected
+	int* succ = (int*)malloc(inst->nnodes * sizeof(int));
+	for (int i = 0; i < inst->nnodes; i++) succ[i] = -1;
+
+	int cur_node = round(((double)rand()/RAND_MAX)*(inst->nnodes-1));
+	int first_node = cur_node;
+
+	// find the three nearest node of each node
+	int cur_nearest[3];  // index of the nearest from current node
+	double cur_dist[3];  // distance from current node
+
+
+	int tour_length = 0;
+
+	while (tour_length < inst->nnodes) {
+		for (int k = 0; k < 3; k++) { cur_dist[k] = INT_MAX; cur_nearest[k] = -1; } // initialization
+
+		for (int j = 0; j < inst->nnodes; j++) {	// for each other node
+			if (cur_node == j) continue;  					// except cur_node == j
+			if (succ[j] != -1)
+				continue;						// the node is in the tour
+
+			// get distances of last added node and j
+			double d_ij = dist(cur_node, j, inst);
+
+			// check insertion condition
+			for (int k = 0; k < 3; k++) {
+				if (d_ij < cur_dist[k]) {
+					// insert the new candidate in the vector
+					for(int l = k; l < 3-1; l++) {
+						cur_dist[l+1] = cur_dist[l];
+ 						cur_nearest[l+1] = cur_nearest[l];
+					}
+					cur_dist[k] = d_ij;
+					cur_nearest[k] = j;
+					break;
+				}
+			}
+
+		}
+
+		// select succ randomly
+		int rand_node = rand() % 3;
+		int next_node;
+		if (cur_nearest[0] != -1) {
+			next_node = cur_nearest[rand_node] != -1 ? cur_nearest[rand_node] : cur_nearest[0];
+		} else {  // last node, close the tour
+			next_node = first_node;
+		}
+		succ[cur_node] = next_node;
+		best_sol[tour_length] = xpos(cur_node, next_node, inst);
+		cur_node = next_node;
+		tour_length++;
+
+		if (inst->verbose > 1000) { printf("\ni:      "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", i); }
+		if (inst->verbose > 1000) { printf("\nsucc:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", succ[i]); }
+		if (inst->verbose > 1000) { printf("\n"); }
+		fflush(stdout);
+	}
+
+
+	// save the tour and the cost
+	if (inst->verbose > 100) { printf("\ni:      "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", i); }
+	if (inst->verbose > 100) { printf("\nsucc:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", succ[i]); }
+	if (inst->verbose > 100) { printf("\n"); }
+	free(succ);
+
+	if ( (*status = CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) ) {
+		print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
+		return *status;
+	}
+
+	return 0;
+}
+
+
 
 // build_sol methods use the optimized solution to plot
 void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp) {
@@ -1504,6 +1827,10 @@ void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp) {
 
 		case 2:			// FLOW 1
 			build_sol_flow1(inst, succ, comp, ncomp);
+			break;
+
+		case 3:			// MTZ contraints
+			build_sol_mtz(inst, succ, comp, ncomp);
 			break;
 
 		default:
@@ -2054,13 +2381,11 @@ void parse_command_line(int argc, char** argv, tspinstance *inst) {
   }
 
 	if (inst->setup_model == 8) {
-		hardfix hf_param;
-		(&hf_param)->max_fr = max_fr;		// maximum fixing_ratio
-		(&hf_param)->incr_fr = incr_fr;		// increase of fixing_ratio when good gap
-		(&hf_param)->decr_fr = decr_fr;		// decreasing of fixing_ratio when bad gap
-		(&hf_param)->good_gap = good_gap;			// a good gap allow to decrease fixing_ratio
-		(&hf_param)->optimal_gap = optimal_gap;
-		inst->hf_param = &hf_param;
+		inst->max_fr = max_fr;		// maximum fixing_ratio
+		inst->incr_fr = incr_fr;		// increase of fixing_ratio when good gap
+		inst->decr_fr = decr_fr;		// decreasing of fixing_ratio when bad gap
+		inst->good_gap = good_gap;			// a good gap allow to decrease fixing_ratio
+		inst->optimal_gap = optimal_gap;
 	}
 
 
@@ -2168,6 +2493,14 @@ void setup_style(FILE *gnuplot, tspinstance *inst) {
 			setup_arrowstyle2(gnuplot);
 			break;
 
+		case 2:			// Arrow
+			setup_arrowstyle2(gnuplot);
+			break;
+
+		case 3:			// Arrow
+			setup_arrowstyle2(gnuplot);
+			break;
+
 		default:
 			fclose(gnuplot);
 			print_error(" Model type unknown!!\n");
@@ -2218,6 +2551,14 @@ void plot_edges(FILE *gnuplot, char *pngname, tspinstance *inst) {
 			break;
 
 		case 1:			// Arrow
+			plot_arrow_asym(gnuplot, pngname, inst);
+			break;
+
+		case 2:			// Arrow
+			plot_arrow_asym(gnuplot, pngname, inst);
+			break;
+
+		case 3:			// Arrow
 			plot_arrow_asym(gnuplot, pngname, inst);
 			break;
 
@@ -2281,8 +2622,8 @@ int save_results(tspinstance *inst, char *f_name) {
 				get_file_name(inst->input_file, name),
 				inst->nnodes,
 				model_name(inst->setup_model),
-				inst->hf_param->max_fr, inst->hf_param->incr_fr, inst->hf_param->decr_fr,
-				inst->hf_param->good_gap, inst->hf_param->optimal_gap,
+				inst->max_fr, inst->incr_fr, inst->decr_fr,
+				inst->good_gap, inst->optimal_gap,
 				inst->randomseed, inst->nthread, inst->opt_time, inst->best_lb);
 			break;
 
@@ -2296,6 +2637,29 @@ int save_results(tspinstance *inst, char *f_name) {
 	}
 
 	/* fopen() return NULL if unable to open file in given mode. */
+	if (outfile == NULL)
+	{
+		/* Unable to open file hence exit */
+		printf("\nUnable to open '%s' file.\n", f_name);
+		printf("Please check whether file exists and you have write privilege.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	/* Append data to file */
+	fputs(dataToAppend, outfile);
+
+	fclose(outfile);
+	return 0;
+}
+
+int save_res(char * input_file, char * user_name, char * method, double opt_time, double best_lb) {
+	FILE *outfile;
+	char * f_name = "res.csv";
+	outfile = fopen(f_name, "a");
+	char dataToAppend[sizeof(input_file)+ sizeof(user_name)+ sizeof(method)+ sizeof(opt_time)+sizeof(best_lb) + 20];
+	snprintf(dataToAppend, sizeof(dataToAppend),
+						"%s; %s; %s; %lf; %lf\n",
+						input_file, user_name, method, opt_time, best_lb);
 	if (outfile == NULL)
 	{
 		/* Unable to open file hence exit */

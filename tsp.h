@@ -67,12 +67,17 @@ typedef struct {
 	int callback;
 	int mip_opt;
 	int build_sol;
+	int warm_start;
 	int heuristic;
 	int plot_style;
 	int plot_edge;
 
 	// hard fixing
-	hardfix *hf_param;
+	double max_fr;		// maximum fixing_ratio
+	double incr_fr;		// increase of fixing_ratio when good gap
+	double decr_fr;		// decreasing of fixing_ratio when bad gap
+	double good_gap;			// a good gap allow to decrease fixing_ratio
+	double optimal_gap; 	// under this value, solution is optimal
 
 } tspinstance;
 
@@ -99,21 +104,25 @@ void build_mtz_lazy(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 void add_lazy_mtz(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 
 void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
-
 int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
-
 int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, double fixing_ratio);
+int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+int succ_not_contained(int node, int* sol, tspinstance* inst);
 
 int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
 int subtour_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
 int subtour_heur_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, int heuristic);
 
 void switch_callback(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
-static int CPXPUBLIC lazycallback(CPXCENVptr env, void* cbdata, int wherefrom, void* cbhandle, int* useraction_p);
-static int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void* cbhandle);
+int CPXPUBLIC lazycallback(CPXCENVptr env, void* cbdata, int wherefrom, void* cbhandle, int* useraction_p);
+int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void* cbhandle);
 int mylazy_separation(tspinstance* inst, const double* xstar, CPXCENVptr env, void* cbdata, int wherefrom);
 int mygeneric_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONTEXTptr context);
+int heur_grasp(CPXCENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+
+void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* status);
 
 void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp);
 void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp);
@@ -143,5 +152,14 @@ void plot_arrow_asym(FILE *gnuplot, char *pngname, tspinstance *inst);
 // Debug functions
 void pause_execution();
 void print_error(const char *err);
+
+
+//*********************************** CGAL Methods ***********************************
+void set_verbose(int v);
+int load_point(char* pathFileTSP);
+int order_by_dis(int firstPoint, int with_sqrt_distance);
+int greedy_alg();
+int* get_greedy_sol(int i);
+void free_cgal();
 
 #endif   /* TSP_H_ */
