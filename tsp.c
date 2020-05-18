@@ -1,3 +1,4 @@
+#include "pch.h"
 #include "tsp.h"
 #include "chrono.h"
 
@@ -6,6 +7,7 @@
 #include <string.h>
 #include <time.h>
 #include <math.h>
+
 
 #ifdef _WIN32
 	#define DIR_DELIM '\\'
@@ -24,6 +26,10 @@
 
 			- Struct a parte per euristiche e inizializzazione tramite variabili locali in parse_command_line
 */
+
+void tmp_heur_grasp(tspinstance* inst, int* status);
+void best_two_opt(tspinstance *inst);
+void print_succ(int* succ, tspinstance* inst );
 
 char * model_name(int i) {
 	switch (i) {
@@ -169,7 +175,9 @@ int TSPopt(tspinstance *inst) {
 
 	// compute cplex and calculate opt_time w.r.t. OS used
 	double ini = second();
-	optimization(env, lp, inst, &status);
+	tmp_heur_grasp(inst, &status); // TODO save best_val inside
+	best_two_opt(inst);
+	//optimization(env, lp, inst, &status);
 	double fin = second();
 	inst->opt_time = (double)(fin - ini);
 
@@ -1224,6 +1232,7 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
 		return *status;
 	}
+	return *status;
 }
 
 int succ_not_contained(int node, int* sol, tspinstance *inst) {
@@ -1726,7 +1735,7 @@ int mygeneric_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONT
 	return 0;
 }
 
-// heuristic
+// heuristic // TODO correct best_sol as in tmp_heur_grasp
 int heur_grasp(CPXCENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	if (inst->verbose >= 100) printf("heur_grasp helloworld!\n");
 
@@ -1788,20 +1797,10 @@ int heur_grasp(CPXCENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		best_sol[tour_length] = xpos(cur_node, next_node, inst);
 		cur_node = next_node;
 		tour_length++;
-
-		if (inst->verbose > 1000) { printf("\ni:      "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", i); }
-		if (inst->verbose > 1000) { printf("\nsucc:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", succ[i]); }
-		if (inst->verbose > 1000) { printf("\n"); }
-		fflush(stdout);
 	}
 
-
-	// save the tour and the cost
-	if (inst->verbose > 100) { printf("\ni:      "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", i); }
-	if (inst->verbose > 100) { printf("\nsucc:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", succ[i]); }
-	if (inst->verbose > 100) { printf("\n"); }
+	// save the tour and the cost // TODO: does it really save the solution?!
 	free(succ);
-
 	if ( (*status = CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) ) {
 		print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
 		return *status;
@@ -1810,6 +1809,147 @@ int heur_grasp(CPXCENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	return 0;
 }
 
+void tmp_heur_grasp(tspinstance* inst, int* status) {
+	if (inst->verbose >= 100) printf("heur_grasp helloworld!\n");
+
+	double* best_sol = (double*)calloc(inst->nedges, sizeof(double));
+
+	// get first node, randomly selected
+	int* succ = (int*)malloc(inst->nnodes * sizeof(int));
+	for (int i = 0; i < inst->nnodes; i++) succ[i] = -1;
+
+	int cur_node = round(((double)rand()/RAND_MAX)*(inst->nnodes-1));
+	int first_node = cur_node;
+
+	// find the three nearest node of each node
+	int cur_nearest[3];  // index of the nearest from current node
+	double cur_dist[3];  // distance from current node
+
+
+	int tour_length = 0;
+
+	while (tour_length < inst->nnodes) {
+		for (int k = 0; k < 3; k++) { cur_dist[k] = INT_MAX; cur_nearest[k] = -1; } // initialization
+
+		for (int j = 0; j < inst->nnodes; j++) {	// for each other node
+			if (cur_node == j) continue;  					// except cur_node == j
+			if (succ[j] != -1)
+				continue;						// the node is in the tour
+
+			// get distances of last added node and j
+			double d_ij = dist(cur_node, j, inst);
+
+			// check insertion condition
+			for (int k = 0; k < 3; k++) {
+				if (d_ij < cur_dist[k]) {
+					// insert the new candidate in the vector
+					for(int l = k; l < 3-1; l++) {
+						cur_dist[l+1] = cur_dist[l];
+ 						cur_nearest[l+1] = cur_nearest[l];
+					}
+					cur_dist[k] = d_ij;
+					cur_nearest[k] = j;
+					break;
+				}
+			}
+
+		}
+
+		// select succ randomly
+		int rand_node = rand() % 3;
+		int next_node;
+		if (cur_nearest[0] != -1) {
+			next_node = cur_nearest[rand_node] != -1 ? cur_nearest[rand_node] : cur_nearest[0];
+		} else {  // last node, close the tour
+			next_node = first_node;
+		}
+		succ[cur_node] = next_node;
+		best_sol[xpos(cur_node, next_node, inst)] = 1.0;
+		cur_node = next_node;
+		tour_length++;
+	}
+
+	// save the tour and the cost // TODO: does it really save the solution?!
+	print_succ(succ, inst);
+	free(succ);
+	for (int i = 0; i < inst->nnodes; i++)
+	 	for (int j = i+1; j < inst->nnodes; j++)
+			inst->best_sol[xpos(i,j,inst)] = best_sol[xpos(i,j,inst)];
+
+}
+
+// Refining
+void best_two_opt(tspinstance *inst) {
+	// improving the best_sol if possibile in 2opt set
+
+	if (inst->verbose >= 100) printf("BEST_TWO_OPT\n");
+
+	// check if current solution has only one tour
+	int *succ = (int*) calloc(inst->nnodes, sizeof(int));
+	int *comp = (int*) calloc(inst->nnodes, sizeof(int));
+	int *ncomp = (int*) calloc(1, sizeof(int));
+	build_sol(inst, succ, comp, ncomp);
+	print_succ(succ, inst);
+	if (*ncomp != 1) print_error("call best_two_opt with best_sol with multiple tour");
+
+	// search in 2opt if a better solution is found
+	int i = 0;		// start from node 0
+	int j = succ[succ[0]];
+	int best_i = i;
+	int best_j = i;
+	double best_improve = 0;
+	double d_i1_i2;
+	double d_j1_j2;
+	double d_i1_j1;
+	double d_i2_j2;
+	double cur_improve;
+
+	for (int ti = 0; ti < inst->nnodes; ti++) {
+		d_i1_i2 = dist(i, succ[i], inst);
+		for (int tj = ti+2; tj < inst->nnodes; tj++) {  // no 2opt with consequence arches
+			d_j1_j2 = dist(j, succ[j], inst);
+			d_i1_j1 = dist(i, j, inst);
+			d_i2_j2 = dist(succ[i], succ[j], inst);
+			cur_improve = (d_i1_i2 + d_j1_j2) - (d_i1_j1 + d_i2_j2);
+			if ( cur_improve > best_improve ) { // cross is better
+				best_i = i;
+				best_j = j;
+				best_improve = cur_improve;
+			}
+		}
+		i = succ[i];
+		j = succ[succ[i]];
+	}
+
+	// if find new best solution change the arches
+	if (best_i != best_j) {
+
+		int i2 = succ[best_i];
+		int j2 = succ[best_j];
+		int pre_node = succ[i2];
+		succ[best_i] = best_j;
+		succ[i2] = j2;
+		int cur_node = i2;
+		int suc_node = j2;
+		while (cur_node != best_j) {  // reverse the succ
+			suc_node = cur_node;
+			cur_node = pre_node;
+			pre_node = succ[pre_node];
+			succ[cur_node] = suc_node;
+			if (inst->verbose >= 100) print_succ(succ, inst);
+		}
+	}
+
+	if (inst->verbose >= 100) print_succ(succ, inst);
+
+}
+
+void print_succ(int* succ, tspinstance* inst ) {
+	printf("\ni:      "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", i);
+	printf("\nsucc:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", succ[i]);
+	printf("\n");
+	fflush(NULL);
+}
 
 
 // build_sol methods use the optimized solution to plot
