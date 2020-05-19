@@ -120,9 +120,14 @@ int CPXPUBLIC lazycallback(CPXCENVptr env, void* cbdata, int wherefrom, void* cb
 int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void* cbhandle);
 int mylazy_separation(tspinstance* inst, const double* xstar, CPXCENVptr env, void* cbdata, int wherefrom);
 int mygeneric_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONTEXTptr context);
+
 int heur_grasp(CPXCENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+int heur_insertion(CPXCENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+int insertion_move(tspinstance* inst, int* best_sol, int count_sol, int vertex);
+int contained_in_index(int* vector, int count_sol, int elem);
 
 void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* status);
+void test_warm_start(tspinstance* inst, int* best_sol);
 
 void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp);
 void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp);

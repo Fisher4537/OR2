@@ -123,7 +123,11 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->warm_start = 3;
 			inst->mip_opt = 1;
 			return "heuristic_grasp";					// Heuristic GRASP (no CPLEX)
-
+		case 13:
+			inst->model_type = 0;
+			inst->warm_start = 4;
+			inst->mip_opt = 100;
+			return "heuristic_insertion";				// Heuristic Insertion (no CPLEX)
 		default: return "not_supported";
 	}
 }
@@ -722,27 +726,37 @@ void add_lazy_mtz(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 
 void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* status) {
 
-	switch (inst->warm_start) {
+	switch (inst->warm_start) {					// No CPLEX used
 
 		case 0:
 		break;
 
-		case 1:													// Heuristic greedy (no CPLEX)
+		case 1:													// Heuristic greedy 
 			heur_greedy(env, lp, inst, status);
 		break;
 
-		case 2:													// Heuristic greedy CGAL (no CPLEX)
+		case 2:													// Heuristic greedy CGAL
 			heur_greedy_cgal(env, lp, inst, status);
 		break;
 
-		case 3:													// Heuristic GRASP (no CPLEX)
+		case 3:													// Heuristic GRASP
 			*status = heur_grasp(env, lp, inst, status);
+		break;
+		
+		case 4:
+			heur_insertion(env, lp, inst, status);				// Heuristic Insertion
 		break;
 
 		default:
 			print_error(" model type unknown!!");
 		break;
 	}
+}
+
+void test_warm_start(CPXENVptr env, CPXLPptr lp) {
+	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 1);
+	
+	CPXmipopt(env, lp);
 }
 
 
@@ -1271,6 +1285,10 @@ int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status)
 			*status = CPXmipopt(env,lp);
 			break;
 
+		case 100:
+			test_warm_start(env, lp);
+			break;
+
 		default:
 			print_error("model ì_type not implemented in optimization method");
 			break;
@@ -1728,6 +1746,7 @@ int mygeneric_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONT
 
 // heuristic
 int heur_grasp(CPXCENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
+
 	if (inst->verbose >= 100) printf("heur_grasp helloworld!\n");
 
 	int izero = 0;
@@ -1802,15 +1821,114 @@ int heur_grasp(CPXCENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	if (inst->verbose > 100) { printf("\n"); }
 	free(succ);
 
+	
 	if ( (*status = CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) ) {
 		print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
 		return *status;
 	}
 
+	CPXsetintparam(env, CPX_PARAM_ADVIND, 1);
+	
 	return 0;
 }
 
+int heur_insertion(CPXCENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
+	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
+	for (int k = 0; k < inst->nnodes; k++)
+		best_sol[k] = -1;
 
+	srand(inst->randomseed);
+	
+	// Creare a random 3-vertex circuit
+	int rand1 = -1, rand2 = -1, rand3 = -1;
+	while (rand1 == -1 || rand2 == -1 || rand3 == -1) {
+		
+		if (rand1 == -1) {
+			rand1 = rand() % (inst->nnodes - 1);
+			if (rand1 == rand2 || rand1 == rand3)
+				rand1 = -1;
+		}
+		if (rand2 == -1) {
+			rand2 = rand() % (inst->nnodes - 1);
+			if (rand2 == rand1 || rand2 == rand3)
+				rand2 = -1;
+		}
+		if (rand3 == -1) {
+			rand3 = rand() % (inst->nnodes - 1);
+			if (rand3 == rand1 || rand3 == rand2)
+				rand3 = -1;
+		}
+	}
+	best_sol[0] = xpos(rand1, rand2, inst);
+	best_sol[1] = xpos(rand2, rand3, inst);
+	best_sol[2] = xpos(rand3, rand1, inst);
+	if(inst->verbose > 10)
+		printf("\nFirst 3 vertices: %d, %d, %d\t- Their side: %d, %d, %d\n", rand1, rand2, rand3, best_sol[0], best_sol[1], best_sol[2]);
+	int count_sol = 3;
+	
+	for (int i = 0; i < inst->nnodes; i++) {
+		if (i != rand1 && i != rand2 && i != rand3) {
+			insertion_move(inst, best_sol, count_sol, i);
+			count_sol++;
+		}
+	}
+
+	int izero = 0;
+	double val = 1.0;
+	int nocheck_warmstart = CPX_MIPSTART_CHECKFEAS;
+
+	if ((*status = CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL))) {
+		print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
+		return *status;
+	}
+
+	CPXsetintparam(env, CPX_PARAM_ADVIND, 1);
+
+	return 0;
+}
+
+int insertion_move(tspinstance* inst, int* best_sol, int count_sol, int vertex) {
+	double extra_mileage = INT_MAX;
+	double temp_min = INT_MAX;
+	int best_i = -1, best_j = -1, pos, replace_pos = -1;
+
+
+	for (int i = 0; i < inst->nnodes; i++) {
+		for (int j = i; j < inst->nnodes; j++) {
+			if (i == j) 
+				continue;
+			
+			pos = contained_in_index(best_sol, count_sol, xpos(i, j, inst));
+			if (pos != -1) {
+				if (inst->verbose > 100)
+					printf("Side %d in pos %d is contained in best_sol => calculate extra_mileage...", best_sol[pos], pos);
+				temp_min = dist(i, vertex, inst) + dist(vertex, j, inst) - dist(i, j, inst);
+				if (temp_min < extra_mileage) {
+					extra_mileage = temp_min;
+					replace_pos = pos;
+					best_i = i;
+					best_j = j;
+					if (inst->verbose > 100)
+						printf("\t\t=>Extra_mileage upload: %f\n", extra_mileage);
+				}
+				else if (inst->verbose > 100)
+					printf("\n");
+			}
+		}
+	}
+	best_sol[replace_pos] = xpos(best_i, vertex, inst);
+	best_sol[count_sol] = xpos(vertex, best_j, inst);
+	if(inst->verbose > 10)
+		printf("***** Sides %d, %d added in best_sol (actual length %d) *****\n\n", best_sol[replace_pos], best_sol[count_sol], count_sol+1);
+}
+
+int contained_in_index(int* vector, int count_sol, int elem) {
+	for (int i = 0; i < count_sol; i++) {
+		if (vector[i] == elem)
+			return i;
+	}
+	return -1;
+}
 
 // build_sol methods use the optimized solution to plot
 void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp) {
