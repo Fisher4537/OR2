@@ -27,10 +27,6 @@
 			- Struct a parte per euristiche e inizializzazione tramite variabili locali in parse_command_line
 */
 
-void tmp_heur_grasp(tspinstance* inst, int* status);
-void best_two_opt(tspinstance *inst);
-void print_succ(int* succ, tspinstance* inst );
-
 char * model_name(int i) {
 	switch (i) {
 		case 0: return "subtour";							// basic model with asymmetric x and q
@@ -752,8 +748,13 @@ void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* statu
 		break;
 
 		case 3:													// Heuristic GRASP (no CPLEX)
-			//*status = heur_grasp(env, lp, inst, status);
-			tmp_heur_grasp(inst, status);
+			heur_grasp(inst, status); // do not add the solution to CPLEX
+			// int izero = 0;
+			// double val = 1.0;
+			// int nocheck_warmstart = CPX_MIPSTART_CHECKFEAS;  // CPX_MIPSTART_SOLVEFIXED;
+			// if ( (*status = CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, inst->best_sol, &val, &nocheck_warmstart, NULL)) ) {
+			// 	print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
+			// }
 		break;
 
 		default:
@@ -945,81 +946,8 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	return *status;
 }
 
-// heuristic // TODO correct best_sol as in tmp_heur_grasp
-int heur_grasp(CPXCENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
-	if (inst->verbose >= 100) printf("heur_grasp helloworld!\n");
-
-	int izero = 0;
-	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
-	double val = 1.0;
-	int nocheck_warmstart = CPX_MIPSTART_CHECKFEAS;  // CPX_MIPSTART_SOLVEFIXED;
-
-	// get first node, randomly selected
-	int* succ = (int*)malloc(inst->nnodes * sizeof(int));
-	for (int i = 0; i < inst->nnodes; i++) succ[i] = -1;
-
-	int cur_node = round(((double)rand()/RAND_MAX)*(inst->nnodes-1));
-	int first_node = cur_node;
-
-	// find the three nearest node of each node
-	int cur_nearest[3];  // index of the nearest from current node
-	double cur_dist[3];  // distance from current node
-
-
-	int tour_length = 0;
-
-	while (tour_length < inst->nnodes) {
-		for (int k = 0; k < 3; k++) { cur_dist[k] = INT_MAX; cur_nearest[k] = -1; } // initialization
-
-		for (int j = 0; j < inst->nnodes; j++) {	// for each other node
-			if (cur_node == j) continue;  					// except cur_node == j
-			if (succ[j] != -1)
-				continue;						// the node is in the tour
-
-			// get distances of last added node and j
-			double d_ij = dist(cur_node, j, inst);
-
-			// check insertion condition
-			for (int k = 0; k < 3; k++) {
-				if (d_ij < cur_dist[k]) {
-					// insert the new candidate in the vector
-					for(int l = k; l < 3-1; l++) {
-						cur_dist[l+1] = cur_dist[l];
- 						cur_nearest[l+1] = cur_nearest[l];
-					}
-					cur_dist[k] = d_ij;
-					cur_nearest[k] = j;
-					break;
-				}
-			}
-
-		}
-
-		// select succ randomly
-		int rand_node = rand() % 3;
-		int next_node;
-		if (cur_nearest[0] != -1) {
-			next_node = cur_nearest[rand_node] != -1 ? cur_nearest[rand_node] : cur_nearest[0];
-		} else {  // last node, close the tour
-			next_node = first_node;
-		}
-		succ[cur_node] = next_node;
-		best_sol[tour_length] = xpos(cur_node, next_node, inst);
-		cur_node = next_node;
-		tour_length++;
-	}
-
-	// save the tour and the cost // TODO: does it really save the solution?!
-	free(succ);
-	if ( (*status = CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) ) {
-		print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
-		return *status;
-	}
-
-	return 0;
-}
-
-void tmp_heur_grasp(tspinstance* inst, int* status) {
+// heuristic
+void heur_grasp(tspinstance* inst, int* status) {
 	if (inst->verbose >= 100) printf("heur_grasp helloworld!\n");
 
 	double* best_sol = (double*)calloc(inst->nedges, sizeof(double));
