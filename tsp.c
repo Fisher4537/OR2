@@ -24,7 +24,8 @@
 			- Latex: how to use generic callback (if it's write good he can take the part for next year courses)
 			- User_cut di Concorde (difficile implementarle e non è possibile utilizzarle ogni volta bensì solo ogni tot..)		-> per la lode
 
-			- Struct a parte per euristiche e inizializzazione tramite variabili locali in parse_command_line
+			- funzione della distanza corrette a seconda di EDGE_WEIGHT_TYPE. vedi tsplib/doc.ps
+
 */
 
 char * model_name(int i) {
@@ -1020,6 +1021,7 @@ void heur_grasp(tspinstance* inst, int* status) {
 	 	for (int j = i+1; j < inst->nnodes; j++)
 			inst->best_sol[xpos(i,j,inst)] = best_sol[xpos(i,j,inst)];
 	inst->best_lb = best_lb;
+	if (inst->verbose >= 100) printf("GRASP BEST_LB: %lf\n", inst->best_lb);
 
 }
 
