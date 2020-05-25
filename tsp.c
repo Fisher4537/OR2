@@ -136,7 +136,11 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->model_type = 0;
 			inst->heuristic = 3;
 			return "grasp_best_two_opt";				// GRASP + best_two_opt
-
+		case 17:
+			inst->warm_start = 0;
+			inst->model_type = 0;
+			inst->heuristic = 6;
+			return "tabu_search";						// TABU' SEARCH
 		default: return "not_supported";
 	}
 }
@@ -736,7 +740,7 @@ void add_lazy_mtz(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 	}
 }
 
-
+// heuristic warm start
 void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* status) {
 
 	switch (inst->warm_start) {					// No CPLEX used
@@ -765,7 +769,7 @@ void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* statu
 		case 4:
 			heur_insertion(env, lp, inst, status);				// Heuristic Insertion
 		break;
-
+		
 		default:
 			print_error(" model type unknown!!");
 		break;
@@ -777,8 +781,6 @@ void test_warm_start(CPXENVptr env, CPXLPptr lp) {
 	CPXmipopt(env, lp);
 }
 
-
-// heuristic
 int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
 	#ifdef _WIN32
@@ -1183,6 +1185,10 @@ void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 			best_two_opt(inst);
 		break;
 
+		case 6:
+			*status = tabu_search(env, lp, inst, status);
+		break;
+
 		default:
 			print_error("model ì_type not implemented in optimization method");
 		break;
@@ -1466,6 +1472,9 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 	return 0;
 }
 
+int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
+
+}
 
 // optimization methods run the problem optimization
 int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status) {

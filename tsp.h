@@ -110,6 +110,7 @@ void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, double fixing_ratio);
+int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 
 int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
