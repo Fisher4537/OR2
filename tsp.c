@@ -777,6 +777,7 @@ void test_warm_start(CPXENVptr env, CPXLPptr lp) {
 	CPXmipopt(env, lp);
 }
 
+
 // heuristic
 int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
