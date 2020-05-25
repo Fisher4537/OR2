@@ -103,13 +103,18 @@ void build_flow1(tspinstance *inst, CPXENVptr env, CPXLPptr lp);
 void build_mtz_lazy(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 void add_lazy_mtz(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 
+void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* status);
+void heur_grasp(tspinstance* inst, int* status);
+
 void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, double fixing_ratio);
+
 int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int succ_not_contained(int node, int* sol, tspinstance* inst);
+void best_two_opt(tspinstance *inst);
 
 int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
 int subtour_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
@@ -120,9 +125,7 @@ int CPXPUBLIC lazycallback(CPXCENVptr env, void* cbdata, int wherefrom, void* cb
 int CPXPUBLIC genericcallback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void* cbhandle);
 int mylazy_separation(tspinstance* inst, const double* xstar, CPXCENVptr env, void* cbdata, int wherefrom);
 int mygeneric_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONTEXTptr context);
-int heur_grasp(CPXCENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 
-void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* status);
 
 void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp);
 void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp);
@@ -150,6 +153,7 @@ void plot_lines_sym(FILE *gnuplot, char *pngname, tspinstance *inst);
 void plot_arrow_asym(FILE *gnuplot, char *pngname, tspinstance *inst);
 
 // Debug functions
+void print_succ(int* succ, tspinstance* inst);
 void pause_execution();
 void print_error(const char *err);
 
