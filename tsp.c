@@ -131,12 +131,11 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->warm_start = 4;
 			inst->mip_opt = 100;
 			return "heuristic_insertion";				// Heuristic Insertion (no CPLEX)
-
 		case 14:
 			inst->warm_start = 3;
 			inst->model_type = 0;
 			inst->heuristic = 3;
-			return "grasp_best_two_opt";			// GRASP + best_two_opt
+			return "grasp_best_two_opt";				// GRASP + best_two_opt
 
 		default: return "not_supported";
 	}
