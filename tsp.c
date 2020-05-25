@@ -114,17 +114,17 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 		case 10:
 			inst->model_type = 0;
 			inst->warm_start = 1;
-			inst->mip_opt = 1;
+			inst->mip_opt = 100;
 			return "heuristic_greedy";					// Heuristic Greedy (no CPLEX)
 		case 11:
 			inst->model_type = 0;
 			inst->warm_start = 2;
-			inst->mip_opt = 1;
+			inst->mip_opt = 100;
 			return "heuristic_greedy_cgal";				// Heuristic Greedy CGAL (no CPLEX)
 		case 12:
 			inst->model_type = 0;
 			inst->warm_start = 3;
-			inst->mip_opt = 1;
+			inst->mip_opt = 100;
 			return "heuristic_grasp";					// Heuristic GRASP (no CPLEX)
 		case 13:
 			inst->model_type = 0;
