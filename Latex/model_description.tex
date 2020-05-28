@@ -1,13 +1,20 @@
-\section{Problem description}
+\chapter{Problem description}
+The Travelling Salesman Problem is a well-known NP-hard problem.
+In this report two version of the TSP will be ananlyzed:
+\begin{itemize}
+  \item asymmetric: with oriented arches;
+  \item symmetric: with bidirectional arches.
+\end{itemize}
 
-\subsection{Travelling Salesman Problem (simmetric version)}
-During the course the well-known Traveling Salesman Problem (TSP) was analyzed in its symmetrical version.
+\section{Simmetric TSP}
 This is a proposed linear programming model which resolve the problem:
 \[
 \begin{cases}
-min \sum_{ e\in E } c_ex_e \\
-\sum_{e\in \delta (v) } x_e = 2, \forall v \in V \\
-\sum_{e\in E(S) } x_e \le |S|-1, \forall S \subset V, |S| \ge 3 \\
-x_e \in \{0,1\}, \forall v \in V
+  min \sum_{ e\in E } c_ex_e \\
+  \sum_{e\in \delta (v) } x_e = 2, \forall v \in V \\
+  \sum_{e\in E(S) } x_e \le |S|-1, \forall S \subset V, |S| \ge 3 \\
+  x_e \in \{0,1\}, \forall v \in V
 \end{cases}
 \]
+
+\section{Asimmetric TSP}
