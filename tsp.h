@@ -115,11 +115,14 @@ int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status)
 int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int succ_not_contained(int node, int* sol, tspinstance* inst);
 void heur_grasp(tspinstance* inst, int* status);
-int heur_insertion(CPXCENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+int heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int insertion_move(tspinstance* inst, int* best_sol, int count_sol, int vertex);
 int contained_in_index(int* vector, int count_sol, int elem);
 
 void best_two_opt(tspinstance *inst);
+
+void patching(tspinstance* inst);
+void single_patch(tspinstance* inst, int* succ, int* comp, int* ncomp);
 
 int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
 int subtour_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
