@@ -7,6 +7,7 @@
 #include <string.h>
 #include <time.h>
 #include <math.h>
+#include <float.h>
 
 
 #ifdef _WIN32
@@ -2078,18 +2079,37 @@ void single_patch(tspinstance* inst, int* succ, int* comp, int* ncomp) {
 		// find the node of the i-tour which is closer to closer_j: closer_i
 		int i = initial_i;
 		int closer_i = i;
-		// if (succ[i] > 0) { // only if i is not isolated
-		// 	i = succ[i];
-		//
-		// 	while (i != initial_i) {  // for each node of the i-tour (the tour which contain i)
-		// 		d_ij = dist(i, closer_j, inst);
-		// 		if (d_ij < cn_dist) {
-		// 			closer_i = i;
-		// 			cn_dist = d_ij;
-		// 		}
-		// 		i = succ[i];
-		// 	}
-		// }
+		int counter = 0;
+		if (succ[i] > 0) { // only if i is not isolated
+			double best_improve;
+			if (succ[closer_j] > 0) { // j is not isolated
+				best_improve = dist(i, succ[closer_j], inst) + dist(succ[i], closer_j, inst)
+														- dist(i, succ[i], inst) - dist(closer_j, succ[closer_j], inst);
+			} else {									// j is isolated
+				best_improve = dist(i, closer_j, inst) + dist(closer_j, succ[i], inst)
+														- dist(i, succ[i], inst);
+			}
+			double cur_improve = best_improve;
+			i = succ[i];
+
+
+			while (i != initial_i) {  // for each node of the i-tour (the tour which contain i)
+				if (succ[closer_j] > 0) {  // j is not isolated
+					cur_improve = dist(i, succ[closer_j], inst) + dist(succ[i], closer_j, inst)
+											- dist(i, succ[i], inst) - dist(closer_j, succ[closer_j], inst);
+				} else  {  // j is isolated
+					cur_improve = dist(i, closer_j, inst) + dist(closer_j, succ[i], inst)
+															- dist(i, succ[i], inst);
+				}
+				if (cur_improve < best_improve) {
+					best_improve = cur_improve;
+					closer_i = i;
+					cn_dist = d_ij;
+				}
+				counter++;
+				i = succ[i];
+			}
+		}
 
 		// merge the tours: update best_sol, succ, comp, ncomp, best_lb
  		if (succ[closer_j] < 0 && succ[closer_i] < 0) { // closer_j and closer_i are isolated
