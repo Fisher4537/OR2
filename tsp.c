@@ -2078,18 +2078,18 @@ void single_patch(tspinstance* inst, int* succ, int* comp, int* ncomp) {
 		// find the node of the i-tour which is closer to closer_j: closer_i
 		int i = initial_i;
 		int closer_i = i;
-		if (succ[i] > 0) { // only if i is not isolated
-			i = succ[i];
-
-			while (i != initial_i) {  // for each node of the i-tour (the tour which contain i)
-				d_ij = dist(i, closer_j, inst);
-				if (d_ij < cn_dist) {
-					closer_i = i;
-					cn_dist = d_ij;
-				}
-				i = succ[i];
-			}
-		}
+		// if (succ[i] > 0) { // only if i is not isolated
+		// 	i = succ[i];
+		//
+		// 	while (i != initial_i) {  // for each node of the i-tour (the tour which contain i)
+		// 		d_ij = dist(i, closer_j, inst);
+		// 		if (d_ij < cn_dist) {
+		// 			closer_i = i;
+		// 			cn_dist = d_ij;
+		// 		}
+		// 		i = succ[i];
+		// 	}
+		// }
 
 		// merge the tours: update best_sol, succ, comp, ncomp, best_lb
  		if (succ[closer_j] < 0 && succ[closer_i] < 0) { // closer_j and closer_i are isolated
