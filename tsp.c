@@ -7,6 +7,7 @@
 #include <string.h>
 #include <time.h>
 #include <math.h>
+#include <float.h>
 
 
 #ifdef _WIN32
@@ -55,7 +56,7 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
  1		  build_mtz					heur_greedy				hard_fixing			subtour_heur_iter_opt				lazy
  2		 build_flow1			heur_greedy_cgal	local_branching				 CPXmipopt					 generic CAND
  3		build_mtz_lazy			heur_grasp				best_two_opt													generic CAND, GLOBAL
- 4
+ 4																						patching
  5
  6
 */
@@ -63,6 +64,7 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 	inst->callback = 0;
 	inst->heuristic = 0;
 	inst->warm_start = 0;
+	inst->mip_opt = -1;
 
 	switch (inst->setup_model) {
 		case 0:
@@ -136,6 +138,11 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->model_type = 0;
 			inst->heuristic = 3;
 			return "grasp_best_two_opt";				// GRASP + best_two_opt
+		case 15:
+			inst->warm_start = 0;
+			inst->model_type = 0;
+			inst->heuristic = 4;
+			return "patching";
 
 		default: return "not_supported";
 	}
@@ -778,7 +785,7 @@ void test_warm_start(CPXENVptr env, CPXLPptr lp) {
 }
 
 
-// heuristic
+// constructive heuristic
 int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
 	#ifdef _WIN32
@@ -1066,7 +1073,7 @@ void heur_grasp(tspinstance* inst, int* status) {
 
 }
 
-int heur_insertion(CPXCENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
+int heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
 	for (int k = 0; k < inst->nnodes; k++)
 		best_sol[k] = -1;
@@ -1153,6 +1160,7 @@ int insertion_move(tspinstance* inst, int* best_sol, int count_sol, int vertex) 
 	best_sol[count_sol] = xpos(vertex, best_j, inst);
 	if (inst->verbose > 10)
 		printf("***** Sides %d, %d added in best_sol (actual length %d) *****\n\n", best_sol[replace_pos], best_sol[count_sol], count_sol + 1);
+	return 0;
 }
 int contained_in_index(int* vector, int count_sol, int elem) {
 	for (int i = 0; i < count_sol; i++) {
@@ -1181,6 +1189,10 @@ void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
 		case 3:
 			best_two_opt(inst);
+		break;
+
+		case 4:
+			patching(inst);
 		break;
 
 		default:
@@ -2018,6 +2030,169 @@ void best_two_opt(tspinstance *inst) {
 }
 
 
+// Repair
+void patching(tspinstance* inst) {
+
+	if (inst->verbose >= 100) printf("PATCHING\n");
+
+	// check if current solution has only one tour
+	int *succ = (int*) calloc(inst->nnodes, sizeof(int));
+	int *comp = (int*) calloc(inst->nnodes, sizeof(int));
+	int *ncomp = (int*) calloc(1, sizeof(int));
+	build_sol(inst, succ, comp, ncomp);
+	print_succ(succ, inst);
+	if (*ncomp == 1) {
+		printf("WARNING: solution already has 1 tour, patching has no effect.\n");
+		free(succ);
+		free(comp);
+		free(ncomp);
+		return;
+	}
+
+	while (*ncomp > 1) {
+		single_patch(inst, succ, comp, ncomp);
+		print_succ(succ, inst);
+		printf("\ncomp:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
+		plot_instance(inst);
+	}
+}
+void single_patch(tspinstance* inst, int* succ, int* comp, int* ncomp) {
+
+	if (*ncomp == 1) {
+		return;
+	} else {
+		int initial_i = rand() % inst->nnodes;  // randomize the first node
+
+		// get the closer node which is in another tour
+		int closer_j = initial_i;
+		double cn_dist = INT_MAX;
+		double d_ij = 0.;
+		for (int j = 0; j < inst->nnodes; j++) {
+			if (comp[initial_i] == comp[j]) continue; // skip if it's in the same components
+
+			d_ij = dist(initial_i, j, inst);
+			if (d_ij < cn_dist) {
+				closer_j = j;
+				cn_dist = d_ij;
+			}
+		}
+		// find the node of the i-tour which is closer to closer_j: closer_i
+		int i = initial_i;
+		int closer_i = i;
+		int counter = 0;
+		if (succ[i] > 0) { // only if i is not isolated
+			double best_improve;
+			if (succ[closer_j] > 0) { // j is not isolated
+				best_improve = dist(i, succ[closer_j], inst) + dist(succ[i], closer_j, inst)
+														- dist(i, succ[i], inst) - dist(closer_j, succ[closer_j], inst);
+			} else {									// j is isolated
+				best_improve = dist(i, closer_j, inst) + dist(closer_j, succ[i], inst)
+														- dist(i, succ[i], inst);
+			}
+			double cur_improve = best_improve;
+			i = succ[i];
+
+
+			while (i != initial_i) {  // for each node of the i-tour (the tour which contain i)
+				if (succ[closer_j] > 0) {  // j is not isolated
+					cur_improve = dist(i, succ[closer_j], inst) + dist(succ[i], closer_j, inst)
+											- dist(i, succ[i], inst) - dist(closer_j, succ[closer_j], inst);
+				} else  {  // j is isolated
+					cur_improve = dist(i, closer_j, inst) + dist(closer_j, succ[i], inst)
+															- dist(i, succ[i], inst);
+				}
+				if (cur_improve < best_improve) {
+					best_improve = cur_improve;
+					closer_i = i;
+					cn_dist = d_ij;
+				}
+				counter++;
+				i = succ[i];
+			}
+		}
+
+		// merge the tours: update best_sol, succ, comp, ncomp, best_lb
+ 		if (succ[closer_j] < 0 && succ[closer_i] < 0) { // closer_j and closer_i are isolated
+			// update inst->best_sol
+			inst->best_sol[xpos(closer_i, closer_j, inst)] = 1.;
+
+			// update succ
+			succ[closer_j] = closer_i;
+			succ[closer_i] = closer_j;
+
+			// update comp
+			comp[closer_j] = comp[closer_i];
+
+			// update inst->best_lb
+			inst->best_lb += cn_dist;
+		} else if (succ[closer_j] < 0) { 		// closer_j isolated node
+			// update inst->best_sol
+			if (closer_i != succ[succ[closer_i]])
+				inst->best_sol[xpos(closer_i, succ[closer_i], inst)] = 0.;
+			inst->best_sol[xpos(closer_i, closer_j, inst)] = 1.;
+			inst->best_sol[xpos(closer_j, succ[closer_i], inst)] = 1.;
+
+			// update succ
+			succ[closer_j] = succ[closer_i];
+			succ[closer_i] = closer_j;
+
+			// update comp
+			comp[closer_j] = comp[closer_i];
+
+			// update inst->best_lb
+			inst->best_lb += cn_dist
+										+ dist(closer_j, succ[closer_j], inst)
+										- dist(closer_i, succ[closer_j], inst);
+		} else if (succ[closer_i] < 0) {  		// i is isolated
+			// update inst->best_sol
+			if (closer_j != succ[succ[closer_j]])
+				inst->best_sol[xpos(closer_j, succ[closer_j], inst)] = 0.;
+			inst->best_sol[xpos(closer_i, closer_j, inst)] = 1.;
+			inst->best_sol[xpos(closer_i, succ[closer_j], inst)] = 1.;
+
+			// update succ
+			succ[closer_i] = succ[closer_j];
+			succ[closer_j] = closer_i;
+
+			// update comp
+			comp[closer_i] = comp[closer_j];
+
+			// update inst->best_lb
+			inst->best_lb += cn_dist
+										+ dist(closer_i, succ[closer_i], inst)
+										- dist(closer_j, succ[closer_i], inst);
+		} else {  										// i and closer_j are not isolated
+			// update inst->best_sol
+			if (closer_j != succ[succ[closer_j]])
+				inst->best_sol[xpos(closer_j, succ[closer_j], inst)] = 0.;
+			if (closer_i != succ[succ[closer_i]])
+				inst->best_sol[xpos(closer_i, succ[closer_i], inst)] = 0.;
+			inst->best_sol[xpos(closer_i, succ[closer_j], inst)] = 1.;
+			inst->best_sol[xpos(closer_j, succ[closer_i], inst)] = 1.;
+
+			// update succ
+			int tmp = succ[closer_i];
+			succ[closer_i] = succ[closer_j];
+			succ[closer_j] = tmp;
+
+			// update comp
+			comp[closer_i] = comp[closer_j];
+			while (tmp != closer_i) {
+				comp[tmp] = comp[closer_j];
+				tmp = succ[tmp];
+			}
+
+			// update inst->best_lb
+			inst->best_lb += dist(closer_j, succ[closer_j], inst)
+										+ dist(closer_i, succ[closer_i], inst)
+										- dist(closer_j, succ[closer_i], inst)
+										- dist(closer_i, succ[closer_j], inst);
+		}
+		(*ncomp)--;
+	}
+}
+
+
 // build_sol methods use the optimized solution to plot
 void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp) {
 
@@ -2104,32 +2279,31 @@ void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 		{
 			comp[i] = *ncomp;
 			// done = 1;
-			for ( int j = 0; j < inst->nnodes; j++ )
-			{
+			for ( int j = 0; j < inst->nnodes; j++ ) {
 				if (j == i) continue;
 
-				if ( inst->best_sol[xpos(i,j,inst)] > 0.5) // the edge [i,j] is selected in inst->best_sol and j was not visited before
-				{
+				if ( inst->best_sol[xpos(i,j,inst)] > 0.5) {  // the edge [i,j] is selected in inst->best_sol and j was not visited before
 					// intern edge of the cycle
-					if (comp[j] == -1)
-					{
+					if (comp[j] == -1) {
 						succ[i] = j;
 						i = j;
 						break;
 					}
 					// last edge of the cycle
-					if (start == j)
-					{
+					if (start == j) {
 						succ[i] = j;
 					}
 				}
+			}
+			if (succ[i] == -1) {
+				break;
 			}
 		}	// while
 	// go to the next component...
 	}
 
 	// print succ, comp and ncomp
-	if (inst->verbose >= 2000)
+	if (inst->verbose >= 100)
 	{
 		printf("\ni:      "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", i);
 		printf("\nsucc:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", succ[i]);
