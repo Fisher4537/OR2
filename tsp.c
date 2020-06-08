@@ -134,8 +134,8 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->mip_opt = 100;
 			return "heuristic_insertion";				// Heuristic Insertion (no CPLEX)
 		case 14:
-			inst->warm_start = 3;
 			inst->model_type = 0;
+			inst->warm_start = 3;
 			inst->heuristic = 3;
 			return "grasp_best_two_opt";				// GRASP + best_two_opt
 		case 15:
@@ -144,6 +144,11 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->heuristic = 4;
 			return "patching";
 
+		case 17:
+			inst->model_type = 0;
+			inst->warm_start = 4;
+			inst->heuristic = 6;
+			return "tabu_search";						// TABU' SEARCH
 		default: return "not_supported";
 	}
 }
@@ -743,7 +748,7 @@ void add_lazy_mtz(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 	}
 }
 
-
+// heuristic warm start
 void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* status) {
 
 	switch (inst->warm_start) {					// No CPLEX used
@@ -772,7 +777,7 @@ void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* statu
 		case 4:
 			heur_insertion(env, lp, inst, status);				// Heuristic Insertion
 		break;
-
+		
 		default:
 			print_error(" model type unknown!!");
 		break;
@@ -784,8 +789,6 @@ void test_warm_start(CPXENVptr env, CPXLPptr lp) {
 	CPXmipopt(env, lp);
 }
 
-
-// constructive heuristic
 int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
 	#ifdef _WIN32
@@ -1113,6 +1116,11 @@ int heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 			count_sol++;
 		}
 	}
+	
+	
+	for (int i = 0; i < inst->nnodes; i++) {
+		inst->best_sol[i] = (double) best_sol[i];
+	}
 
 	int izero = 0;
 	double val = 1.0;
@@ -1193,6 +1201,10 @@ void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
 		case 4:
 			patching(inst);
+		break;
+
+		case 6:
+			*status = tabu_search(env, lp, inst, status);
 		break;
 
 		default:
@@ -1478,6 +1490,206 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 	return 0;
 }
 
+int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
+	if (inst->verbose >= 100) printf("Tabu Search\n");
+
+	// check if current solution has only one tour
+	int* succ = (int*)calloc(inst->nnodes, sizeof(int));
+	int* comp = (int*)calloc(inst->nnodes, sizeof(int));
+	int* ncomp = (int*)calloc(1, sizeof(int));
+	build_sol(inst, succ, comp, ncomp);
+	print_succ(succ, inst);
+	if (*ncomp != 1) {
+		printf("Error: tabù_search is called with best_sol with multiple tour!");
+		return 1;
+	}
+
+	// search in 2opt if a better solution is found
+	int i = 0;		// start from node 0
+	int j = succ[succ[0]];
+	int best_i = i;
+	int best_j = i;
+	double best_improve = 0.0;
+	double d_i1_i2;
+	double d_j1_j2;
+	double d_i1_j1;
+	double d_i2_j2;
+	double cur_improve;
+
+	// tabù list (linked list)
+	tabu_list* head = NULL;
+
+	for (int ti = 0; ti < inst->nnodes; ti++) {
+		if (contained_in_posix(head, i, succ[i])) {
+			continue;
+		}
+		else {
+			d_i1_i2 = dist(i, succ[i], inst);
+			for (int tj = ti + 2; tj < inst->nnodes; tj++) {				// no 2opt with consequence arches
+				if (i == succ[j]) break;
+				d_j1_j2 = dist(j, succ[j], inst);
+				d_i1_j1 = dist(i, j, inst);
+				d_i2_j2 = dist(succ[i], succ[j], inst);
+				cur_improve = (d_i1_i2 + d_j1_j2) - (d_i1_j1 + d_i2_j2);
+				if (cur_improve > best_improve) {							// cross is better
+					best_i = i;
+					best_j = j;
+					best_improve = cur_improve;
+				}
+			}
+		}
+		i = succ[i];
+		j = succ[succ[i]];
+	}
+
+	// if find new best solution change the arches
+	if (best_i != best_j) {
+
+		int i2 = succ[best_i];
+		int j2 = succ[best_j];
+		int pre_node = succ[i2];
+		succ[best_i] = best_j;
+		succ[i2] = j2;
+		int cur_node = i2;
+		int suc_node = j2;
+		while (cur_node != best_j) {  // reverse the succ
+			suc_node = cur_node;
+			cur_node = pre_node;
+			pre_node = succ[pre_node];
+			succ[cur_node] = suc_node;
+			if (inst->verbose >= 100) print_succ(succ, inst);
+		}
+
+		push(head, best_i, best_j);
+		push(head, succ[best_i], succ[best_j]);
+	}
+	inst->best_lb -= best_improve;  // update best_lb
+
+	if (inst->verbose >= 100) print_succ(succ, inst);
+	free(succ);
+	free(comp);
+	free(ncomp);
+}
+void push(tabu_list** head, int arc1, int arc2) {
+	tabu_list* new_node = (tabu_list*)malloc(sizeof(tabu_list));
+
+	arches* tmp_arches = (arches*)malloc(sizeof(arches));
+	tmp_arches->arc1 = arc1;
+	tmp_arches->arc2 = arc2;
+
+	new_node->arches = tmp_arches;
+	new_node->next = *head;
+	*head = new_node;
+
+	free(tmp_arches);
+}
+arches* pop_first(tabu_list** head) {
+	arches* retval = (arches*)malloc(sizeof(arches));
+	retval->arc1 = -1;
+	retval->arc2 = -1;
+	tabu_list* next_node = NULL;
+
+	if (*head == NULL) {
+		return retval;
+	}
+
+	next_node = (*head)->next;
+	retval = (*head)->arches;
+	free(*head);
+	*head = next_node;
+
+	return retval;
+}
+arches* pop_last(tabu_list* head) {
+	arches* retval = (arches*)malloc(sizeof(arches));
+	/* if there is only one item in the list, remove it */
+	if (head->next == NULL) {
+		arches* retval = head->arches;
+		free(head);
+		return retval;
+	}
+
+	/* get to the second to last node in the list */
+	tabu_list* current = head;
+	while (current->next->next != NULL) {
+		current = current->next;
+	}
+
+	/* now current points to the second to last item of the list, so let's remove current->next */
+	retval = current->next->arches;
+	free(current->next);
+	current->next = NULL;
+	return retval;
+}
+arches* remove_by_index(tabu_list** head, int n) {
+	int i = 0;
+	arches* retval = (arches*)malloc(sizeof(arches));
+	retval->arc1 = -1;
+	retval->arc2 = -1;
+	tabu_list* current = *head;
+	tabu_list* temp_node = NULL;
+
+	if (n == 0) {
+		return pop_first(head);
+	}
+
+	for (i = 0; i < n; i++) {
+		if (current->next == NULL) {
+			return retval;
+		}
+		current = current->next;
+	}
+
+	temp_node = current->next;
+	retval = temp_node->arches;
+
+	current->next = temp_node->next;
+	free(temp_node);
+
+	return retval;
+
+}
+int contained_in_posix(tabu_list** head, int arc1, int arc2) {
+	int retval = -1, i = 0;
+	tabu_list* current = *head;
+	arches* found = (arches*)malloc(sizeof(arches));
+
+	while (current->next != NULL) {
+		
+		found = current->arches;
+		
+		if (found->arc1 == arc1 && found->arc2 == arc2) {
+			retval = i;
+			free(found);
+			return retval;
+		}
+
+		i++;
+		current = current->next;
+	}
+	free(found);
+	return retval;
+}
+void print_list(tabu_list* head) {
+	tabu_list* current = head;
+	arches* printval;
+	printf("--- Tabù list elements: ---\n");
+	while (current != NULL) {
+		printval = current->arches;
+		printf("Arc: [ %d, %d ]\n", printval->arc1, printval->arc2);
+		current = current->next;
+	}
+}
+void delete_list(tabu_list* head) {
+	tabu_list* current = head,
+		*next = head;
+
+	while (current) {
+		next = current->next;
+		free(current);
+		current = next;
+	}
+}
 
 // optimization methods run the problem optimization
 int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status) {
@@ -1984,18 +2196,20 @@ void best_two_opt(tspinstance *inst) {
 	double d_i2_j2;
 	double cur_improve;
 
-	for (int ti = 0; ti < inst->nnodes; ti++) {
+	for (int ti = 0; ti < inst->nnodes - 3; ti++) {
 		d_i1_i2 = dist(i, succ[i], inst);
 		for (int tj = ti+2; tj < inst->nnodes; tj++) {  // no 2opt with consequence arches
 			if (i == succ[j]) break;  // should happen only when i = 0,
 			d_j1_j2 = dist(j, succ[j], inst);
 			d_i1_j1 = dist(i, j, inst);
 			d_i2_j2 = dist(succ[i], succ[j], inst);
+			printf("*** i - j: %d - %d\n", i,j);
 			cur_improve = (d_i1_i2 + d_j1_j2) - (d_i1_j1 + d_i2_j2);
 			if ( cur_improve > best_improve ) { // cross is better
 				best_i = i;
 				best_j = j;
 				best_improve = cur_improve;
+				printf("*** Best_improve: %f\n", best_improve);
 			}
 			j = succ[j];
 		}
@@ -2581,11 +2795,55 @@ void build_sol_flow1(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// b
 
 // distance functions
 double dist(int i, int j, tspinstance *inst) {
-	double dx = inst->xcoord[i] - inst->xcoord[j];
-	double dy = inst->ycoord[i] - inst->ycoord[j];
-	if ( !inst->integer_costs ) return sqrt(dx*dx+dy*dy);
-	int dis = sqrt(dx*dx+dy*dy) + 0.499999999; // nearest integer
-	return dis+0.0;
+	switch (inst->edge_weight_type) {
+		case 0: {
+			double dx = inst->xcoord[i] - inst->xcoord[j];
+			double dy = inst->ycoord[i] - inst->ycoord[j];
+			double rij = sqrt((dx * dx + dy * dy) / 10.0);
+			double tij = round(rij);
+			if (tij < rij)
+				return tij + 1.0;
+			else 
+				return tij;
+			break;
+		}
+		case 1: {
+			double dx = inst->xcoord[i] - inst->xcoord[j];
+			double dy = inst->ycoord[i] - inst->ycoord[j];
+			if (!inst->integer_costs) return sqrt(dx * dx + dy * dy);	
+			return round(sqrt(dx * dx + dy * dy)); 			// nearest integer
+			break;
+		}
+		case 2: {
+			double PI = 3.141592;
+			double RRR = 6378.388;
+
+			double deg = (int)inst->xcoord[i] + 0.0;
+			double min = inst->xcoord[i] - deg;								// min è diviso per 100	
+			double latitude_i = PI * (deg + 5.0 * min / 3.0) / 180.0;		// PI * ( deg + min/60)/180
+			deg = (int)inst->ycoord[i] + 0.0;
+			min = inst->ycoord[i] - deg;
+			double longitude_i = PI * (deg + 5.0 * min / 3.0) / 180.0;
+
+			deg = (int)inst->xcoord[j] + 0.0;
+			min = inst->xcoord[j] - deg;
+			double latitude_j = PI * (deg + 5.0 * min / 3.0) / 180.0;
+			deg = (int)inst->ycoord[j] + 0.0;
+			min = inst->ycoord[j] - deg;
+			double longitude_j = PI * (deg + 5.0 * min / 3.0) / 180.0;
+			
+			double q1 = cos(longitude_i - longitude_j);
+			double q2 = cos(latitude_i - latitude_j);
+			double q3 = cos(latitude_i + latitude_j);
+			return (int)(RRR * acos(0.5 * ((1.0 + q1) * q2 - (1.0 - q1) * q3)) + 1.0) + 0.0;
+			break;
+		}
+		default:
+			print_error(" model type unknown!!");
+			return -1;
+		break;
+	}
+	
 }
 
 
@@ -2673,6 +2931,7 @@ void read_input(tspinstance *inst) { // simplified CVRP parser, not all SECTIONs
 						strncmp(token1, "GEO", 3) != 0 )
 				print_error(" format error:  only EDGE_WEIGHT_TYPE == EUC_2D, ATT, GEO implemented so far!!!!!!");
 			active_section = 0;
+			inst->edge_weight_type = strncmp(token1, "ATT", 3) == 0 ? 0 : strncmp(token1, "EUC_2D", 6) == 0 ? 1 : 2;
 			continue;
 		}
 
@@ -2721,7 +2980,7 @@ void parse_command_line(int argc, char** argv, tspinstance *inst) {
 
 	inst->available_memory = 12000;   // available memory, in MB, for Cplex execution (e.g., 12000)
 	inst->max_nodes = -1; 						// max n. of branching nodes in the final run (-1 unlimited)
-	inst->integer_costs = 0;
+	inst->integer_costs = 1;
 	inst->verbose = 1000;							// VERBOSE
 
 	// hard fixing
@@ -2751,11 +3010,10 @@ void parse_command_line(int argc, char** argv, tspinstance *inst) {
 		if ( strcmp(argv[i],"-randomseed") == 0 ) { inst->randomseed = abs(atoi(argv[++i])); continue; } 		// random seed
 		if ( strcmp(argv[i],"-nthread") == 0 ) { inst->nthread = abs(atoi(argv[++i])); continue; } 		// random seed
 		if ( strcmp(argv[i],"-memory") == 0 ) { inst->available_memory = atoi(argv[++i]); continue; }	// available memory (in MB)
-		if ( strcmp(argv[i],"-node_file") == 0 ) { strcpy(inst->node_file,argv[++i]); continue; }		// cplex's node file
 		if ( strcmp(argv[i],"-max_nodes") == 0 ) { inst->max_nodes = atoi(argv[++i]); continue; } 		// max n. of nodesfile
-    if ( strcmp(argv[i],"-callback") == 0) { inst->callback = atoi(argv[++i]); continue; }			// 1 = lazy_callback, 2 = generic_callback
+		if ( strcmp(argv[i],"-callback") == 0) { inst->callback = atoi(argv[++i]); continue; }			// 1 = lazy_callback, 2 = generic_callback
 		if ( strcmp(argv[i],"-v") == 0 ) { inst->verbose = atoi(argv[++i]); continue; } 		// max n. of nodes
-		if ( strcmp(argv[i],"-int") == 0 ) { inst->integer_costs = 1; continue; } 						// inteher costs
+		if ( strcmp(argv[i],"-float") == 0 ) { inst->integer_costs = 0; continue; } 						// inteher costs
 		if ( strcmp(argv[i],"-help") == 0 ) { help = 1; continue; } 									// help
 		if ( strcmp(argv[i],"--help") == 0 ) { help = 1; continue; } 									// help
 		help = 1;
@@ -2779,9 +3037,8 @@ void parse_command_line(int argc, char** argv, tspinstance *inst) {
 		printf("-randomseed %d\n", inst->randomseed);
 		printf("-max_nodes %d\n", inst->max_nodes);
 		printf("-memory %d\n", inst->available_memory);
-		printf("-int %d\n", inst->integer_costs);
+		printf("-float %d\n", !inst->integer_costs);
 		printf("-verbose %d\n", inst->verbose);
-		printf("-node_file %s\n", inst->node_file);
 		printf("---------------------------------\n\n");
 	}
 
@@ -2926,7 +3183,7 @@ void plot_edges(FILE *gnuplot, char *pngname, tspinstance *inst) {
 	{
 
 		switch (inst->model_type) {
-
+		case 17:
 		case 0:			// Line
 			plot_lines_sym(gnuplot, pngname, inst);
 			break;
