@@ -2618,7 +2618,7 @@ double dist(int i, int j, tspinstance *inst) {
 			double dx = inst->xcoord[i] - inst->xcoord[j];
 			double dy = inst->ycoord[i] - inst->ycoord[j];
 			double rij = (sqrt(dx * dx + dy * dy) / 10.0);
-			double tij = round(rij, 0);
+			double tij = round(rij);
 			double dij;
 			if (tij < rij)
 				return dij = tij + 1;
@@ -2638,17 +2638,17 @@ double dist(int i, int j, tspinstance *inst) {
 			double PI = 3.141592;
 			double RRR = 6378.388;
 
-			double deg = round(inst->xcoord[i], 0);
+			double deg = round(inst->xcoord[i]);
 			double min = inst->xcoord[i] - deg;
 			double latitude_i = PI * (deg + 5.0 * min / 3.0) / 180.0;
-			deg = round(inst->ycoord[i], 0);
+			deg = round(inst->ycoord[i]);
 			min = inst->ycoord[i] - deg;
 			double longitude_i = PI * (deg + 5.0 * min / 3.0) / 180.0;
 
-			deg = round(inst->xcoord[j], 0);
+			deg = round(inst->xcoord[j]);
 			min = inst->xcoord[j] - deg;
 			double latitude_j = PI * (deg + 5.0 * min / 3.0) / 180.0;
-			deg = round(inst->ycoord[j], 0);
+			deg = round(inst->ycoord[j]);
 			min = inst->ycoord[j] - deg;
 			double longitude_j = PI * (deg + 5.0 * min / 3.0) / 180.0;
 			
