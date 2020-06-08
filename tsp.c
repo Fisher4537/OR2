@@ -748,7 +748,7 @@ void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* statu
 		case 0:
 		break;
 
-		case 1:													// Heuristic greedy 
+		case 1:													// Heuristic greedy
 			heur_greedy(env, lp, inst, status);
 		break;
 
@@ -765,7 +765,7 @@ void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* statu
 			// 	print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
 			// }
 		break;
-		
+
 		case 4:
 			heur_insertion(env, lp, inst, status);				// Heuristic Insertion
 		break;
@@ -777,7 +777,7 @@ void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* statu
 }
 void test_warm_start(CPXENVptr env, CPXLPptr lp) {
 	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 1);
-	
+
 	CPXmipopt(env, lp);
 }
 
@@ -2179,7 +2179,8 @@ void best_two_opt(tspinstance *inst) {
 
 	for (int ti = 0; ti < inst->nnodes - 3; ti++) {
 		d_i1_i2 = dist(i, succ[i], inst);
-		for (int tj = ti+2; tj < inst->nnodes - 1; tj++) {  // no 2opt with consequence arches
+		for (int tj = ti+2; tj < inst->nnodes; tj++) {  // no 2opt with consequence arches
+			if (i == succ[j]) break;  // should happen only when i = 0,
 			d_j1_j2 = dist(j, succ[j], inst);
 			d_i1_j1 = dist(i, j, inst);
 			d_i2_j2 = dist(succ[i], succ[j], inst);
