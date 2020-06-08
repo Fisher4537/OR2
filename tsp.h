@@ -54,7 +54,6 @@ typedef struct {
 	int nthread;					// number of threads
 	double timelimit;				// overall time limit, in sec.s
 	char input_file[100];			// input file
-	char node_file[1000];			// cplex node file
 	int edge_weight_type;
 	int available_memory;
 	int max_nodes; 					// max n. of branching nodes in the final run

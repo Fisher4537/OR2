@@ -1108,6 +1108,11 @@ int heur_insertion(CPXCENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 			count_sol++;
 		}
 	}
+	
+	
+	for (int i = 0; i < inst->nnodes; i++) {
+		inst->best_sol[i] = (double) best_sol[i];
+	}
 
 	int izero = 0;
 	double val = 1.0;
@@ -1473,7 +1478,7 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 }
 
 int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
-	if (inst->verbose >= 100) printf("Tabù Search\n");
+	if (inst->verbose >= 100) printf("Tabu Search\n");
 
 	// check if current solution has only one tour
 	int* succ = (int*)calloc(inst->nnodes, sizeof(int));
@@ -1508,6 +1513,7 @@ int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
 		else {
 			d_i1_i2 = dist(i, succ[i], inst);
 			for (int tj = ti + 2; tj < inst->nnodes; tj++) {				// no 2opt with consequence arches
+				if (i == succ[j]) break;
 				d_j1_j2 = dist(j, succ[j], inst);
 				d_i1_j1 = dist(i, j, inst);
 				d_i2_j2 = dist(succ[i], succ[j], inst);
@@ -2618,45 +2624,43 @@ double dist(int i, int j, tspinstance *inst) {
 		case 0: {
 			double dx = inst->xcoord[i] - inst->xcoord[j];
 			double dy = inst->ycoord[i] - inst->ycoord[j];
-			double rij = (sqrt(dx * dx + dy * dy) / 10.0);
+			double rij = sqrt((dx * dx + dy * dy) / 10.0);
 			double tij = round(rij);
-			double dij;
 			if (tij < rij)
-				return dij = tij + 1;
+				return tij + 1.0;
 			else 
-				return dij = tij;
+				return tij;
 			break;
 		}
 		case 1: {
 			double dx = inst->xcoord[i] - inst->xcoord[j];
 			double dy = inst->ycoord[i] - inst->ycoord[j];
-			if (!inst->integer_costs) return sqrt(dx * dx + dy * dy);
-			int dis = sqrt(dx * dx + dy * dy) + 0.499999999; // nearest integer
-			return dis + 0.0;
+			if (!inst->integer_costs) return sqrt(dx * dx + dy * dy);	
+			return round(sqrt(dx * dx + dy * dy)); 			// nearest integer
 			break;
 		}
 		case 2: {
 			double PI = 3.141592;
 			double RRR = 6378.388;
 
-			double deg = round(inst->xcoord[i]);
-			double min = inst->xcoord[i] - deg;
-			double latitude_i = PI * (deg + 5.0 * min / 3.0) / 180.0;
-			deg = round(inst->ycoord[i]);
+			double deg = (int)inst->xcoord[i] + 0.0;
+			double min = inst->xcoord[i] - deg;								// min è diviso per 100	
+			double latitude_i = PI * (deg + 5.0 * min / 3.0) / 180.0;		// PI * ( deg + min/60)/180
+			deg = (int)inst->ycoord[i] + 0.0;
 			min = inst->ycoord[i] - deg;
 			double longitude_i = PI * (deg + 5.0 * min / 3.0) / 180.0;
 
-			deg = round(inst->xcoord[j]);
+			deg = (int)inst->xcoord[j] + 0.0;
 			min = inst->xcoord[j] - deg;
 			double latitude_j = PI * (deg + 5.0 * min / 3.0) / 180.0;
-			deg = round(inst->ycoord[j]);
+			deg = (int)inst->ycoord[j] + 0.0;
 			min = inst->ycoord[j] - deg;
 			double longitude_j = PI * (deg + 5.0 * min / 3.0) / 180.0;
 			
 			double q1 = cos(longitude_i - longitude_j);
 			double q2 = cos(latitude_i - latitude_j);
 			double q3 = cos(latitude_i + latitude_j);
-			return (int)(RRR * acos(0.5 * ((1.0 + q1) * q2 - (1.0 - q1) * q3)) + 1.0);
+			return (int)(RRR * acos(0.5 * ((1.0 + q1) * q2 - (1.0 - q1) * q3)) + 1.0) + 0.0;
 			break;
 		}
 		default:
@@ -2801,7 +2805,7 @@ void parse_command_line(int argc, char** argv, tspinstance *inst) {
 
 	inst->available_memory = 12000;   // available memory, in MB, for Cplex execution (e.g., 12000)
 	inst->max_nodes = -1; 						// max n. of branching nodes in the final run (-1 unlimited)
-	inst->integer_costs = 0;
+	inst->integer_costs = 1;
 	inst->verbose = 1000;							// VERBOSE
 
 	// hard fixing
@@ -2831,11 +2835,10 @@ void parse_command_line(int argc, char** argv, tspinstance *inst) {
 		if ( strcmp(argv[i],"-randomseed") == 0 ) { inst->randomseed = abs(atoi(argv[++i])); continue; } 		// random seed
 		if ( strcmp(argv[i],"-nthread") == 0 ) { inst->nthread = abs(atoi(argv[++i])); continue; } 		// random seed
 		if ( strcmp(argv[i],"-memory") == 0 ) { inst->available_memory = atoi(argv[++i]); continue; }	// available memory (in MB)
-		if ( strcmp(argv[i],"-node_file") == 0 ) { strcpy(inst->node_file,argv[++i]); continue; }		// cplex's node file
 		if ( strcmp(argv[i],"-max_nodes") == 0 ) { inst->max_nodes = atoi(argv[++i]); continue; } 		// max n. of nodesfile
-    if ( strcmp(argv[i],"-callback") == 0) { inst->callback = atoi(argv[++i]); continue; }			// 1 = lazy_callback, 2 = generic_callback
+		if ( strcmp(argv[i],"-callback") == 0) { inst->callback = atoi(argv[++i]); continue; }			// 1 = lazy_callback, 2 = generic_callback
 		if ( strcmp(argv[i],"-v") == 0 ) { inst->verbose = atoi(argv[++i]); continue; } 		// max n. of nodes
-		if ( strcmp(argv[i],"-int") == 0 ) { inst->integer_costs = 1; continue; } 						// inteher costs
+		if ( strcmp(argv[i],"-float") == 0 ) { inst->integer_costs = 0; continue; } 						// inteher costs
 		if ( strcmp(argv[i],"-help") == 0 ) { help = 1; continue; } 									// help
 		if ( strcmp(argv[i],"--help") == 0 ) { help = 1; continue; } 									// help
 		help = 1;
@@ -2859,9 +2862,8 @@ void parse_command_line(int argc, char** argv, tspinstance *inst) {
 		printf("-randomseed %d\n", inst->randomseed);
 		printf("-max_nodes %d\n", inst->max_nodes);
 		printf("-memory %d\n", inst->available_memory);
-		printf("-int %d\n", inst->integer_costs);
+		printf("-float %d\n", !inst->integer_costs);
 		printf("-verbose %d\n", inst->verbose);
-		printf("-node_file %s\n", inst->node_file);
 		printf("---------------------------------\n\n");
 	}
 
@@ -3006,7 +3008,7 @@ void plot_edges(FILE *gnuplot, char *pngname, tspinstance *inst) {
 	{
 
 		switch (inst->model_type) {
-
+		case 17:
 		case 0:			// Line
 			plot_lines_sym(gnuplot, pngname, inst);
 			break;
