@@ -1122,6 +1122,8 @@ int heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		inst->best_sol[i] = (double) best_sol[i];
 	}
 
+	plot_instance(inst);
+
 	int izero = 0;
 	double val = 1.0;
 	int nocheck_warmstart = CPX_MIPSTART_CHECKFEAS;
@@ -1167,7 +1169,7 @@ int insertion_move(tspinstance* inst, int* best_sol, int count_sol, int vertex) 
 	best_sol[replace_pos] = xpos(best_i, vertex, inst);
 	best_sol[count_sol] = xpos(vertex, best_j, inst);
 	if (inst->verbose > 10)
-		printf("***** Sides %d, %d added in best_sol (actual length %d) *****\n\n", best_sol[replace_pos], best_sol[count_sol], count_sol + 1);
+		printf("***** Sides %d=[%d,%d] - %d=[%d,%d] added in best_sol (actual length %d) *****\n\n", best_sol[replace_pos], best_i, vertex, best_sol[count_sol], best_j, vertex, count_sol + 1);
 	return 0;
 }
 int contained_in_index(int* vector, int count_sol, int elem) {
