@@ -2593,7 +2593,7 @@ void build_sol_lazy_std(tspinstance* inst, const double* xstar, int* succ, int* 
 		comp[i] = -1;
 	}
 
-	// tour
+	// tour			TODO: Questo probabilmente è sbagliato! copiare da build_sol_sym
 	for (int start = 0; start < inst->nnodes; start++)
 	{
 		if (comp[start] >= 0) continue;  // node "start" has already been setted
