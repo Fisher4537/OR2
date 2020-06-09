@@ -59,7 +59,7 @@
 \graphicspath{ {images/} }
 
 % Separates the first part of the report/thesis in Roman numerals
-\frontmatter
+%\frontmatter
 
 %% USER Package
 \usepackage{tabularx}
@@ -87,9 +87,16 @@
 	%%%%
 	%% The rows above should not be changed except for the title page information
 	%%%% Text body starts here!
-	\mainmatter
+	%\mainmatter
 	\input{model_description.tex}
-	\input{results.tex}
+	\input{CPLEX.tex}
+	\input{concorde.tex}
+	\input{meta-euristici.tex}
+	\input{constructive-heuristics.tex}
+	\input{refining-heuristics.tex}
+	\input{repair.tex}
+	\input{mip-heuristics.tex}
+	\input{conclusion.tex}
 
 	% Adding a bibliography if citations are used in the report
 	\bibliographystyle{plain}
