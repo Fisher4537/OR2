@@ -52,11 +52,11 @@ char * setup_model(tspinstance* inst) {
 /**
 NUM			model_type				warm_start					heuristic						mip_opt							callback
 
- 0		build_sym_std												mip_optimization		subtour_iter_opt
- 1		  build_mtz					heur_greedy				hard_fixing			subtour_heur_iter_opt				lazy
- 2		 build_flow1			heur_greedy_cgal	local_branching				 CPXmipopt					 generic CAND
- 3		build_mtz_lazy			heur_grasp				best_two_opt													generic CAND, GLOBAL
- 4																						patching
+ 0		build_sym_std										mip_optimization				subtour_iter_opt
+ 1		  build_mtz					heur_greedy				hard_fixing						subtour_heur_iter_opt				lazy
+ 2		 build_flow1				heur_greedy_cgal		local_branching						CPXmipopt					 generic CAND
+ 3		build_mtz_lazy				heur_grasp				best_two_opt													generic CAND, GLOBAL
+ 4																								patching
  5
  6
 */
@@ -139,16 +139,16 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->heuristic = 3;
 			return "grasp_best_two_opt";				// GRASP + best_two_opt
 		case 15:
-			inst->warm_start = 0;
 			inst->model_type = 0;
+			inst->warm_start = 0;
 			inst->heuristic = 4;
-			return "patching";
+			return "patching";							// Patching			TODO: for testing needs to have a tour with ncomp > 1
 
 		case 17:
 			inst->model_type = 0;
-			inst->warm_start = 4;
+			inst->warm_start = 1;
 			inst->heuristic = 6;
-			return "tabu_search";						// Heuristic Insertion + TABU' SEARCH
+			return "tabu_search";						// Greedy + TABU' SEARCH
 		default: return "not_supported";
 	}
 }
@@ -844,6 +844,11 @@ int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status)
 		if (inst->verbose >= 100)
 			printf("BEST_LB Greedy Heuristic CGAL found: [%f]\n", inst->best_lb);
 
+		// Copy and convert to double sol in best_sol
+		for (int i = 0; i < inst->nnodes; i++) {
+			inst->best_sol[best_sol[i]] = 1.0;
+		}
+
 		if (CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) {
 			print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
 			return *status;
@@ -964,6 +969,11 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
 	if (inst->verbose >= 100)
 		printf("BEST_LB Greedy Heuristic found: [%f]\n", inst->best_lb);
+
+	// Copy and convert to double sol in best_sol
+	for (int i = 0; i < inst->nnodes; i++) {
+		inst->best_sol[best_sol[i]] = 1.0;
+	}
 
 	if (CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) {
 		print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
@@ -1117,7 +1127,7 @@ int heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		}
 	}
 	
-	
+	// Copy and convert to double sol in best_sol
 	for (int i = 0; i < inst->nnodes; i++) {
 		inst->best_sol[best_sol[i]] = 1.0;
 	}
@@ -1501,93 +1511,118 @@ int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
 	int* ncomp = (int*)calloc(1, sizeof(int));
 	build_sol(inst, succ, comp, ncomp);
 	if (*ncomp != 1) {
-		printf("Error: tabù_search is called with best_sol with multiple tour!");
+		printf("Error: tabu_search is called with best_sol with multiple tour!");
 		return 1;
 	}
 
-	// search in 2opt if a better solution is found
-	int i = 0;		// start from node 0
-	int j = succ[succ[0]];
-	int best_i = i;
-	int best_j = i;
-	double best_improve = 0.0;
-	double d_i1_i2;
-	double d_j1_j2;
-	double d_i1_j1;
-	double d_i2_j2;
-	double cur_improve;
+	CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit);
+	double* best_sol = (double*)calloc(inst->nedges, sizeof(double));
+	double best_lb = inst->best_lb;
+	double remaining_time = inst->timelimit;
+	int isImprovement = 1;
 
 	// tabù list (linked list)
 	tabu_list* head = NULL;
 
-	for (int ti = 0; ti < inst->nnodes; ti++) {
-		if (contained_in_posix(head, i, succ[i])) {
-			continue;
-		}
-		else {
-			d_i1_i2 = dist(i, succ[i], inst);
-			for (int tj = ti + 2; tj < inst->nnodes; tj++) {				// no 2opt with consequence arches
-				if (i == succ[j]) break;
-				d_j1_j2 = dist(j, succ[j], inst);
-				d_i1_j1 = dist(i, j, inst);
-				d_i2_j2 = dist(succ[i], succ[j], inst);
-				cur_improve = (d_i1_i2 + d_j1_j2) - (d_i1_j1 + d_i2_j2);
-				if (cur_improve > best_improve) {							// cross is better
-					best_i = i;
-					best_j = j;
-					best_improve = cur_improve;
+	while (remaining_time > 0.0) {
+		double ini = second();
+
+		if (inst->verbose > 100) printf("*** Calc new 2_opt sol ***\n");
+
+		// search in 2opt if a better solution is found
+		int i = 0;		// start from node 0
+		int j = succ[succ[0]];
+		int best_i = i;
+		int best_j = i;
+		double best_improve = 0.0;
+		double d_i1_i2;
+		double d_j1_j2;
+		double d_i1_j1;
+		double d_i2_j2;
+		double cur_improve;
+
+		for (int ti = 0; ti < inst->nnodes - 3; ti++) {
+			if (head != NULL && !isImprovement && contained_in_posix(&head, xpos(i, succ[i], inst))) {
+				continue;
+			}
+			else {
+				d_i1_i2 = dist(i, succ[i], inst);
+				for (int tj = ti + 2; tj < inst->nnodes; tj++) {			// no 2opt with consequence arches
+					if (i == succ[j]) break;								// should happen only when i = 0,
+					d_j1_j2 = dist(j, succ[j], inst);
+					d_i1_j1 = dist(i, j, inst);
+					d_i2_j2 = dist(succ[i], succ[j], inst);
+					
+					if(inst->verbose > 100) printf("*** i - j: %d - %d\n", i, j);
+
+					cur_improve = (d_i1_i2 + d_j1_j2) - (d_i1_j1 + d_i2_j2);
+					if (cur_improve > best_improve) {						// cross is better
+						best_i = i;
+						best_j = j;
+						best_improve = cur_improve;
+
+						if (inst->verbose > 100) printf("*** Best_improve: %f\n", best_improve);
+					}
+					j = succ[j];
 				}
 			}
-		}
-		i = succ[i];
-		j = succ[succ[i]];
-	}
-
-	// if find new best solution change the arches
-	if (best_i != best_j) {
-
-		int i2 = succ[best_i];
-		int j2 = succ[best_j];
-		int pre_node = succ[i2];
-		succ[best_i] = best_j;
-		succ[i2] = j2;
-		int cur_node = i2;
-		int suc_node = j2;
-		while (cur_node != best_j) {  // reverse the succ
-			suc_node = cur_node;
-			cur_node = pre_node;
-			pre_node = succ[pre_node];
-			succ[cur_node] = suc_node;
-			if (inst->verbose >= 100) print_succ(succ, inst);
+			i = succ[i];
+			j = succ[succ[i]];
 		}
 
-		push(head, best_i, best_j);
-		push(head, succ[best_i], succ[best_j]);
+		// if find new best solution change the arches
+		if (best_i != best_j) {
+
+			int i2 = succ[best_i];
+			int j2 = succ[best_j];
+			int pre_node = succ[i2];
+			succ[best_i] = best_j;
+			succ[i2] = j2;
+			int cur_node = i2;
+			int suc_node = j2;
+			while (cur_node != best_j) {  // reverse the succ
+				suc_node = cur_node;
+				cur_node = pre_node;
+				pre_node = succ[pre_node];
+				succ[cur_node] = suc_node;
+				if (inst->verbose >= 100) print_succ(succ, inst);
+			}
+
+			if (!isImprovement) {
+				push(&head, xpos(best_i, best_j, inst));
+				push(&head, xpos(succ[best_i], succ[best_j], inst));
+			}
+		}
+
+		print_list(head);
+
+		best_lb -= best_improve;		// update best_lb
+		if (inst->best_lb == best_lb)
+			isImprovement = 0;
+		else {
+			inst->best_lb = best_lb;
+			//TODO: save new best sol in inst->best_sol 
+		}
+
+		remaining_time -= second() - ini;
 	}
-	inst->best_lb -= best_improve;  // update best_lb
 
 	if (inst->verbose >= 100) print_succ(succ, inst);
 	free(succ);
 	free(comp);
 	free(ncomp);
 }
-void push(tabu_list** head, int arc1, int arc2) {
+void push(struct tabu_list** head_ref, int arc) {
 	tabu_list* new_node = (tabu_list*)malloc(sizeof(tabu_list));
 
-	arches* tmp_arches = (arches*)malloc(sizeof(arches));
-	tmp_arches->arc1 = arc1;
-	tmp_arches->arc2 = arc2;
+	new_node->arc = arc;
 
-	new_node->arches = tmp_arches;
-	new_node->next = *head;
-	*head = new_node;
+	new_node->next = *head_ref;
+	*head_ref = new_node;
 
-	free(tmp_arches);
 }
-arches* pop_first(tabu_list** head) {
-	arches* retval = (arches*)malloc(sizeof(arches));
-	retval->arc1 = -1;
-	retval->arc2 = -1;
+int pop_first(tabu_list** head) {
+	int retval = -1;
 	tabu_list* next_node = NULL;
 
 	if (*head == NULL) {
@@ -1595,17 +1630,17 @@ arches* pop_first(tabu_list** head) {
 	}
 
 	next_node = (*head)->next;
-	retval = (*head)->arches;
+	retval = (*head)->arc;
 	free(*head);
 	*head = next_node;
 
 	return retval;
 }
-arches* pop_last(tabu_list* head) {
-	arches* retval = (arches*)malloc(sizeof(arches));
+int pop_last(tabu_list* head) {
+	int retval = -1;
 	/* if there is only one item in the list, remove it */
 	if (head->next == NULL) {
-		arches* retval = head->arches;
+		retval = head->arc;
 		free(head);
 		return retval;
 	}
@@ -1617,16 +1652,14 @@ arches* pop_last(tabu_list* head) {
 	}
 
 	/* now current points to the second to last item of the list, so let's remove current->next */
-	retval = current->next->arches;
+	retval = current->next->arc;
 	free(current->next);
 	current->next = NULL;
 	return retval;
 }
-arches* remove_by_index(tabu_list** head, int n) {
+int remove_by_index(tabu_list** head, int n) {
 	int i = 0;
-	arches* retval = (arches*)malloc(sizeof(arches));
-	retval->arc1 = -1;
-	retval->arc2 = -1;
+	int retval = -1;
 	tabu_list* current = *head;
 	tabu_list* temp_node = NULL;
 
@@ -1642,7 +1675,7 @@ arches* remove_by_index(tabu_list** head, int n) {
 	}
 
 	temp_node = current->next;
-	retval = temp_node->arches;
+	retval = temp_node->arc;
 
 	current->next = temp_node->next;
 	free(temp_node);
@@ -1650,16 +1683,16 @@ arches* remove_by_index(tabu_list** head, int n) {
 	return retval;
 
 }
-int contained_in_posix(tabu_list** head, int arc1, int arc2) {
+int contained_in_posix(tabu_list** head, int arc) {
 	int retval = -1, i = 0;
 	tabu_list* current = *head;
-	arches* found = (arches*)malloc(sizeof(arches));
+	int found = -1;
 
 	while (current->next != NULL) {
 		
-		found = current->arches;
+		found = current->arc;
 		
-		if (found->arc1 == arc1 && found->arc2 == arc2) {
+		if (found == arc) {
 			retval = i;
 			free(found);
 			return retval;
@@ -1668,16 +1701,15 @@ int contained_in_posix(tabu_list** head, int arc1, int arc2) {
 		i++;
 		current = current->next;
 	}
-	free(found);
 	return retval;
 }
 void print_list(tabu_list* head) {
 	tabu_list* current = head;
-	arches* printval;
-	printf("--- Tabù list elements: ---\n");
+	int printval;
+	printf("--- Tabu list elements: ---\n");
 	while (current != NULL) {
-		printval = current->arches;
-		printf("Arc: [ %d, %d ]\n", printval->arc1, printval->arc2);
+		printval = current->arc;
+		printf("Arc:\t%d\n", printval);
 		current = current->next;
 	}
 }
@@ -2237,7 +2269,7 @@ void best_two_opt(tspinstance *inst) {
 		}
 	}
 	inst->best_lb -= best_improve;  // update best_lb
-
+																// TODO: assign best_sol found in inst->best_sol
 	if (inst->verbose >= 100) print_succ(succ, inst);
 	free(succ);
 	free(comp);
@@ -2500,7 +2532,7 @@ void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 			}
 		}
 	}
-	/*		SBAGLIATO
+	/* SBAGLIATO ?
 	for ( int start = 0; start < inst->nnodes; start++ )
 	{
 		if ( comp[start] >= 0 ) continue;  // node "start" has already been setted
@@ -2594,6 +2626,27 @@ void build_sol_lazy_std(tspinstance* inst, const double* xstar, int* succ, int* 
 	}
 
 	// tour
+	for (int start = 0; start < inst->nnodes; start++) {
+		if (comp[start] >= 0)
+			continue;
+
+		(*ncomp)++;
+		int prv = -1;
+		int i = start;
+		while (comp[start] == -1) {
+			for (int j = 0; j < inst->nnodes; j++) {
+				if (i != j && xstar[xpos(i, j, inst)] > 0.5 && j != prv) {
+
+					succ[i] = j;
+					comp[j] = *ncomp;
+					prv = i;
+					i = j;
+					break;
+				}
+			}
+		}
+	}
+	/* SBAGLIATO?
 	for (int start = 0; start < inst->nnodes; start++)
 	{
 		if (comp[start] >= 0) continue;  // node "start" has already been setted
@@ -2631,7 +2684,8 @@ void build_sol_lazy_std(tspinstance* inst, const double* xstar, int* succ, int* 
 		}	// while
 	// go to the next component...
 	}
-
+	*/
+	
 	// print succ, comp and ncomp
 	if (inst->verbose >= 2000)
 	{

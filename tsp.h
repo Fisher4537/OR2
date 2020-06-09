@@ -30,14 +30,9 @@ typedef struct {
 } hardfix;
 
 typedef struct arches_tuple {
-	struct arches* arches;
+	int arc;
 	struct arches_tuple* next;
 } tabu_list;
-
-typedef struct {
-	int arc1;
-	int arc2;
-} arches;
 
 typedef struct {
 
@@ -121,11 +116,11 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, double fixing_ratio);
 int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
-void push(tabu_list** head, int arc1, int arc2);
-arches* pop_first(tabu_list** head);
-arches* pop_last(tabu_list* head);
-arches* remove_by_index(tabu_list** head, int n);
-int contained_in_posix(tabu_list** head, int arc1, int arc2);
+void push(tabu_list** head, int arc);
+int pop_first(tabu_list** head);
+int pop_last(tabu_list* head);
+int remove_by_index(tabu_list** head, int n);
+int contained_in_posix(tabu_list** head, int arc);
 void print_list(tabu_list* head);
 void delete_list(tabu_list* head);
 
