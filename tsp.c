@@ -148,7 +148,7 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->model_type = 0;
 			inst->warm_start = 4;
 			inst->heuristic = 6;
-			return "tabu_search";						// TABU' SEARCH
+			return "tabu_search";						// Heuristic Insertion + TABU' SEARCH
 		default: return "not_supported";
 	}
 }
@@ -1070,7 +1070,7 @@ void heur_grasp(tspinstance* inst, int* status) {
 	free(succ);
 	for (int i = 0; i < inst->nnodes; i++)
 	 	for (int j = i+1; j < inst->nnodes; j++)
-			inst->best_sol[xpos(i,j,inst)] = best_sol[xpos(i,j,inst)];
+			inst->best_sol[xpos(i,j,inst)] = best_sol[xpos(i,j,inst)];		// TODO: forse qua puoi mettere = 1.0
 	inst->best_lb = best_lb;
 	if (inst->verbose >= 100) printf("GRASP BEST_LB: %lf\n", inst->best_lb);
 
@@ -1119,10 +1119,8 @@ int heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	
 	
 	for (int i = 0; i < inst->nnodes; i++) {
-		inst->best_sol[i] = (double) best_sol[i];
+		inst->best_sol[best_sol[i]] = 1.0;
 	}
-
-	plot_instance(inst);
 
 	int izero = 0;
 	double val = 1.0;
@@ -1166,10 +1164,12 @@ int insertion_move(tspinstance* inst, int* best_sol, int count_sol, int vertex) 
 			}
 		}
 	}
-	best_sol[replace_pos] = xpos(best_i, vertex, inst);
-	best_sol[count_sol] = xpos(vertex, best_j, inst);
 	if (inst->verbose > 10)
-		printf("***** Sides %d=[%d,%d] - %d=[%d,%d] added in best_sol (actual length %d) *****\n\n", best_sol[replace_pos], best_i, vertex, best_sol[count_sol], best_j, vertex, count_sol + 1);
+		printf("***** Replace %d ", best_sol[replace_pos]);
+	best_sol[replace_pos] = xpos(vertex, best_i, inst);
+	best_sol[count_sol] = xpos(best_j, vertex, inst);
+	if (inst->verbose > 10)
+		printf(" with %d=[%d,%d] - %d=[%d,%d] added in best_sol (actual length %d) *****\n\n", best_sol[replace_pos], vertex, best_i, best_sol[count_sol], vertex, best_j, count_sol + 1);
 	return 0;
 }
 int contained_in_index(int* vector, int count_sol, int elem) {
@@ -1482,7 +1482,7 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 							(status==107) ? "Time limit exceeded, integer solution exists" : "debug this to see");
 
 		if (CPXgetstat(env, lp) == 101 || CPXgetstat(env, lp) == 102) {
-			best_sol = inst->best_sol;
+			best_sol = inst->best_sol;																							// TODO: check if this assignment is correct!
 		}
 
 		if(CPXdelrows(env, lp, CPXgetnumrows(env, lp) - 1, CPXgetnumrows(env, lp) - 1))
@@ -1500,7 +1500,6 @@ int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
 	int* comp = (int*)calloc(inst->nnodes, sizeof(int));
 	int* ncomp = (int*)calloc(1, sizeof(int));
 	build_sol(inst, succ, comp, ncomp);
-	print_succ(succ, inst);
 	if (*ncomp != 1) {
 		printf("Error: tabù_search is called with best_sol with multiple tour!");
 		return 1;
@@ -2481,6 +2480,27 @@ void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 	}
 
 	// tour
+	for (int start = 0; start < inst->nnodes; start++) {
+		if (comp[start] >= 0)
+			continue;
+
+		(*ncomp)++;
+		int prv = -1;
+		int i = start;
+		while (comp[start] == -1) {
+			for (int j = 0; j < inst->nnodes; j++) {
+				if (i != j && inst->best_sol[xpos(i, j, inst)] > 0.5  && j != prv) {
+
+					succ[i] = j;
+					comp[j] = *ncomp;
+					prv = i;
+					i = j;
+					break;
+				}
+			}
+		}
+	}
+	/*		SBAGLIATO
 	for ( int start = 0; start < inst->nnodes; start++ )
 	{
 		if ( comp[start] >= 0 ) continue;  // node "start" has already been setted
@@ -2516,7 +2536,7 @@ void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 			}
 		}	// while
 	// go to the next component...
-	}
+	}*/
 
 	// print succ, comp and ncomp
 	if (inst->verbose >= 100)
@@ -3185,7 +3205,7 @@ void plot_edges(FILE *gnuplot, char *pngname, tspinstance *inst) {
 	{
 
 		switch (inst->model_type) {
-		case 17:
+
 		case 0:			// Line
 			plot_lines_sym(gnuplot, pngname, inst);
 			break;
