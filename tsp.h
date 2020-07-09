@@ -122,7 +122,7 @@ int pop_last(tabu_list* head);
 int remove_by_index(tabu_list** head, int n);
 int contained_in_posix(tabu_list** head, int arc);
 void print_list(tabu_list* head);
-void delete_list(tabu_list* head);
+void delete_list(tabu_list* head, tabu_list** head_ref);
 
 int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);

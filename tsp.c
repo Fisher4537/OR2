@@ -44,6 +44,11 @@ char * model_name(int i) {
 		case 10: return "heuristic_greedy";
 		case 11: return "heuristic_greedy_cgal";
 		case 12: return "heuristic_grasp";
+		case 13: return "heuristic_insertion";				// Heuristic Insertion (no CPLEX)
+		case 14: return "grasp_best_two_opt";				// GRASP + best_two_opt
+		case 15: return "patching";							// Patching	
+		case 16: return ;
+		case 17: return "tabu_search";						// Greedy + TABU' SEARCH
 		default: return "not_supported";
 	}
 }
@@ -1518,13 +1523,16 @@ int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
 	CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit);
 	double* best_sol = (double*)calloc(inst->nedges, sizeof(double));
 	double best_lb = inst->best_lb;
+	double best_temp_lb = best_lb;
 	double remaining_time = inst->timelimit;
 	int isImprovement = 1;
+	int best_pre_i = -1;
+	int best_pre_j = -1;
 
 	// tabù list (linked list)
 	tabu_list* head = NULL;
 
-	while (remaining_time > 0.0) {
+	for (int countComb = 0; remaining_time > 0.0; countComb++) {
 		double ini = second();
 
 		if (inst->verbose > 100) printf("*** Calc new 2_opt sol ***\n");
@@ -1534,16 +1542,22 @@ int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
 		int j = succ[succ[0]];
 		int best_i = i;
 		int best_j = i;
+
 		double best_improve = 0.0;
+		if (!isImprovement)
+			best_improve = -CPX_INFBOUND;
 		double d_i1_i2;
 		double d_j1_j2;
 		double d_i1_j1;
 		double d_i2_j2;
 		double cur_improve;
 
+
+		// Best 2-opt
 		for (int ti = 0; ti < inst->nnodes - 3; ti++) {
-			if (head != NULL && !isImprovement && contained_in_posix(&head, xpos(i, succ[i], inst))) {
-				continue;
+			if (head != NULL && contained_in_posix(&head, xpos(i, succ[i], inst)) != -1 ) {
+				i = succ[i];
+				j = succ[succ[i]];
 			}
 			else {
 				d_i1_i2 = dist(i, succ[i], inst);
@@ -1552,8 +1566,8 @@ int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
 					d_j1_j2 = dist(j, succ[j], inst);
 					d_i1_j1 = dist(i, j, inst);
 					d_i2_j2 = dist(succ[i], succ[j], inst);
-					
-					if(inst->verbose > 100) printf("*** i - j: %d - %d\n", i, j);
+
+					if (inst->verbose > 100) printf("*** i - j: %d - %d\n", i, j);
 
 					cur_improve = (d_i1_i2 + d_j1_j2) - (d_i1_j1 + d_i2_j2);
 					if (cur_improve > best_improve) {						// cross is better
@@ -1561,18 +1575,16 @@ int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
 						best_j = j;
 						best_improve = cur_improve;
 
-						if (inst->verbose > 100) printf("*** Best_improve: %f\n", best_improve);
+						if (inst->verbose > 99) printf("*** Best_improve: %f\n", best_improve);
 					}
 					j = succ[j];
 				}
+				i = succ[i];
+				j = succ[succ[i]];
 			}
-			i = succ[i];
-			j = succ[succ[i]];
 		}
-
 		// if find new best solution change the arches
 		if (best_i != best_j) {
-
 			int i2 = succ[best_i];
 			int j2 = succ[best_j];
 			int pre_node = succ[i2];
@@ -1585,23 +1597,43 @@ int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
 				cur_node = pre_node;
 				pre_node = succ[pre_node];
 				succ[cur_node] = suc_node;
-				if (inst->verbose >= 100) print_succ(succ, inst);
+				if (inst->verbose >= 101) print_succ(succ, inst);
 			}
-
-			if (!isImprovement) {
-				push(&head, xpos(best_i, best_j, inst));
-				push(&head, xpos(succ[best_i], succ[best_j], inst));
-			}
+			best_pre_i = best_i;
+			best_pre_j = best_j;
 		}
 
-		print_list(head);
+		if (!isImprovement) {
+			if (contained_in_posix(&head, xpos(best_pre_i, best_pre_j, inst)) == -1)
+				push(&head, xpos(best_pre_i, best_pre_j, inst));
+			if (contained_in_posix(&head, xpos(succ[best_pre_i], succ[best_pre_j], inst)) == -1)
+				push(&head, xpos(succ[best_pre_i], succ[best_pre_j], inst));
 
-		best_lb -= best_improve;		// update best_lb
-		if (inst->best_lb == best_lb)
+			print_list(head);
+		}
+
+		best_lb -= best_improve;
+		if (best_temp_lb == best_lb){
+			// Local/Global minimum found
 			isImprovement = 0;
-		else {
-			inst->best_lb = best_lb;
-			//TODO: save new best sol in inst->best_sol 
+			printf("Local (possible global) Minimum found! Start to rise again\n");
+			if (best_lb < inst->best_lb) {
+				inst->best_lb = best_lb;
+				best_temp_lb = best_lb;
+				printf("BEST_LB GLOBAL update to : [%f]\n", inst->best_lb);
+			}
+
+		} else {
+			if (best_improve > 0) {
+				isImprovement = 1;
+
+				printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_temp_lb, best_lb);
+				best_temp_lb = best_lb;
+				//TODO: save new best sol in inst->best_sol 
+				if (head != NULL) {
+					delete_list(head, &head);
+				}
+			}
 		}
 
 		remaining_time -= second() - ini;
@@ -1611,6 +1643,9 @@ int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
 	free(succ);
 	free(comp);
 	free(ncomp);
+	printf("BEST FINAL GLOBAL LB found: [%f]", inst->best_lb);
+	// ma viene stampata la soluzione finale? best_sol dove viene assegnata?
+
 }
 void push(struct tabu_list** head_ref, int arc) {
 	tabu_list* new_node = (tabu_list*)malloc(sizeof(tabu_list));
@@ -1688,19 +1723,20 @@ int contained_in_posix(tabu_list** head, int arc) {
 	tabu_list* current = *head;
 	int found = -1;
 
-	while (current->next != NULL) {
-		
+	while (current != NULL) {
+
 		found = current->arc;
-		
+
 		if (found == arc) {
 			retval = i;
-			free(found);
 			return retval;
 		}
 
 		i++;
 		current = current->next;
+
 	}
+	
 	return retval;
 }
 void print_list(tabu_list* head) {
@@ -1713,15 +1749,16 @@ void print_list(tabu_list* head) {
 		current = current->next;
 	}
 }
-void delete_list(tabu_list* head) {
-	tabu_list* current = head,
-		*next = head;
+void delete_list(tabu_list* head, tabu_list** head_ref) {
+	tabu_list* current = head, *next = head;
 
 	while (current) {
 		next = current->next;
 		free(current);
 		current = next;
 	}
+
+	*head_ref = NULL;
 }
 
 // optimization methods run the problem optimization
