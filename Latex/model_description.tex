@@ -1,20 +1,60 @@
 \chapter{Problem description}
-The Travelling Salesman Problem is a well-known NP-hard problem.
-In this report two version of the TSP will be ananlyzed:
+The Traveling Salesman Problem is a well-known NP-hard problem.
+In this report two version of the TSP will be analyzed:
 \begin{itemize}
-  \item asymmetric: with oriented arches;
-  \item symmetric: with bidirectional arches.
+	\item symmetric: with bidirectional arches;
+  \item asymmetric: with oriented arches.
 \end{itemize}
 
-\section{Simmetric TSP}
-This is a proposed linear programming model which resolve the problem:
-\[
-\begin{cases}
-  min \sum_{ e\in E } c_ex_e \\
-  \sum_{e\in \delta (v) } x_e = 2, \forall v \in V \\
-  \sum_{e\in E(S) } x_e \le |S|-1, \forall S \subset V, |S| \ge 3 \\
-  x_e \in \{0,1\}, \forall v \in V
-\end{cases}
-\]
+\section{Symmetric TSP}
+This is the proposed linear programming model which resolve the problem:
+\begin{equation}
+\left\{ \begin{array}{l}
+		min \sum_{ e\in E } c_ex_e \\
+		\sum_{e\in \delta (v) } x_e = 2, \forall v \in V \\
+		\sum_{e\in E(S) } x_e \le |S|-1, \forall S \subset V, |S| \ge 3 \\
+		x_e \in \{0,1\}, \forall v \in V
+	\end{array}
+\right.
+\end{equation}
 
-\section{Asimmetric TSP}
+
+\section{Asymmetric TSP}
+
+\begin{equation}
+\left\{ \begin{array}{l}
+	min \sum_{i\in V}\sum_{j\in V} c_{ij}x_{ij} \\
+	\sum_{i\in V} x_{ih} = 1, \forall h \in V \\
+	\sum_{i\in V} x_{hi} = 1, \forall h \in V \\
+	0 \le x_{ij} \le 1, Integer, \forall i,j \in N \\
+	0 \le x_{ii} \le 0, Integer, \forall i \in N
+\end{array}
+\right.
+\label{eq:asym_model}
+\end{equation}
+
+\subsection{Miller Tucker Zemlin}
+
+\begin{equation}
+\left\{ \begin{array}{l}
+ \ref{eq:asym_model}\\
+u_i -u_j +M x_{ij} \le M - 1, \forall i,j \in V \backslash \{1\}\\
+0 \le u_{i} \le n-2, Integer, \forall i \in N \backslash \{1\}
+\end{array}
+\right.
+\end{equation}
+
+\subsection{Flow Chart}
+
+\begin{equation}
+\left\{ \begin{array}{l}
+\ref{eq:asym_model}\\
+\sum_{i\in V} x_{ih} = 1, \forall h \in V \\
+\sum_{j\in V} y_{hj} = \sum_{i \in V}y_{ih} - 1, \forall h \in V \backslash \{1\} \\
+\sum_{j\in V} y_{1j} = n-1 \\
+0 \le y_{i1} \le 0, \forall i \in V \\
+0 \le y_{ii} \le 0, \forall i \in V \\
+0 \le y_{ij} \le n-1, Integer, \forall i,j \in V 
+\end{array}
+\right.
+\end{equation}
