@@ -920,8 +920,8 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
 	int izero = 0;
 
-	int nocheck_warmstart = CPX_MIPSTART_SOLVEFIXED;	// CPLEX solves the fixed problem specified by the MIP start (requires to provide values for all discrete variables)
-							//CPX_MIPSTART_NOCHECK;		// CPLEX accepts the MIP start without any checks. The MIP start needs to be complete.
+	int nocheck_warmstart = CPX_MIPSTART_NOCHECK;			// CPLEX accepts the MIP start without any checks. The MIP start needs to be complete.
+							//CPX_MIPSTART_SOLVEFIXED;		// CPLEX solves the fixed problem specified by the MIP start (requires to provide values for all discrete variables)
 
 
 	for (int i = 0; i < inst->nnodes; i++) {
@@ -979,10 +979,11 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	for (int i = 0; i < inst->nnodes; i++) {
 		inst->best_sol[best_sol[i]] = 1.0;
 	}
-
-	if (CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) {
-		print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
-		return *status;
+	if (inst->nnodes < 200) {																					// ERROR with file in data_heavy
+		if (CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) {
+			print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
+			return *status;
+		}
 	}
 	return *status;
 }
@@ -1014,7 +1015,8 @@ int succ_not_contained(int node, int* sol, tspinstance* inst) {
 	return succ;
 }
 
-void heur_grasp(tspinstance* inst, int* status) {
+void heur_grasp(tspinstance* inst, int* status)
+{
 	if (inst->verbose >= 100) printf("heur_grasp helloworld!\n");
 
 	double* best_sol = (double*)calloc(inst->nedges, sizeof(double));
@@ -1521,7 +1523,8 @@ int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
 	}
 
 	CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit);
-	double* best_sol = (double*)calloc(inst->nedges, sizeof(double));
+	//double* best_sol = (double*)calloc(inst->nedges, sizeof(double));
+	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
 	double best_lb = inst->best_lb;
 	double best_temp_lb = best_lb;
 	double remaining_time = inst->timelimit;
@@ -1531,8 +1534,10 @@ int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
 
 	// tabù list (linked list)
 	tabu_list* head = NULL;
+	tabu_list* head_save = NULL;
 
-	for (int countComb = 0; remaining_time > 0.0; countComb++) {
+
+	for (int countListSize = 0; remaining_time > 0.0; ) {
 		double ini = second();
 
 		if (inst->verbose > 100) printf("*** Calc new 2_opt sol ***\n");
@@ -1555,7 +1560,7 @@ int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
 
 		// Best 2-opt
 		for (int ti = 0; ti < inst->nnodes - 3; ti++) {
-			if (head != NULL && contained_in_posix(&head, xpos(i, succ[i], inst)) != -1 ) {
+			if (!isImprovement && head != NULL && contained_in_posix(&head, xpos(i, succ[i], inst)) != -1 ) {
 				i = succ[i];
 				j = succ[succ[i]];
 			}
@@ -1575,7 +1580,7 @@ int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
 						best_j = j;
 						best_improve = cur_improve;
 
-						if (inst->verbose > 99) printf("*** Best_improve: %f\n", best_improve);
+						if (inst->verbose > 99) printf("Best_improve: %f\n", best_improve);
 					}
 					j = succ[j];
 				}
@@ -1601,15 +1606,35 @@ int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
 			}
 			best_pre_i = best_i;
 			best_pre_j = best_j;
+		}else {
+			if (contained_in_posix(&head, xpos(best_pre_i, best_pre_j, inst)) == -1) {
+				push(&head, xpos(best_pre_i, best_pre_j, inst), 1);
+				countListSize++;
+			}
+			if (contained_in_posix(&head, xpos(succ[best_pre_i], succ[best_pre_j], inst)) == -1) {
+				push(&head, xpos(succ[best_pre_i], succ[best_pre_j], inst), 1);
+				countListSize++;
+			}
 		}
 
 		if (!isImprovement) {
-			if (contained_in_posix(&head, xpos(best_pre_i, best_pre_j, inst)) == -1)
-				push(&head, xpos(best_pre_i, best_pre_j, inst));
-			if (contained_in_posix(&head, xpos(succ[best_pre_i], succ[best_pre_j], inst)) == -1)
-				push(&head, xpos(succ[best_pre_i], succ[best_pre_j], inst));
+			if (contained_in_posix(&head, xpos(best_pre_i, best_pre_j, inst)) == -1) {
+				push(&head, xpos(best_pre_i, best_pre_j, inst), 1);
+				countListSize++;
+			}
+			if (contained_in_posix(&head, xpos(succ[best_pre_i], succ[best_pre_j], inst)) == -1) {
+				push(&head, xpos(succ[best_pre_i], succ[best_pre_j], inst), 1);
+				countListSize++;
+			}
 
-			print_list(head);
+			if (countListSize > inst->nnodes / 2) {
+				pop_last(head);
+				pop_last(head);
+
+				countListSize -= 2;
+			}
+
+			if(inst->verbose > 100) print_list(head);
 		}
 
 		best_lb -= best_improve;
@@ -1620,7 +1645,15 @@ int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
 			if (best_lb < inst->best_lb) {
 				inst->best_lb = best_lb;
 				best_temp_lb = best_lb;
+				int first_node = 0;
+				int second_node = succ[first_node];
+				for (int i = 0; i < inst->nedges; i++) {
+					inst->best_sol[xpos(first_node, second_node, inst)] = 1.0;
+					first_node = second_node;
+					second_node = succ[second_node];
+				}
 				printf("BEST_LB GLOBAL update to : [%f]\n", inst->best_lb);
+
 			}
 
 		} else {
@@ -1629,12 +1662,15 @@ int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
 
 				printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_temp_lb, best_lb);
 				best_temp_lb = best_lb;
-				//TODO: save new best sol in inst->best_sol 
+
 				if (head != NULL) {
-					delete_list(head, &head);
+					//delete_list(head, &head);
+					//pop_first(&head);
 				}
 			}
 		}
+
+		push(&head_save, best_lb, 0);
 
 		remaining_time -= second() - ini;
 	}
@@ -1643,11 +1679,12 @@ int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
 	free(succ);
 	free(comp);
 	free(ncomp);
-	printf("BEST FINAL GLOBAL LB found: [%f]", inst->best_lb);
-	// ma viene stampata la soluzione finale? best_sol dove viene assegnata?
+	printf("BEST FINAL GLOBAL LB found: [%f]\n", inst->best_lb);
+
+	write_list_lb(head_save);
 
 }
-void push(struct tabu_list** head_ref, int arc) {
+void push(struct tabu_list** head_ref, int arc, int isArc) {
 	tabu_list* new_node = (tabu_list*)malloc(sizeof(tabu_list));
 
 	new_node->arc = arc;
@@ -1655,6 +1692,8 @@ void push(struct tabu_list** head_ref, int arc) {
 	new_node->next = *head_ref;
 	*head_ref = new_node;
 
+	if(isArc)
+		printf("++++ ADD element %d to Tabu List\n", arc);
 }
 int pop_first(tabu_list** head) {
 	int retval = -1;
@@ -1669,6 +1708,7 @@ int pop_first(tabu_list** head) {
 	free(*head);
 	*head = next_node;
 
+	printf("---- REMOVE element %d to Tabu List\n", retval);
 	return retval;
 }
 int pop_last(tabu_list* head) {
@@ -1690,6 +1730,8 @@ int pop_last(tabu_list* head) {
 	retval = current->next->arc;
 	free(current->next);
 	current->next = NULL;
+
+	printf("---- REMOVE element %d to Tabu List\n", retval);
 	return retval;
 }
 int remove_by_index(tabu_list** head, int n) {
@@ -1759,6 +1801,21 @@ void delete_list(tabu_list* head, tabu_list** head_ref) {
 	}
 
 	*head_ref = NULL;
+}
+void write_list_lb(tabu_list* head) {
+	FILE* fptr;
+	fptr = fopen("plot\\lb_result.txt", "w");
+	
+	tabu_list* current = head;
+	int printval;
+	printf("--- Writing LB list elements ---\n");
+	while (current != NULL) {
+		printval = current->arc;
+		fprintf(fptr, "%d,\n", printval);
+		current = current->next;
+	}
+
+	fclose(fptr);
 }
 
 // optimization methods run the problem optimization
@@ -3235,7 +3292,7 @@ void plot_instance(tspinstance *inst) {
 void setup_style(FILE *gnuplot, tspinstance *inst) {
 
 	switch (inst->model_type) {
-
+	case 17:	
 		case 0:			// Line
 			setup_linestyle2(gnuplot);
 			break;
@@ -3247,11 +3304,11 @@ void setup_style(FILE *gnuplot, tspinstance *inst) {
 		case 2:			// Arrow
 			setup_arrowstyle2(gnuplot);
 			break;
-
+		
 		case 3:			// Arrow
 			setup_arrowstyle2(gnuplot);
 			break;
-
+		
 		default:
 			fclose(gnuplot);
 			print_error(" Model type unknown!!\n");
@@ -3296,7 +3353,7 @@ void plot_edges(FILE *gnuplot, char *pngname, tspinstance *inst) {
 	{
 
 		switch (inst->model_type) {
-
+		case 17:
 		case 0:			// Line
 			plot_lines_sym(gnuplot, pngname, inst);
 			break;
