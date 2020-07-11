@@ -1066,7 +1066,7 @@ void heur_grasp(tspinstance* inst, int* status) {
 	}
 
 	// save the tour and the cost // TODO: does it really save the solution?!
-	print_succ(succ, inst);
+	if (inst->verbose >= 100) print_succ(succ, inst);
 	free(succ);
 	for (int i = 0; i < inst->nnodes; i++)
 	 	for (int j = i+1; j < inst->nnodes; j++)
@@ -2182,7 +2182,7 @@ void best_two_opt(tspinstance *inst) {
 	int *comp = (int*) calloc(inst->nnodes, sizeof(int));
 	int *ncomp = (int*) calloc(1, sizeof(int));
 	build_sol(inst, succ, comp, ncomp);
-	print_succ(succ, inst);
+	if (inst->verbose >= 100) print_succ(succ, inst);
 	if (*ncomp != 1) print_error("call best_two_opt with best_sol with multiple tour");
 
 	// search in 2opt if a better solution is found
@@ -2204,13 +2204,13 @@ void best_two_opt(tspinstance *inst) {
 			d_j1_j2 = dist(j, succ[j], inst);
 			d_i1_j1 = dist(i, j, inst);
 			d_i2_j2 = dist(succ[i], succ[j], inst);
-			printf("*** i - j: %d - %d\n", i,j);
+			if (inst->verbose >= 100) printf("*** i - j: %d - %d\n", i,j);
 			cur_improve = (d_i1_i2 + d_j1_j2) - (d_i1_j1 + d_i2_j2);
 			if ( cur_improve > best_improve ) { // cross is better
 				best_i = i;
 				best_j = j;
 				best_improve = cur_improve;
-				printf("*** Best_improve: %f\n", best_improve);
+				if (inst->verbose >= 100) printf("*** Best_improve: %f\n", best_improve);
 			}
 			j = succ[j];
 		}
@@ -2255,7 +2255,7 @@ void patching(tspinstance* inst) {
 	int *comp = (int*) calloc(inst->nnodes, sizeof(int));
 	int *ncomp = (int*) calloc(1, sizeof(int));
 	build_sol(inst, succ, comp, ncomp);
-	print_succ(succ, inst);
+	if (inst->verbose >= 100) print_succ(succ, inst);
 	if (*ncomp == 1) {
 		printf("WARNING: solution already has 1 tour, patching has no effect.\n");
 		free(succ);
@@ -2266,8 +2266,10 @@ void patching(tspinstance* inst) {
 
 	while (*ncomp > 1) {
 		single_patch(inst, succ, comp, ncomp);
-		print_succ(succ, inst);
-		printf("\ncomp:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
+		if (inst->verbose >= 100) {
+			print_succ(succ, inst);
+			printf("\ncomp:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
+		}
 		plot_instance(inst);
 	}
 }
@@ -2485,8 +2487,10 @@ void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 			continue;
 
 		(*ncomp)++;
+		//comp[start] = *ncomp;
 		int prv = -1;
 		int i = start;
+		int found_succ = 0;
 		while (comp[start] == -1) {
 			for (int j = 0; j < inst->nnodes; j++) {
 				if (i != j && inst->best_sol[xpos(i, j, inst)] > 0.5  && j != prv) {
@@ -2495,9 +2499,15 @@ void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 					comp[j] = *ncomp;
 					prv = i;
 					i = j;
+					found_succ = 1;
 					break;
 				}
 			}
+			if (!found_succ) {  // no succ found, i is isolated
+				comp[start] = *ncomp;
+				break;
+			}
+
 		}
 	}
 	/*		SBAGLIATO
@@ -2536,7 +2546,7 @@ void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 			}
 		}	// while
 	// go to the next component...
-	}*/
+}*/
 
 	// print succ, comp and ncomp
 	if (inst->verbose >= 100)
@@ -2545,6 +2555,7 @@ void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 		printf("\nsucc:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", succ[i]);
 		printf("\ncomp:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
 		printf("\n");
+		fflush(stdout);
 	}
 }
 
