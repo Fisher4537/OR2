@@ -122,6 +122,7 @@ int contained_in_index(int* vector, int count_sol, int elem);
 void best_two_opt(tspinstance *inst);
 
 void patching(tspinstance* inst);
+int is_clockwise(tspinstance *inst, int x1, int x2, int x3);
 void single_patch(tspinstance* inst, int* succ, int* comp, int* ncomp);
 
 int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);

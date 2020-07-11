@@ -2104,7 +2104,7 @@ void single_patch(tspinstance* inst, int* succ, int* comp, int* ncomp) {
 				if (cur_improve < best_improve) {
 					best_improve = cur_improve;
 					closer_i = i;
-					cn_dist = d_ij;
+					cn_dist = dist(closer_i, closer_j, inst);
 				}
 				counter++;
 				i = succ[i];
@@ -2114,7 +2114,7 @@ void single_patch(tspinstance* inst, int* succ, int* comp, int* ncomp) {
 		// merge the tours: update best_sol, succ, comp, ncomp, best_lb
  		if (succ[closer_j] < 0 && succ[closer_i] < 0) { // closer_j and closer_i are isolated
 			// update inst->best_sol
-			inst->best_sol[xpos(closer_i, closer_j, inst)] = 1.;
+			(inst->best_sol)[xpos(closer_i, closer_j, inst)] = 1.;
 
 			// update succ
 			succ[closer_j] = closer_i;
@@ -2124,17 +2124,24 @@ void single_patch(tspinstance* inst, int* succ, int* comp, int* ncomp) {
 			comp[closer_j] = comp[closer_i];
 
 			// update inst->best_lb
-			inst->best_lb += cn_dist;
+			inst->best_lb += dist(closer_i, closer_j, inst);
 		} else if (succ[closer_j] < 0) { 		// closer_j isolated node
 			// update inst->best_sol
 			if (closer_i != succ[succ[closer_i]])
-				inst->best_sol[xpos(closer_i, succ[closer_i], inst)] = 0.;
-			inst->best_sol[xpos(closer_i, closer_j, inst)] = 1.;
-			inst->best_sol[xpos(closer_j, succ[closer_i], inst)] = 1.;
+				(inst->best_sol)[xpos(closer_i, succ[closer_i], inst)] = 0.;
+			(inst->best_sol)[xpos(closer_i, closer_j, inst)] = 1.;
+			(inst->best_sol)[xpos(closer_j, succ[closer_i], inst)] = 1.;
 
 			// update succ
+			if (closer_i == succ[succ[closer_i]]) {
+				if ( !is_clockwise(inst, closer_i, closer_j, succ[closer_i]) ) {
+					closer_i = succ[closer_i];	// reverse the orientation
+				}
+			}
+
 			succ[closer_j] = succ[closer_i];
 			succ[closer_i] = closer_j;
+
 
 			// update comp
 			comp[closer_j] = comp[closer_i];
@@ -2146,11 +2153,16 @@ void single_patch(tspinstance* inst, int* succ, int* comp, int* ncomp) {
 		} else if (succ[closer_i] < 0) {  		// i is isolated
 			// update inst->best_sol
 			if (closer_j != succ[succ[closer_j]])
-				inst->best_sol[xpos(closer_j, succ[closer_j], inst)] = 0.;
-			inst->best_sol[xpos(closer_i, closer_j, inst)] = 1.;
-			inst->best_sol[xpos(closer_i, succ[closer_j], inst)] = 1.;
+				(inst->best_sol)[xpos(closer_j, succ[closer_j], inst)] = 0.;
+			(inst->best_sol)[xpos(closer_i, closer_j, inst)] = 1.;
+			(inst->best_sol)[xpos(closer_i, succ[closer_j], inst)] = 1.;
 
 			// update succ
+			if (closer_j == succ[succ[closer_j]]) {
+				if ( !is_clockwise(inst, closer_j, closer_i, succ[closer_j]) ) {
+					closer_j = succ[closer_j];	// reverse the orientation
+				}
+			}
 			succ[closer_i] = succ[closer_j];
 			succ[closer_j] = closer_i;
 
@@ -2164,11 +2176,11 @@ void single_patch(tspinstance* inst, int* succ, int* comp, int* ncomp) {
 		} else {  										// i and closer_j are not isolated
 			// update inst->best_sol
 			if (closer_j != succ[succ[closer_j]])
-				inst->best_sol[xpos(closer_j, succ[closer_j], inst)] = 0.;
+				(inst->best_sol)[xpos(closer_j, succ[closer_j], inst)] = 0.;
 			if (closer_i != succ[succ[closer_i]])
-				inst->best_sol[xpos(closer_i, succ[closer_i], inst)] = 0.;
-			inst->best_sol[xpos(closer_i, succ[closer_j], inst)] = 1.;
-			inst->best_sol[xpos(closer_j, succ[closer_i], inst)] = 1.;
+				(inst->best_sol)[xpos(closer_i, succ[closer_i], inst)] = 0.;
+			(inst->best_sol)[xpos(closer_i, succ[closer_j], inst)] = 1.;
+			(inst->best_sol)[xpos(closer_j, succ[closer_i], inst)] = 1.;
 
 			// update succ
 			int tmp = succ[closer_i];
@@ -2192,6 +2204,10 @@ void single_patch(tspinstance* inst, int* succ, int* comp, int* ncomp) {
 	}
 }
 
+int is_clockwise(tspinstance *inst, int x1, int x2, int x3) {
+	return (inst->xcoord[x3] - inst->xcoord[x1])*(inst->ycoord[x2] - inst->ycoord[x1]) <
+				 (inst->ycoord[x3] - inst->ycoord[x1])*(inst->xcoord[x2] - inst->xcoord[x1]);
+}
 
 // build_sol methods use the optimized solution to plot
 void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp) {
