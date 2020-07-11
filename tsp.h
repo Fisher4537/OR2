@@ -29,6 +29,16 @@ typedef struct {
 	double optimal_gap; 	// under this value, solution is optimal
 } hardfix;
 
+typedef struct arches_tuple {
+	struct arches* arches;
+	struct arches_tuple* next;
+} tabu_list;
+
+typedef struct {
+	int arc1;
+	int arc2;
+} arches;
+
 typedef struct {
 
 	//input data
@@ -44,7 +54,7 @@ typedef struct {
 	int nthread;					// number of threads
 	double timelimit;				// overall time limit, in sec.s
 	char input_file[100];			// input file
-	char node_file[1000];			// cplex node file
+	int edge_weight_type;
 	int available_memory;
 	int max_nodes; 					// max n. of branching nodes in the final run
 									// (-1 unlimited)
@@ -110,6 +120,14 @@ void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, double fixing_ratio);
+int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+void push(tabu_list** head, int arc1, int arc2);
+arches* pop_first(tabu_list** head);
+arches* pop_last(tabu_list* head);
+arches* remove_by_index(tabu_list** head, int n);
+int contained_in_posix(tabu_list** head, int arc1, int arc2);
+void print_list(tabu_list* head);
+void delete_list(tabu_list* head);
 
 int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
