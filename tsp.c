@@ -1567,7 +1567,7 @@ int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
 			else {
 				d_i1_i2 = dist(i, succ[i], inst);
 				for (int tj = ti + 2; tj < inst->nnodes; tj++) {			// no 2opt with consequence arches
-					if (i == succ[j]) break;								// should happen only when i = 0,
+					if (i == succ[j] || contained_in_posix(&head, xpos(j, succ[j], inst)) != -1) break;								// should happen only when i = 0,
 					d_j1_j2 = dist(j, succ[j], inst);
 					d_i1_j1 = dist(i, j, inst);
 					d_i2_j2 = dist(succ[i], succ[j], inst);
@@ -1627,11 +1627,9 @@ int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
 				countListSize++;
 			}
 
-			if (countListSize > inst->nnodes / 2) {
+			while (countListSize - inst->nnodes / 2 > 0) {
 				pop_last(head);
-				pop_last(head);
-
-				countListSize -= 2;
+				countListSize --;
 			}
 
 			if(inst->verbose > 100) print_list(head);
