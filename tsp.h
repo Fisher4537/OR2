@@ -73,6 +73,7 @@ typedef struct {
 	int mip_opt;
 	int build_sol;
 	int warm_start;
+	int useCplex;
 	int heuristic;
 	int plot_style;
 	int plot_edge;
@@ -125,11 +126,11 @@ void print_list(tabu_list* head);
 void write_list_lb(tabu_list* head);
 void delete_list(tabu_list* head, tabu_list** head_ref);
 
-int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
-int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+int* heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+int* heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int succ_not_contained(int node, int* sol, tspinstance* inst);
-void heur_grasp(tspinstance* inst, int* status);
-int heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+int* heur_grasp(tspinstance* inst, int* status);
+int* heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int insertion_move(tspinstance* inst, int* best_sol, int count_sol, int vertex);
 int contained_in_index(int* vector, int count_sol, int elem);
 

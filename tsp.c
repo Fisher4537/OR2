@@ -27,6 +27,11 @@
 
 			- funzione della distanza corrette a seconda di EDGE_WEIGHT_TYPE. vedi tsplib/doc.ps
 
+			13/07/2020
+			- Aggiungere limite di tempo in tutti i metodi che lo richiedono (io lo metterei in tutti se il timelimit viene settato)
+			  e dobbiamo stare attenti, dovremmo tenere un remaining_time globale in modo che se utilizziamo modelli con più metodi scalino tutti dallo stesso remaining_time
+
+
 */
 
 char * model_name(int i) {
@@ -39,16 +44,20 @@ char * model_name(int i) {
 		case 5: return "subtour_heur";						// Subtour with HEUR
 		case 6: return "subtour_callback_lazy";				// Subtour_callback_lazy
 		case 7: return "subtour_callback_general";			// Subtour_callback_general
-		case 8: return "hard_fixing";
-		case 9: return "local_branching";
-		case 10: return "heuristic_greedy";
-		case 11: return "heuristic_greedy_cgal";
-		case 12: return "heuristic_grasp";
+		case 8: return "hard_fixing";						// Hard-Fixing
+		case 9: return "local_branching";					// Local-Branching
+		case 10: return "heuristic_greedy";					// Greedy (no CPLEX)
+		case 11: return "heuristic_greedy_cgal";			// Greedy with CGAL (no CPLEX)
+		case 12: return "heuristic_grasp";					// GRASP (no CPLEX)
 		case 13: return "heuristic_insertion";				// Heuristic Insertion (no CPLEX)
 		case 14: return "grasp_best_two_opt";				// GRASP + best_two_opt
 		case 15: return "patching";							// Patching	
 		case 16: return ;
 		case 17: return "tabu_search";						// Greedy + TABU' SEARCH
+		case 18: return "heuristic_greedy_cplex";			// Greedy (Warm Start for CPLEX)
+		case 19: return "heuristic_greedy_cgal_cplex";		// Greedy (Warm Start for CPLEX)
+		case 20: return "heuristic_grasp_cplex";			// GRASP (Warm Start for CPLEX)
+		case 21: return "heuristic_insertion_cplex";		// Heuristic Insertion (Warm Start for CPLEX)
 		default: return "not_supported";
 	}
 }
@@ -61,7 +70,7 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
  1		  build_mtz					heur_greedy				hard_fixing						subtour_heur_iter_opt				lazy
  2		 build_flow1				heur_greedy_cgal		local_branching						CPXmipopt					 generic CAND
  3		build_mtz_lazy				heur_grasp				best_two_opt													generic CAND, GLOBAL
- 4																								patching
+ 4									heur_insertion												patching
  5
  6
 */
@@ -70,41 +79,50 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 	inst->heuristic = 0;
 	inst->warm_start = 0;
 	inst->mip_opt = -1;
+	inst->useCplex = 0;
 
 	switch (inst->setup_model) {
 		case 0:
 			inst->model_type = 0;
 			inst->mip_opt = 0;
+			inst->useCplex = 1;
 			return "subtour";							// basic model with asymmetric x and q
 		case 1:
 			inst->model_type = 1;
 			inst->mip_opt = 2;
+			inst->useCplex = 1;
 			return "mtz";								// MTZ contraints
 		case 2:
 			inst->model_type = 2;
 			inst->mip_opt = 2;
+			inst->useCplex = 1;
 			return "flow1_n-2";							// FLOW 1 with y_0j <= x_0j*(n-2) if i != 0
 		case 3:
 			inst->model_type = 2;
 			inst->mip_opt = 2;
+			inst->useCplex = 1;
 			return "flow1_n-1";							// FLOW 1 with y_0j <= x_0j*(n-1)
 		case 4:
 			inst->model_type = 3;
 			inst->mip_opt = 2;
+			inst->useCplex = 1;
 			return "mtz_lazy";							// MTZ with LAZY constraints
 		case 5:
 			inst->model_type = 0;
 			inst->mip_opt = 1;
+			inst->useCplex = 1;
 			return "subtour_ffi";						// Subtour with fast first incumb
 		case 6:
 			inst->model_type = 0;
 			inst->callback = 1;
 			inst->mip_opt = 2;
+			inst->useCplex = 1;
 			return "subtour_callback_lazy";				// Subtour_callback_lazy
 		case 7:
 			inst->model_type = 0;
 			inst->callback = 2;
 			inst->mip_opt = 2;
+			inst->useCplex = 1;
 			return "subtour_callback_general";			// Subtour_callback_general
 		case 8:
 			inst->model_type = 0;
@@ -121,22 +139,22 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 		case 10:
 			inst->model_type = 0;
 			inst->warm_start = 1;
-			inst->mip_opt = 100;
+			inst->mip_opt = 3;
 			return "heuristic_greedy";					// Heuristic Greedy (no CPLEX)
 		case 11:
 			inst->model_type = 0;
 			inst->warm_start = 2;
-			inst->mip_opt = 100;
+			inst->mip_opt = 3;
 			return "heuristic_greedy_cgal";				// Heuristic Greedy CGAL (no CPLEX)
 		case 12:
 			inst->model_type = 0;
 			inst->warm_start = 3;
-			inst->mip_opt = 100;
+			inst->mip_opt = 3;
 			return "heuristic_grasp";					// Heuristic GRASP (no CPLEX)
 		case 13:
 			inst->model_type = 0;
 			inst->warm_start = 4;
-			inst->mip_opt = 100;
+			inst->mip_opt = 3;
 			return "heuristic_insertion";				// Heuristic Insertion (no CPLEX)
 		case 14:
 			inst->model_type = 0;
@@ -154,6 +172,30 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->warm_start = 1;
 			inst->heuristic = 6;
 			return "tabu_search";						// Greedy + TABU' SEARCH
+		case 18:
+			inst->model_type = 0;
+			inst->warm_start = 1;
+			inst->mip_opt = 2;
+			inst->useCplex = 1;
+			return "heuristic_greedy";					// Heuristic Greedy (Warm Start for CPLEX)
+		case 19:
+			inst->model_type = 0;
+			inst->warm_start = 2;
+			inst->mip_opt = 2;
+			inst->useCplex = 1;
+			return "heuristic_greedy_cgal";				// Heuristic Greedy CGAL (Warm Start for CPLEX)
+		case 20:
+			inst->model_type = 0;
+			inst->warm_start = 3;
+			inst->mip_opt = 2;
+			inst->useCplex = 1;
+			return "heuristic_grasp";					// Heuristic GRASP (Warm Start for CPLEX)
+		case 21:
+			inst->model_type = 0;
+			inst->warm_start = 4;
+			inst->mip_opt = 2;
+			inst->useCplex = 1;
+			return "heuristic_insertion";				// Heuristic Insertion (Warm Start for CPLEX)
 		default: return "not_supported";
 	}
 }
@@ -185,7 +227,7 @@ int TSPopt(tspinstance *inst) {
 
 	// setup struct to save solution
 	inst->nedges = CPXgetnumcols(env, lp);
-	inst->best_sol = (double *) calloc(inst->nedges, sizeof(double)); 	// all entries to zero
+	inst->best_sol = (double *) calloc(inst->nedges, sizeof(double));
 	inst->zbest = CPX_INFBOUND;
 
 	// set callback if selected
@@ -201,8 +243,6 @@ int TSPopt(tspinstance *inst) {
 
 	// compute cplex and calculate opt_time w.r.t. OS used
 	double ini = second();
-	//tmp_heur_grasp(inst, &status); // TODO save best_val inside
-	//best_two_opt(inst);
 	optimization(env, lp, inst, &status);
 	double fin = second();
 	inst->opt_time = (double)(fin - ini);
@@ -226,7 +266,7 @@ int xpos(int i, int j, tspinstance *inst) {
 	if ( i == j ) print_error(" i == j in xpos" );
 	if ( i > j ) return xpos(j,i,inst);								// simplify returned formula
 	return i*inst->nnodes + j - ((i + 1)*(i + 2))/2; 				// default case
-}
+} 
 
 int asym_xpos(int i, int j, tspinstance *inst) {
 	if ( i == j ) print_error(" i == j in asym_upos" );
@@ -362,7 +402,7 @@ void build_mtz(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 	xctype = 'I';		// maybe not necessary
 	obj = 0.0;
 	lb = 0.0;
-	ub = inst->nnodes-2;
+	ub = inst->nnodes - 2.0;
 
 	for ( int i = 1; i < inst->nnodes; i++)
 	{
@@ -423,7 +463,7 @@ void build_mtz(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 			if ( i != h && i != 0 )
 			{
 				lastrow = CPXgetnumrows(env,lp);
-				rhs = big_M -1;
+				rhs = big_M - 1.0;
 				sense = 'L';	// 'L' for lower of equal
 				sprintf(cname[0], "mtz_i(%d, %d)", h+1, i+1);
 
@@ -755,46 +795,57 @@ void add_lazy_mtz(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 
 // heuristic warm start
 void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* status) {
+	
+	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
 
-	switch (inst->warm_start) {					// No CPLEX used
+	switch (inst->warm_start) {					
 
 		case 0:
 		break;
 
 		case 1:													// Heuristic greedy
-			heur_greedy(env, lp, inst, status);
+			best_sol = heur_greedy(env, lp, inst, status);
 		break;
 
 		case 2:													// Heuristic greedy CGAL
-			heur_greedy_cgal(env, lp, inst, status);
+			best_sol = heur_greedy_cgal(env, lp, inst, status);
 		break;
 
-		case 3:													// Heuristic GRASP (no CPLEX)
-			heur_grasp(inst, status); // do not add the solution to CPLEX
-			// int izero = 0;
-			// double val = 1.0;
-			// int nocheck_warmstart = CPX_MIPSTART_CHECKFEAS;  // CPX_MIPSTART_SOLVEFIXED;
-			// if ( (*status = CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, inst->best_sol, &val, &nocheck_warmstart, NULL)) ) {
-			// 	print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
-			// }
+		case 3:													// Heuristic GRASP
+			best_sol = heur_grasp(inst, status);
 		break;
 
 		case 4:
-			heur_insertion(env, lp, inst, status);				// Heuristic Insertion
+			best_sol = heur_insertion(env, lp, inst, status);	// Heuristic Insertion
 		break;
 		
 		default:
 			print_error(" model type unknown!!");
 		break;
 	}
-}
-void test_warm_start(CPXENVptr env, CPXLPptr lp) {
-	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 1);
+	if (inst->useCplex) {
 
-	CPXmipopt(env, lp);
+		if (best_sol[0] == -1) {							// first element best_sol == -1 => error and return status at best_sol[1]
+			*status = best_sol[1];
+			return *status;
+		}
+
+		int nocheck_warmstart = CPX_MIPSTART_REPAIR;			//CPLEX attempts to repair the MIP start if it is infeasible, according to the parameter that sets the frequency to try to repair an infeasible MIP start 
+																// number of attempts to repair infeasible MIP start = CPXPARAM_MIP_Limits_RepairTries. Default => CPLEX choose
+								//CPX_MIPSTART_SOLVEMIP;		// CPLEX solves a subMIP.
+		double val = 1.0;
+		int izero = 0;
+
+		if (*status = CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) {
+			print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
+			return *status;
+		}
+	}
+	free(best_sol);
+	
 }
 
-int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
+int* heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
 	#ifdef _WIN32
 		CPXsetintparam(env, CPX_PARAM_ADVIND, 1);
@@ -854,10 +905,7 @@ int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status)
 			inst->best_sol[best_sol[i]] = 1.0;
 		}
 
-		if (CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) {
-			print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
-			return *status;
-		}
+		return best_sol;
 
 		/********* Add a mip start
 
@@ -910,7 +958,7 @@ int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status)
 	return *status;
 }
 
-int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
+int* heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
 	CPXsetintparam(env, CPX_PARAM_ADVIND, 1);
 
@@ -919,10 +967,6 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	inst->best_lb = CPX_INFBOUND;
 	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
 	int izero = 0;
-
-	int nocheck_warmstart = CPX_MIPSTART_NOCHECK;			// CPLEX accepts the MIP start without any checks. The MIP start needs to be complete.
-							//CPX_MIPSTART_SOLVEFIXED;		// CPLEX solves the fixed problem specified by the MIP start (requires to provide values for all discrete variables)
-
 
 	for (int i = 0; i < inst->nnodes; i++) {
 
@@ -979,13 +1023,7 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	for (int i = 0; i < inst->nnodes; i++) {
 		inst->best_sol[best_sol[i]] = 1.0;
 	}
-	if (inst->nnodes < 200) {																					// ERROR with file in data_heavy
-		if (CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) {
-			print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
-			return *status;
-		}
-	}
-	return *status;
+	return best_sol;
 }
 int succ_not_contained(int node, int* sol, tspinstance* inst) {
 	double d = INT_MAX;
@@ -1015,17 +1053,17 @@ int succ_not_contained(int node, int* sol, tspinstance* inst) {
 	return succ;
 }
 
-void heur_grasp(tspinstance* inst, int* status)
-{
-	if (inst->verbose >= 100) printf("heur_grasp helloworld!\n");
+int* heur_grasp(tspinstance* inst, int* status){
 
-	double* best_sol = (double*)calloc(inst->nedges, sizeof(double));
+	if (inst->verbose >= 100) printf("Heuristic GRASP\n");
+
+	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
 
 	// get first node, randomly selected
 	int* succ = (int*)malloc(inst->nnodes * sizeof(int));
 	for (int i = 0; i < inst->nnodes; i++) succ[i] = -1;
 
-	int cur_node = round(((double)rand()/RAND_MAX)*(inst->nnodes-1));
+	int cur_node = round(((double)rand() / RAND_MAX) * (inst->nnodes - 1.0));
 	int first_node = cur_node;
 
 	// find the three nearest node of each node
@@ -1033,11 +1071,13 @@ void heur_grasp(tspinstance* inst, int* status)
 	double cur_dist[3];  		// distance from current node
 	double best_lb = 0.0;  	// the cost of the solution
 
-	int tour_length = 0;
-	while (tour_length < inst->nnodes) {
+	
+	for (int tour_length = 0; tour_length < inst->nnodes; tour_length++) {
 
 		// initialization
-		for (int k = 0; k < 3; k++) { cur_dist[k] = INT_MAX; cur_nearest[k] = -1; }
+		for (int k = 0; k < 3; k++) { 
+			cur_dist[k] = INT_MAX; cur_nearest[k] = -1; 
+		}
 
 		// get the three nearest node
 		for (int j = 0; j < inst->nnodes; j++) {	// for each other node
@@ -1076,24 +1116,26 @@ void heur_grasp(tspinstance* inst, int* status)
 			next_dist = dist(cur_node, first_node, inst);
 		}
 		succ[cur_node] = next_node;
-		best_sol[xpos(cur_node, next_node, inst)] = 1.0;
+		best_sol[tour_length] = xpos(cur_node, next_node, inst);
 		best_lb += next_dist;
 		cur_node = next_node;
-		tour_length++;
 	}
 
-	// save the tour and the cost // TODO: does it really save the solution?!
+	// save the tour and the cost
 	print_succ(succ, inst);
 	free(succ);
-	for (int i = 0; i < inst->nnodes; i++)
-	 	for (int j = i+1; j < inst->nnodes; j++)
-			inst->best_sol[xpos(i,j,inst)] = best_sol[xpos(i,j,inst)];		// TODO: forse qua puoi mettere = 1.0
+	for (int i = 0; i < inst->nnodes; i++) {
+		inst->best_sol[best_sol[i]] = 1.0;
+	}
 	inst->best_lb = best_lb;
-	if (inst->verbose >= 100) printf("GRASP BEST_LB: %lf\n", inst->best_lb);
+	
+	if (inst->verbose >= 100) 
+		printf("GRASP BEST_LB: %lf\n", inst->best_lb);
 
+	return best_sol;
 }
 
-int heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
+int* heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
 	for (int k = 0; k < inst->nnodes; k++)
 		best_sol[k] = -1;
@@ -1139,18 +1181,10 @@ int heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		inst->best_sol[best_sol[i]] = 1.0;
 	}
 
-	int izero = 0;
-	double val = 1.0;
-	int nocheck_warmstart = CPX_MIPSTART_CHECKFEAS;
+	if(inst->useCplex)
+		CPXsetintparam(env, CPX_PARAM_ADVIND, 1);
 
-	if ((*status = CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL))) {
-		print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
-		return *status;
-	}
-
-	CPXsetintparam(env, CPX_PARAM_ADVIND, 1);
-
-	return 0;
+	return best_sol;
 }
 int insertion_move(tspinstance* inst, int* best_sol, int count_sol, int vertex) {
 	double extra_mileage = INT_MAX;
@@ -1651,6 +1685,7 @@ int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
 					second_node = succ[second_node];
 				}
 				printf("BEST_LB GLOBAL update to : [%f]\n", inst->best_lb);
+				//plot_instance(inst);
 
 			}
 
@@ -1830,12 +1865,11 @@ int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status)
 			*status = subtour_heur_iter_opt(env, lp, inst, status, 0);
 			break;
 
-		case 2:
+		case 2:			// Simply CPLEX optimization
 			*status = CPXmipopt(env,lp);
 			break;
 
-		case 100:
-			test_warm_start(env, lp);
+		case 3:			// Empty. Used to evaluate heuristic alone
 			break;
 
 		default:
