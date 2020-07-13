@@ -27,6 +27,11 @@
 
 			- funzione della distanza corrette a seconda di EDGE_WEIGHT_TYPE. vedi tsplib/doc.ps
 
+			13/07/2020
+			- Aggiungere limite di tempo in tutti i metodi che lo richiedono (io lo metterei in tutti se il timelimit viene settato)
+			  e dobbiamo stare attenti, dovremmo tenere un remaining_time globale in modo che se utilizziamo modelli con più metodi scalino tutti dallo stesso remaining_time
+
+
 */
 
 char * model_name(int i) {
@@ -39,11 +44,20 @@ char * model_name(int i) {
 		case 5: return "subtour_heur";						// Subtour with HEUR
 		case 6: return "subtour_callback_lazy";				// Subtour_callback_lazy
 		case 7: return "subtour_callback_general";			// Subtour_callback_general
-		case 8: return "hard_fixing";
-		case 9: return "local_branching";
-		case 10: return "heuristic_greedy";
-		case 11: return "heuristic_greedy_cgal";
-		case 12: return "heuristic_grasp";
+		case 8: return "hard_fixing";						// Hard-Fixing
+		case 9: return "local_branching";					// Local-Branching
+		case 10: return "heuristic_greedy";					// Greedy (no CPLEX)
+		case 11: return "heuristic_greedy_cgal";			// Greedy with CGAL (no CPLEX)
+		case 12: return "heuristic_grasp";					// GRASP (no CPLEX)
+		case 13: return "heuristic_insertion";				// Heuristic Insertion (no CPLEX)
+		case 14: return "grasp_best_two_opt";				// GRASP + best_two_opt
+		case 15: return "patching";							// Patching	
+		case 16: return ;
+		case 17: return "tabu_search";						// Greedy + TABU' SEARCH
+		case 18: return "heuristic_greedy_cplex";			// Greedy (Warm Start for CPLEX)
+		case 19: return "heuristic_greedy_cgal_cplex";		// Greedy (Warm Start for CPLEX)
+		case 20: return "heuristic_grasp_cplex";			// GRASP (Warm Start for CPLEX)
+		case 21: return "heuristic_insertion_cplex";		// Heuristic Insertion (Warm Start for CPLEX)
 		default: return "not_supported";
 	}
 }
@@ -52,11 +66,11 @@ char * setup_model(tspinstance* inst) {
 /**
 NUM			model_type				warm_start					heuristic						mip_opt							callback
 
- 0		build_sym_std												mip_optimization		subtour_iter_opt
- 1		  build_mtz					heur_greedy				hard_fixing			subtour_heur_iter_opt				lazy
- 2		 build_flow1			heur_greedy_cgal	local_branching				 CPXmipopt					 generic CAND
- 3		build_mtz_lazy			heur_grasp				best_two_opt													generic CAND, GLOBAL
- 4																						patching
+ 0		build_sym_std										mip_optimization				subtour_iter_opt
+ 1		  build_mtz					heur_greedy				hard_fixing						subtour_heur_iter_opt				lazy
+ 2		 build_flow1				heur_greedy_cgal		local_branching						CPXmipopt					 generic CAND
+ 3		build_mtz_lazy				heur_grasp				best_two_opt													generic CAND, GLOBAL
+ 4									heur_insertion												patching
  5
  6
 */
@@ -65,41 +79,50 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 	inst->heuristic = 0;
 	inst->warm_start = 0;
 	inst->mip_opt = -1;
+	inst->useCplex = 0;
 
 	switch (inst->setup_model) {
 		case 0:
 			inst->model_type = 0;
 			inst->mip_opt = 0;
+			inst->useCplex = 1;
 			return "subtour";							// basic model with asymmetric x and q
 		case 1:
 			inst->model_type = 1;
 			inst->mip_opt = 2;
+			inst->useCplex = 1;
 			return "mtz";								// MTZ contraints
 		case 2:
 			inst->model_type = 2;
 			inst->mip_opt = 2;
+			inst->useCplex = 1;
 			return "flow1_n-2";							// FLOW 1 with y_0j <= x_0j*(n-2) if i != 0
 		case 3:
 			inst->model_type = 2;
 			inst->mip_opt = 2;
+			inst->useCplex = 1;
 			return "flow1_n-1";							// FLOW 1 with y_0j <= x_0j*(n-1)
 		case 4:
 			inst->model_type = 3;
 			inst->mip_opt = 2;
+			inst->useCplex = 1;
 			return "mtz_lazy";							// MTZ with LAZY constraints
 		case 5:
 			inst->model_type = 0;
 			inst->mip_opt = 1;
+			inst->useCplex = 1;
 			return "subtour_ffi";						// Subtour with fast first incumb
 		case 6:
 			inst->model_type = 0;
 			inst->callback = 1;
 			inst->mip_opt = 2;
+			inst->useCplex = 1;
 			return "subtour_callback_lazy";				// Subtour_callback_lazy
 		case 7:
 			inst->model_type = 0;
 			inst->callback = 2;
 			inst->mip_opt = 2;
+			inst->useCplex = 1;
 			return "subtour_callback_general";			// Subtour_callback_general
 		case 8:
 			inst->model_type = 0;
@@ -116,22 +139,22 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 		case 10:
 			inst->model_type = 0;
 			inst->warm_start = 1;
-			inst->mip_opt = 100;
+			inst->mip_opt = 3;
 			return "heuristic_greedy";					// Heuristic Greedy (no CPLEX)
 		case 11:
 			inst->model_type = 0;
 			inst->warm_start = 2;
-			inst->mip_opt = 100;
+			inst->mip_opt = 3;
 			return "heuristic_greedy_cgal";				// Heuristic Greedy CGAL (no CPLEX)
 		case 12:
 			inst->model_type = 0;
 			inst->warm_start = 3;
-			inst->mip_opt = 100;
+			inst->mip_opt = 3;
 			return "heuristic_grasp";					// Heuristic GRASP (no CPLEX)
 		case 13:
 			inst->model_type = 0;
 			inst->warm_start = 4;
-			inst->mip_opt = 100;
+			inst->mip_opt = 3;
 			return "heuristic_insertion";				// Heuristic Insertion (no CPLEX)
 		case 14:
 			inst->model_type = 0;
@@ -139,16 +162,40 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->heuristic = 3;
 			return "grasp_best_two_opt";				// GRASP + best_two_opt
 		case 15:
-			inst->warm_start = 0;
 			inst->model_type = 0;
+			inst->warm_start = 0;
 			inst->heuristic = 4;
-			return "patching";
+			return "patching";							// Patching			TODO: for testing needs to have a tour with ncomp > 1
 
 		case 17:
 			inst->model_type = 0;
-			inst->warm_start = 4;
+			inst->warm_start = 1;
 			inst->heuristic = 6;
-			return "tabu_search";						// Heuristic Insertion + TABU' SEARCH
+			return "tabu_search";						// Greedy + TABU' SEARCH
+		case 18:
+			inst->model_type = 0;
+			inst->warm_start = 1;
+			inst->mip_opt = 2;
+			inst->useCplex = 1;
+			return "heuristic_greedy";					// Heuristic Greedy (Warm Start for CPLEX)
+		case 19:
+			inst->model_type = 0;
+			inst->warm_start = 2;
+			inst->mip_opt = 2;
+			inst->useCplex = 1;
+			return "heuristic_greedy_cgal";				// Heuristic Greedy CGAL (Warm Start for CPLEX)
+		case 20:
+			inst->model_type = 0;
+			inst->warm_start = 3;
+			inst->mip_opt = 2;
+			inst->useCplex = 1;
+			return "heuristic_grasp";					// Heuristic GRASP (Warm Start for CPLEX)
+		case 21:
+			inst->model_type = 0;
+			inst->warm_start = 4;
+			inst->mip_opt = 2;
+			inst->useCplex = 1;
+			return "heuristic_insertion";				// Heuristic Insertion (Warm Start for CPLEX)
 		default: return "not_supported";
 	}
 }
@@ -180,7 +227,7 @@ int TSPopt(tspinstance *inst) {
 
 	// setup struct to save solution
 	inst->nedges = CPXgetnumcols(env, lp);
-	inst->best_sol = (double *) calloc(inst->nedges, sizeof(double)); 	// all entries to zero
+	inst->best_sol = (double *) calloc(inst->nedges, sizeof(double));
 	inst->zbest = CPX_INFBOUND;
 
 	// set callback if selected
@@ -196,8 +243,6 @@ int TSPopt(tspinstance *inst) {
 
 	// compute cplex and calculate opt_time w.r.t. OS used
 	double ini = second();
-	//tmp_heur_grasp(inst, &status); // TODO save best_val inside
-	//best_two_opt(inst);
 	optimization(env, lp, inst, &status);
 	double fin = second();
 	inst->opt_time = (double)(fin - ini);
@@ -221,7 +266,7 @@ int xpos(int i, int j, tspinstance *inst) {
 	if ( i == j ) print_error(" i == j in xpos" );
 	if ( i > j ) return xpos(j,i,inst);								// simplify returned formula
 	return i*inst->nnodes + j - ((i + 1)*(i + 2))/2; 				// default case
-}
+} 
 
 int asym_xpos(int i, int j, tspinstance *inst) {
 	if ( i == j ) print_error(" i == j in asym_upos" );
@@ -357,7 +402,7 @@ void build_mtz(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 	xctype = 'I';		// maybe not necessary
 	obj = 0.0;
 	lb = 0.0;
-	ub = inst->nnodes-2;
+	ub = inst->nnodes - 2.0;
 
 	for ( int i = 1; i < inst->nnodes; i++)
 	{
@@ -418,7 +463,7 @@ void build_mtz(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 			if ( i != h && i != 0 )
 			{
 				lastrow = CPXgetnumrows(env,lp);
-				rhs = big_M -1;
+				rhs = big_M - 1.0;
 				sense = 'L';	// 'L' for lower of equal
 				sprintf(cname[0], "mtz_i(%d, %d)", h+1, i+1);
 
@@ -750,46 +795,57 @@ void add_lazy_mtz(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 
 // heuristic warm start
 void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* status) {
+	
+	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
 
-	switch (inst->warm_start) {					// No CPLEX used
+	switch (inst->warm_start) {					
 
 		case 0:
 		break;
 
 		case 1:													// Heuristic greedy
-			heur_greedy(env, lp, inst, status);
+			best_sol = heur_greedy(env, lp, inst, status);
 		break;
 
 		case 2:													// Heuristic greedy CGAL
-			heur_greedy_cgal(env, lp, inst, status);
+			best_sol = heur_greedy_cgal(env, lp, inst, status);
 		break;
 
-		case 3:													// Heuristic GRASP (no CPLEX)
-			heur_grasp(inst, status); // do not add the solution to CPLEX
-			// int izero = 0;
-			// double val = 1.0;
-			// int nocheck_warmstart = CPX_MIPSTART_CHECKFEAS;  // CPX_MIPSTART_SOLVEFIXED;
-			// if ( (*status = CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, inst->best_sol, &val, &nocheck_warmstart, NULL)) ) {
-			// 	print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
-			// }
+		case 3:													// Heuristic GRASP
+			best_sol = heur_grasp(inst, status);
 		break;
 
 		case 4:
-			heur_insertion(env, lp, inst, status);				// Heuristic Insertion
+			best_sol = heur_insertion(env, lp, inst, status);	// Heuristic Insertion
 		break;
 		
 		default:
 			print_error(" model type unknown!!");
 		break;
 	}
-}
-void test_warm_start(CPXENVptr env, CPXLPptr lp) {
-	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 1);
+	if (inst->useCplex) {
 
-	CPXmipopt(env, lp);
+		if (best_sol[0] == -1) {							// first element best_sol == -1 => error and return status at best_sol[1]
+			*status = best_sol[1];
+			return *status;
+		}
+
+		int nocheck_warmstart = CPX_MIPSTART_REPAIR;			//CPLEX attempts to repair the MIP start if it is infeasible, according to the parameter that sets the frequency to try to repair an infeasible MIP start 
+																// number of attempts to repair infeasible MIP start = CPXPARAM_MIP_Limits_RepairTries. Default => CPLEX choose
+								//CPX_MIPSTART_SOLVEMIP;		// CPLEX solves a subMIP.
+		double val = 1.0;
+		int izero = 0;
+
+		if (*status = CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) {
+			print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
+			return *status;
+		}
+	}
+	free(best_sol);
+	
 }
 
-int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
+int* heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
 	#ifdef _WIN32
 		CPXsetintparam(env, CPX_PARAM_ADVIND, 1);
@@ -844,10 +900,12 @@ int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status)
 		if (inst->verbose >= 100)
 			printf("BEST_LB Greedy Heuristic CGAL found: [%f]\n", inst->best_lb);
 
-		if (CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) {
-			print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
-			return *status;
+		// Copy and convert to double sol in best_sol
+		for (int i = 0; i < inst->nnodes; i++) {
+			inst->best_sol[best_sol[i]] = 1.0;
 		}
+
+		return best_sol;
 
 		/********* Add a mip start
 
@@ -900,7 +958,7 @@ int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status)
 	return *status;
 }
 
-int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
+int* heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
 	CPXsetintparam(env, CPX_PARAM_ADVIND, 1);
 
@@ -909,10 +967,6 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	inst->best_lb = CPX_INFBOUND;
 	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
 	int izero = 0;
-
-	int nocheck_warmstart = CPX_MIPSTART_SOLVEFIXED;	// CPLEX solves the fixed problem specified by the MIP start (requires to provide values for all discrete variables)
-							//CPX_MIPSTART_NOCHECK;		// CPLEX accepts the MIP start without any checks. The MIP start needs to be complete.
-
 
 	for (int i = 0; i < inst->nnodes; i++) {
 
@@ -965,11 +1019,11 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	if (inst->verbose >= 100)
 		printf("BEST_LB Greedy Heuristic found: [%f]\n", inst->best_lb);
 
-	if (CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) {
-		print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
-		return *status;
+	// Copy and convert to double sol in best_sol
+	for (int i = 0; i < inst->nnodes; i++) {
+		inst->best_sol[best_sol[i]] = 1.0;
 	}
-	return *status;
+	return best_sol;
 }
 int succ_not_contained(int node, int* sol, tspinstance* inst) {
 	double d = INT_MAX;
@@ -999,16 +1053,17 @@ int succ_not_contained(int node, int* sol, tspinstance* inst) {
 	return succ;
 }
 
-void heur_grasp(tspinstance* inst, int* status) {
-	if (inst->verbose >= 100) printf("heur_grasp helloworld!\n");
+int* heur_grasp(tspinstance* inst, int* status){
 
-	double* best_sol = (double*)calloc(inst->nedges, sizeof(double));
+	if (inst->verbose >= 100) printf("Heuristic GRASP\n");
+
+	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
 
 	// get first node, randomly selected
 	int* succ = (int*)malloc(inst->nnodes * sizeof(int));
 	for (int i = 0; i < inst->nnodes; i++) succ[i] = -1;
 
-	int cur_node = round(((double)rand()/RAND_MAX)*(inst->nnodes-1));
+	int cur_node = round(((double)rand() / RAND_MAX) * (inst->nnodes - 1.0));
 	int first_node = cur_node;
 
 	// find the three nearest node of each node
@@ -1016,11 +1071,13 @@ void heur_grasp(tspinstance* inst, int* status) {
 	double cur_dist[3];  		// distance from current node
 	double best_lb = 0.0;  	// the cost of the solution
 
-	int tour_length = 0;
-	while (tour_length < inst->nnodes) {
+	
+	for (int tour_length = 0; tour_length < inst->nnodes; tour_length++) {
 
 		// initialization
-		for (int k = 0; k < 3; k++) { cur_dist[k] = INT_MAX; cur_nearest[k] = -1; }
+		for (int k = 0; k < 3; k++) { 
+			cur_dist[k] = INT_MAX; cur_nearest[k] = -1; 
+		}
 
 		// get the three nearest node
 		for (int j = 0; j < inst->nnodes; j++) {	// for each other node
@@ -1059,24 +1116,26 @@ void heur_grasp(tspinstance* inst, int* status) {
 			next_dist = dist(cur_node, first_node, inst);
 		}
 		succ[cur_node] = next_node;
-		best_sol[xpos(cur_node, next_node, inst)] = 1.0;
+		best_sol[tour_length] = xpos(cur_node, next_node, inst);
 		best_lb += next_dist;
 		cur_node = next_node;
-		tour_length++;
 	}
 
-	// save the tour and the cost // TODO: does it really save the solution?!
-	if (inst->verbose >= 100) print_succ(succ, inst);
+	// save the tour and the cost
+	print_succ(succ, inst);
 	free(succ);
-	for (int i = 0; i < inst->nnodes; i++)
-	 	for (int j = i+1; j < inst->nnodes; j++)
-			inst->best_sol[xpos(i,j,inst)] = best_sol[xpos(i,j,inst)];		// TODO: forse qua puoi mettere = 1.0
+	for (int i = 0; i < inst->nnodes; i++) {
+		inst->best_sol[best_sol[i]] = 1.0;
+	}
 	inst->best_lb = best_lb;
-	if (inst->verbose >= 100) printf("GRASP BEST_LB: %lf\n", inst->best_lb);
+	
+	if (inst->verbose >= 100) 
+		printf("GRASP BEST_LB: %lf\n", inst->best_lb);
 
+	return best_sol;
 }
 
-int heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
+int* heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
 	for (int k = 0; k < inst->nnodes; k++)
 		best_sol[k] = -1;
@@ -1117,23 +1176,15 @@ int heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		}
 	}
 	
-	
+	// Copy and convert to double sol in best_sol
 	for (int i = 0; i < inst->nnodes; i++) {
 		inst->best_sol[best_sol[i]] = 1.0;
 	}
 
-	int izero = 0;
-	double val = 1.0;
-	int nocheck_warmstart = CPX_MIPSTART_CHECKFEAS;
+	if(inst->useCplex)
+		CPXsetintparam(env, CPX_PARAM_ADVIND, 1);
 
-	if ((*status = CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL))) {
-		print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
-		return *status;
-	}
-
-	CPXsetintparam(env, CPX_PARAM_ADVIND, 1);
-
-	return 0;
+	return best_sol;
 }
 int insertion_move(tspinstance* inst, int* best_sol, int count_sol, int vertex) {
 	double extra_mileage = INT_MAX;
@@ -1501,93 +1552,184 @@ int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
 	int* ncomp = (int*)calloc(1, sizeof(int));
 	build_sol(inst, succ, comp, ncomp);
 	if (*ncomp != 1) {
-		printf("Error: tabù_search is called with best_sol with multiple tour!");
+		printf("Error: tabu_search is called with best_sol with multiple tour!");
 		return 1;
 	}
 
-	// search in 2opt if a better solution is found
-	int i = 0;		// start from node 0
-	int j = succ[succ[0]];
-	int best_i = i;
-	int best_j = i;
-	double best_improve = 0.0;
-	double d_i1_i2;
-	double d_j1_j2;
-	double d_i1_j1;
-	double d_i2_j2;
-	double cur_improve;
+	CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit);
+	//double* best_sol = (double*)calloc(inst->nedges, sizeof(double));
+	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
+	double best_lb = inst->best_lb;
+	double best_temp_lb = best_lb;
+	double remaining_time = inst->timelimit;
+	int isImprovement = 1;
+	int best_pre_i = -1;
+	int best_pre_j = -1;
 
 	// tabù list (linked list)
 	tabu_list* head = NULL;
+	tabu_list* head_save = NULL;
 
-	for (int ti = 0; ti < inst->nnodes; ti++) {
-		if (contained_in_posix(head, i, succ[i])) {
-			continue;
+
+	for (int countListSize = 0; remaining_time > 0.0; ) {
+		double ini = second();
+
+		if (inst->verbose > 100) printf("*** Calc new 2_opt sol ***\n");
+
+		// search in 2opt if a better solution is found
+		int i = 0;		// start from node 0
+		int j = succ[succ[0]];
+		int best_i = i;
+		int best_j = i;
+
+		double best_improve = 0.0;
+		if (!isImprovement)
+			best_improve = -CPX_INFBOUND;
+		double d_i1_i2;
+		double d_j1_j2;
+		double d_i1_j1;
+		double d_i2_j2;
+		double cur_improve;
+
+
+		// Best 2-opt
+		for (int ti = 0; ti < inst->nnodes - 3; ti++) {
+			if (!isImprovement && head != NULL && contained_in_posix(&head, xpos(i, succ[i], inst)) != -1 ) {
+				i = succ[i];
+				j = succ[succ[i]];
+			}
+			else {
+				d_i1_i2 = dist(i, succ[i], inst);
+				for (int tj = ti + 2; tj < inst->nnodes; tj++) {			// no 2opt with consequence arches
+					if (i == succ[j] || contained_in_posix(&head, xpos(j, succ[j], inst)) != -1) break;								// should happen only when i = 0,
+					d_j1_j2 = dist(j, succ[j], inst);
+					d_i1_j1 = dist(i, j, inst);
+					d_i2_j2 = dist(succ[i], succ[j], inst);
+
+					if (inst->verbose > 100) printf("*** i - j: %d - %d\n", i, j);
+
+					cur_improve = (d_i1_i2 + d_j1_j2) - (d_i1_j1 + d_i2_j2);
+					if (cur_improve > best_improve) {						// cross is better
+						best_i = i;
+						best_j = j;
+						best_improve = cur_improve;
+
+						if (inst->verbose > 99) printf("Best_improve: %f\n", best_improve);
+					}
+					j = succ[j];
+				}
+				i = succ[i];
+				j = succ[succ[i]];
+			}
 		}
-		else {
-			d_i1_i2 = dist(i, succ[i], inst);
-			for (int tj = ti + 2; tj < inst->nnodes; tj++) {				// no 2opt with consequence arches
-				if (i == succ[j]) break;
-				d_j1_j2 = dist(j, succ[j], inst);
-				d_i1_j1 = dist(i, j, inst);
-				d_i2_j2 = dist(succ[i], succ[j], inst);
-				cur_improve = (d_i1_i2 + d_j1_j2) - (d_i1_j1 + d_i2_j2);
-				if (cur_improve > best_improve) {							// cross is better
-					best_i = i;
-					best_j = j;
-					best_improve = cur_improve;
+		// if find new best solution change the arches
+		if (best_i != best_j) {
+			int i2 = succ[best_i];
+			int j2 = succ[best_j];
+			int pre_node = succ[i2];
+			succ[best_i] = best_j;
+			succ[i2] = j2;
+			int cur_node = i2;
+			int suc_node = j2;
+			while (cur_node != best_j) {  // reverse the succ
+				suc_node = cur_node;
+				cur_node = pre_node;
+				pre_node = succ[pre_node];
+				succ[cur_node] = suc_node;
+				if (inst->verbose >= 101) print_succ(succ, inst);
+			}
+			best_pre_i = best_i;
+			best_pre_j = best_j;
+		}else {
+			if (contained_in_posix(&head, xpos(best_pre_i, best_pre_j, inst)) == -1) {
+				push(&head, xpos(best_pre_i, best_pre_j, inst), 1);
+				countListSize++;
+			}
+			if (contained_in_posix(&head, xpos(succ[best_pre_i], succ[best_pre_j], inst)) == -1) {
+				push(&head, xpos(succ[best_pre_i], succ[best_pre_j], inst), 1);
+				countListSize++;
+			}
+		}
+
+		if (!isImprovement) {
+			if (contained_in_posix(&head, xpos(best_pre_i, best_pre_j, inst)) == -1) {
+				push(&head, xpos(best_pre_i, best_pre_j, inst), 1);
+				countListSize++;
+			}
+			if (contained_in_posix(&head, xpos(succ[best_pre_i], succ[best_pre_j], inst)) == -1) {
+				push(&head, xpos(succ[best_pre_i], succ[best_pre_j], inst), 1);
+				countListSize++;
+			}
+
+			while (countListSize - inst->nnodes / 2 > 0) {
+				pop_last(head);
+				countListSize --;
+			}
+
+			if(inst->verbose > 100) print_list(head);
+		}
+
+		best_lb -= best_improve;
+		if (best_temp_lb == best_lb){
+			// Local/Global minimum found
+			isImprovement = 0;
+			printf("Local (possible global) Minimum found! Start to rise again\n");
+			if (best_lb < inst->best_lb) {
+				inst->best_lb = best_lb;
+				best_temp_lb = best_lb;
+				int first_node = 0;
+				int second_node = succ[first_node];
+				for (int i = 0; i < inst->nedges; i++) {
+					inst->best_sol[xpos(first_node, second_node, inst)] = 1.0;
+					first_node = second_node;
+					second_node = succ[second_node];
+				}
+				printf("BEST_LB GLOBAL update to : [%f]\n", inst->best_lb);
+				//plot_instance(inst);
+
+			}
+
+		} else {
+			if (best_improve > 0) {
+				isImprovement = 1;
+
+				printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_temp_lb, best_lb);
+				best_temp_lb = best_lb;
+
+				if (head != NULL) {
+					//delete_list(head, &head);
+					//pop_first(&head);
 				}
 			}
 		}
-		i = succ[i];
-		j = succ[succ[i]];
+
+		push(&head_save, best_lb, 0);
+
+		remaining_time -= second() - ini;
 	}
-
-	// if find new best solution change the arches
-	if (best_i != best_j) {
-
-		int i2 = succ[best_i];
-		int j2 = succ[best_j];
-		int pre_node = succ[i2];
-		succ[best_i] = best_j;
-		succ[i2] = j2;
-		int cur_node = i2;
-		int suc_node = j2;
-		while (cur_node != best_j) {  // reverse the succ
-			suc_node = cur_node;
-			cur_node = pre_node;
-			pre_node = succ[pre_node];
-			succ[cur_node] = suc_node;
-			if (inst->verbose >= 100) print_succ(succ, inst);
-		}
-
-		push(head, best_i, best_j);
-		push(head, succ[best_i], succ[best_j]);
-	}
-	inst->best_lb -= best_improve;  // update best_lb
 
 	if (inst->verbose >= 100) print_succ(succ, inst);
 	free(succ);
 	free(comp);
 	free(ncomp);
+	printf("BEST FINAL GLOBAL LB found: [%f]\n", inst->best_lb);
+
+	write_list_lb(head_save);
+
 }
-void push(tabu_list** head, int arc1, int arc2) {
+void push(struct tabu_list** head_ref, int arc, int isArc) {
 	tabu_list* new_node = (tabu_list*)malloc(sizeof(tabu_list));
 
-	arches* tmp_arches = (arches*)malloc(sizeof(arches));
-	tmp_arches->arc1 = arc1;
-	tmp_arches->arc2 = arc2;
+	new_node->arc = arc;
 
-	new_node->arches = tmp_arches;
-	new_node->next = *head;
-	*head = new_node;
+	new_node->next = *head_ref;
+	*head_ref = new_node;
 
-	free(tmp_arches);
+	if(isArc)
+		printf("++++ ADD element %d to Tabu List\n", arc);
 }
-arches* pop_first(tabu_list** head) {
-	arches* retval = (arches*)malloc(sizeof(arches));
-	retval->arc1 = -1;
-	retval->arc2 = -1;
+int pop_first(tabu_list** head) {
+	int retval = -1;
 	tabu_list* next_node = NULL;
 
 	if (*head == NULL) {
@@ -1595,17 +1737,18 @@ arches* pop_first(tabu_list** head) {
 	}
 
 	next_node = (*head)->next;
-	retval = (*head)->arches;
+	retval = (*head)->arc;
 	free(*head);
 	*head = next_node;
 
+	printf("---- REMOVE element %d to Tabu List\n", retval);
 	return retval;
 }
-arches* pop_last(tabu_list* head) {
-	arches* retval = (arches*)malloc(sizeof(arches));
+int pop_last(tabu_list* head) {
+	int retval = -1;
 	/* if there is only one item in the list, remove it */
 	if (head->next == NULL) {
-		arches* retval = head->arches;
+		retval = head->arc;
 		free(head);
 		return retval;
 	}
@@ -1617,16 +1760,16 @@ arches* pop_last(tabu_list* head) {
 	}
 
 	/* now current points to the second to last item of the list, so let's remove current->next */
-	retval = current->next->arches;
+	retval = current->next->arc;
 	free(current->next);
 	current->next = NULL;
+
+	printf("---- REMOVE element %d to Tabu List\n", retval);
 	return retval;
 }
-arches* remove_by_index(tabu_list** head, int n) {
+int remove_by_index(tabu_list** head, int n) {
 	int i = 0;
-	arches* retval = (arches*)malloc(sizeof(arches));
-	retval->arc1 = -1;
-	retval->arc2 = -1;
+	int retval = -1;
 	tabu_list* current = *head;
 	tabu_list* temp_node = NULL;
 
@@ -1642,7 +1785,7 @@ arches* remove_by_index(tabu_list** head, int n) {
 	}
 
 	temp_node = current->next;
-	retval = temp_node->arches;
+	retval = temp_node->arc;
 
 	current->next = temp_node->next;
 	free(temp_node);
@@ -1650,46 +1793,62 @@ arches* remove_by_index(tabu_list** head, int n) {
 	return retval;
 
 }
-int contained_in_posix(tabu_list** head, int arc1, int arc2) {
+int contained_in_posix(tabu_list** head, int arc) {
 	int retval = -1, i = 0;
 	tabu_list* current = *head;
-	arches* found = (arches*)malloc(sizeof(arches));
+	int found = -1;
 
-	while (current->next != NULL) {
-		
-		found = current->arches;
-		
-		if (found->arc1 == arc1 && found->arc2 == arc2) {
+	while (current != NULL) {
+
+		found = current->arc;
+
+		if (found == arc) {
 			retval = i;
-			free(found);
 			return retval;
 		}
 
 		i++;
 		current = current->next;
+
 	}
-	free(found);
+	
 	return retval;
 }
 void print_list(tabu_list* head) {
 	tabu_list* current = head;
-	arches* printval;
-	printf("--- Tabù list elements: ---\n");
+	int printval;
+	printf("--- Tabu list elements: ---\n");
 	while (current != NULL) {
-		printval = current->arches;
-		printf("Arc: [ %d, %d ]\n", printval->arc1, printval->arc2);
+		printval = current->arc;
+		printf("Arc:\t%d\n", printval);
 		current = current->next;
 	}
 }
-void delete_list(tabu_list* head) {
-	tabu_list* current = head,
-		*next = head;
+void delete_list(tabu_list* head, tabu_list** head_ref) {
+	tabu_list* current = head, *next = head;
 
 	while (current) {
 		next = current->next;
 		free(current);
 		current = next;
 	}
+
+	*head_ref = NULL;
+}
+void write_list_lb(tabu_list* head) {
+	FILE* fptr;
+	fptr = fopen("plot\\lb_result.txt", "w");
+	
+	tabu_list* current = head;
+	int printval;
+	printf("--- Writing LB list elements ---\n");
+	while (current != NULL) {
+		printval = current->arc;
+		fprintf(fptr, "%d,\n", printval);
+		current = current->next;
+	}
+
+	fclose(fptr);
 }
 
 // optimization methods run the problem optimization
@@ -1706,12 +1865,11 @@ int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status)
 			*status = subtour_heur_iter_opt(env, lp, inst, status, 0);
 			break;
 
-		case 2:
+		case 2:			// Simply CPLEX optimization
 			*status = CPXmipopt(env,lp);
 			break;
 
-		case 100:
-			test_warm_start(env, lp);
+		case 3:			// Empty. Used to evaluate heuristic alone
 			break;
 
 		default:
@@ -2237,7 +2395,7 @@ void best_two_opt(tspinstance *inst) {
 		}
 	}
 	inst->best_lb -= best_improve;  // update best_lb
-
+																// TODO: assign best_sol found in inst->best_sol
 	if (inst->verbose >= 100) print_succ(succ, inst);
 	free(succ);
 	free(comp);
@@ -2526,7 +2684,7 @@ void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 
 		}
 	}
-	/*		SBAGLIATO
+	/* SBAGLIATO ?
 	for ( int start = 0; start < inst->nnodes; start++ )
 	{
 		if ( comp[start] >= 0 ) continue;  // node "start" has already been setted
@@ -2620,7 +2778,28 @@ void build_sol_lazy_std(tspinstance* inst, const double* xstar, int* succ, int* 
 		comp[i] = -1;
 	}
 
-	// tour			TODO: Questo probabilmente è sbagliato! copiare da build_sol_sym
+	// tour
+	for (int start = 0; start < inst->nnodes; start++) {
+		if (comp[start] >= 0)
+			continue;
+
+		(*ncomp)++;
+		int prv = -1;
+		int i = start;
+		while (comp[start] == -1) {
+			for (int j = 0; j < inst->nnodes; j++) {
+				if (i != j && xstar[xpos(i, j, inst)] > 0.5 && j != prv) {
+
+					succ[i] = j;
+					comp[j] = *ncomp;
+					prv = i;
+					i = j;
+					break;
+				}
+			}
+		}
+	}
+	/* SBAGLIATO?
 	for (int start = 0; start < inst->nnodes; start++)
 	{
 		if (comp[start] >= 0) continue;  // node "start" has already been setted
@@ -2658,7 +2837,8 @@ void build_sol_lazy_std(tspinstance* inst, const double* xstar, int* succ, int* 
 		}	// while
 	// go to the next component...
 	}
-
+	*/
+	
 	// print succ, comp and ncomp
 	if (inst->verbose >= 2000)
 	{
@@ -3171,7 +3351,7 @@ void plot_instance(tspinstance *inst) {
 void setup_style(FILE *gnuplot, tspinstance *inst) {
 
 	switch (inst->model_type) {
-
+	case 17:	
 		case 0:			// Line
 			setup_linestyle2(gnuplot);
 			break;
@@ -3183,11 +3363,11 @@ void setup_style(FILE *gnuplot, tspinstance *inst) {
 		case 2:			// Arrow
 			setup_arrowstyle2(gnuplot);
 			break;
-
+		
 		case 3:			// Arrow
 			setup_arrowstyle2(gnuplot);
 			break;
-
+		
 		default:
 			fclose(gnuplot);
 			print_error(" Model type unknown!!\n");
@@ -3232,7 +3412,7 @@ void plot_edges(FILE *gnuplot, char *pngname, tspinstance *inst) {
 	{
 
 		switch (inst->model_type) {
-
+		case 17:
 		case 0:			// Line
 			plot_lines_sym(gnuplot, pngname, inst);
 			break;

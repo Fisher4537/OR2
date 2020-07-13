@@ -30,14 +30,9 @@ typedef struct {
 } hardfix;
 
 typedef struct arches_tuple {
-	struct arches* arches;
+	int arc;
 	struct arches_tuple* next;
 } tabu_list;
-
-typedef struct {
-	int arc1;
-	int arc2;
-} arches;
 
 typedef struct {
 
@@ -78,6 +73,7 @@ typedef struct {
 	int mip_opt;
 	int build_sol;
 	int warm_start;
+	int useCplex;
 	int heuristic;
 	int plot_style;
 	int plot_edge;
@@ -121,19 +117,20 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, double fixing_ratio);
 int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
-void push(tabu_list** head, int arc1, int arc2);
-arches* pop_first(tabu_list** head);
-arches* pop_last(tabu_list* head);
-arches* remove_by_index(tabu_list** head, int n);
-int contained_in_posix(tabu_list** head, int arc1, int arc2);
+void push(tabu_list** head, int arc, int isArc);
+int pop_first(tabu_list** head);
+int pop_last(tabu_list* head);
+int remove_by_index(tabu_list** head, int n);
+int contained_in_posix(tabu_list** head, int arc);
 void print_list(tabu_list* head);
-void delete_list(tabu_list* head);
+void write_list_lb(tabu_list* head);
+void delete_list(tabu_list* head, tabu_list** head_ref);
 
-int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
-int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+int* heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+int* heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int succ_not_contained(int node, int* sol, tspinstance* inst);
-void heur_grasp(tspinstance* inst, int* status);
-int heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+int* heur_grasp(tspinstance* inst, int* status);
+int* heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int insertion_move(tspinstance* inst, int* best_sol, int count_sol, int vertex);
 int contained_in_index(int* vector, int count_sol, int elem);
 
