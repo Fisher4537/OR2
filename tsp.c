@@ -31,6 +31,8 @@
 			- Aggiungere limite di tempo in tutti i metodi che lo richiedono (io lo metterei in tutti se il timelimit viene settato)
 			  e dobbiamo stare attenti, dovremmo tenere un remaining_time globale in modo che se utilizziamo modelli con più metodi scalino tutti dallo stesso remaining_time
 
+			- Hard fixing usa CPLEX? cioè ti serve il parametro useCplex a TRUE? ora è a TRUE (riga 134), se non ti serve che faccia il CPXSolution nel metodo TSPopt allora togli quella riga
+
 
 */
 
@@ -129,6 +131,7 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->heuristic = 1;
 			inst->callback = 2;
 			inst->mip_opt = 2;
+			inst->useCplex = 1;												// USA CPLEX O NO?????????
 			return "hard_fixing";						// Hard-Fixing
 		case 9:
 			inst->model_type = 0;
@@ -250,7 +253,7 @@ int TSPopt(tspinstance *inst) {
 
 	if (inst->verbose >= 100) printf("optimization complete!\n");
 
-	if(inst->setup_model != 9 && inst->setup_model != 14)
+	if(inst->useCplex)
 		CPXsolution(env, lp, &status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
 
 	if (inst->verbose >= 100) printf("free instance object...\n");
@@ -1345,7 +1348,6 @@ int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	// free(ncomp);
 	return 0;
 }
-
 void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, double fixing_ratio) {
 
 	if (inst->verbose >= 100) printf("FIXING %.5lf %%\n", fixing_ratio);
