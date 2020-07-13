@@ -44,6 +44,11 @@ char * model_name(int i) {
 		case 10: return "heuristic_greedy";
 		case 11: return "heuristic_greedy_cgal";
 		case 12: return "heuristic_grasp";
+		case 13: return "heuristic_insertion";
+		case 14: return "grasp_best_two_opt";
+		case 15: return "patching";
+		case 16: return "vns";
+		case 17: return "tabu_search";
 		default: return "not_supported";
 	}
 }
@@ -205,7 +210,9 @@ int TSPopt(tspinstance *inst) {
 
 	if (inst->verbose >= 100) printf("optimization complete!\n");
 
-	if(inst->setup_model != 9 && inst->setup_model != 14)
+	if(inst->setup_model != 9 && inst->setup_model != 14 && inst->setup_model != 15 &&
+			inst->setup_model != 11 && inst->setup_model != 12 && inst->setup_model != 13 &&
+			inst->setup_model != 10)
 		CPXsolution(env, lp, &status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
 
 	if (inst->verbose >= 100) printf("free instance object...\n");
