@@ -57,7 +57,7 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
  2		 build_flow1			heur_greedy_cgal	local_branching				 CPXmipopt					 generic CAND
  3		build_mtz_lazy			heur_grasp				best_two_opt													generic CAND, GLOBAL
  4																						patching
- 5
+ 5																							vns
  6
 */
 
@@ -70,27 +70,27 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 		case 0:
 			inst->model_type = 0;
 			inst->mip_opt = 0;
-			return "subtour";							// basic model with asymmetric x and q
+			return "subtour";				// basic model with asymmetric x and q
 		case 1:
 			inst->model_type = 1;
 			inst->mip_opt = 2;
-			return "mtz";								// MTZ contraints
+			return "mtz";				// MTZ contraints
 		case 2:
 			inst->model_type = 2;
 			inst->mip_opt = 2;
-			return "flow1_n-2";							// FLOW 1 with y_0j <= x_0j*(n-2) if i != 0
+			return "flow1_n-2";				// FLOW 1 with y_0j <= x_0j*(n-2) if i != 0
 		case 3:
 			inst->model_type = 2;
 			inst->mip_opt = 2;
-			return "flow1_n-1";							// FLOW 1 with y_0j <= x_0j*(n-1)
+			return "flow1_n-1";				// FLOW 1 with y_0j <= x_0j*(n-1)
 		case 4:
 			inst->model_type = 3;
 			inst->mip_opt = 2;
-			return "mtz_lazy";							// MTZ with LAZY constraints
+			return "mtz_lazy";				// MTZ with LAZY constraints
 		case 5:
 			inst->model_type = 0;
 			inst->mip_opt = 1;
-			return "subtour_ffi";						// Subtour with fast first incumb
+			return "subtour_ffi";				// Subtour with fast first incumb
 		case 6:
 			inst->model_type = 0;
 			inst->callback = 1;
@@ -100,24 +100,24 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->model_type = 0;
 			inst->callback = 2;
 			inst->mip_opt = 2;
-			return "subtour_callback_general";			// Subtour_callback_general
+			return "subtour_callback_general";				// Subtour_callback_general
 		case 8:
 			inst->model_type = 0;
 			inst->heuristic = 1;
 			inst->callback = 2;
 			inst->mip_opt = 2;
-			return "hard_fixing";						// Hard-Fixing
+			return "hard_fixing";				// Hard-Fixing
 		case 9:
 			inst->model_type = 0;
 			inst->heuristic = 2;
 			inst->callback = 2;
 			inst->mip_opt = 2;
-			return "local_branching";					// Soft-Fixing => Local Branching
+			return "local_branching";				// Soft-Fixing => Local Branching
 		case 10:
 			inst->model_type = 0;
 			inst->warm_start = 1;
 			inst->mip_opt = 100;
-			return "heuristic_greedy";					// Heuristic Greedy (no CPLEX)
+			return "heuristic_greedy";				// Heuristic Greedy (no CPLEX)
 		case 11:
 			inst->model_type = 0;
 			inst->warm_start = 2;
@@ -127,7 +127,7 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->model_type = 0;
 			inst->warm_start = 3;
 			inst->mip_opt = 100;
-			return "heuristic_grasp";					// Heuristic GRASP (no CPLEX)
+			return "heuristic_grasp";				// Heuristic GRASP (no CPLEX)
 		case 13:
 			inst->model_type = 0;
 			inst->warm_start = 4;
@@ -143,12 +143,16 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->model_type = 0;
 			inst->heuristic = 4;
 			return "patching";
-
+		case 16:
+			inst->model_type = 0;
+			inst->warm_start = 3;
+			inst->heuristic = 5;
+			return "vns";	 			// GRASP + 2opt and random5opt
 		case 17:
 			inst->model_type = 0;
 			inst->warm_start = 4;
 			inst->heuristic = 6;
-			return "tabu_search";						// Heuristic Insertion + TABU' SEARCH
+			return "tabu_search";				// Heuristic Insertion + TABU' SEARCH
 		default: return "not_supported";
 	}
 }
@@ -189,15 +193,11 @@ int TSPopt(tspinstance *inst) {
 	// set warm start if used
 	switch_warm_start(inst, env, lp, &status);
 
-
-
 	if (inst->verbose >= 100) printf("\nbuild model succesfully.\n");
 	if (inst->verbose >= 100) printf("optimizing model...\n");
 
 	// compute cplex and calculate opt_time w.r.t. OS used
 	double ini = second();
-	//tmp_heur_grasp(inst, &status); // TODO save best_val inside
-	//best_two_opt(inst);
 	optimization(env, lp, inst, &status);
 	double fin = second();
 	inst->opt_time = (double)(fin - ini);
@@ -777,7 +777,7 @@ void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* statu
 		case 4:
 			heur_insertion(env, lp, inst, status);				// Heuristic Insertion
 		break;
-		
+
 		default:
 			print_error(" model type unknown!!");
 		break;
@@ -1116,8 +1116,8 @@ int heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 			count_sol++;
 		}
 	}
-	
-	
+
+
 	for (int i = 0; i < inst->nnodes; i++) {
 		inst->best_sol[best_sol[i]] = 1.0;
 	}
@@ -1656,9 +1656,9 @@ int contained_in_posix(tabu_list** head, int arc1, int arc2) {
 	arches* found = (arches*)malloc(sizeof(arches));
 
 	while (current->next != NULL) {
-		
+
 		found = current->arches;
-		
+
 		if (found->arc1 == arc1 && found->arc2 == arc2) {
 			retval = i;
 			free(found);
@@ -2455,32 +2455,26 @@ void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp) {
 
 void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// build succ() and comp() wrt xstar()...
 
-	// check if nodes degree is 2 for each node
-	if (inst->verbose >= 2000)
-	{
+	// check if nodes degree is 2 or 0 (isolated node) for each node
+	if (inst->verbose >= 2000) {
 		int *degree = (int *) calloc(inst->nnodes, sizeof(int));
-		printf("nnodes=%d\n", inst->nnodes );
-		for ( int i = 0; i < inst->nnodes; i++ )
-		{
-			for ( int j = i+1; j < inst->nnodes; j++ )
-			{
+		printf("nnodes=%d\n", inst->nnodes);
+		for (int i = 0; i < inst->nnodes; i++) {
+			for (int j = i+1; j < inst->nnodes; j++) {
 				int k = xpos(i,j,inst);
-				if ( fabs(inst->best_sol[k]) > EPS && fabs(inst->best_sol[k]-1.0) > EPS ) print_error(" wrong inst->best_sol in build_sol()");
-				if ( inst->best_sol[k] > 0.5 )
-				{
-					printf("x[%d,%d] = 1\n", i, j );
+				if (fabs(inst->best_sol[k]) > EPS && fabs(inst->best_sol[k]-1.0) > EPS ) print_error(" wrong inst->best_sol in build_sol()");
+				if (inst->best_sol[k] > 0.5) {
+					printf("x[%d,%d] = 1\n", i, j);
 					++degree[i];
 					++degree[j];
 				} else {
-					printf("x[%d,%d] = 0\n", i, j );
+					printf("x[%d,%d] = 0\n", i, j);
 				}
 
 			}
 		}
-		for ( int i = 0; i < inst->nnodes; i++ )
-		{
-			if ( degree[i] != 2 )
-			{
+		for (int i = 0; i < inst->nnodes; i++) {
+			if (degree[i] != 2 || degree[i] != 0) {
 				char msg[40];
 				snprintf(msg, sizeof(msg), "wrong degree[%d] = %d in build_sol_sym", i, degree[i]);
 				print_error(msg);
@@ -2491,8 +2485,7 @@ void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 
 	// initialization of succ, comp and ncomp
 	*ncomp = 0;
-	for ( int i = 0; i < inst->nnodes; i++ )
-	{
+	for (int i = 0; i < inst->nnodes; i++) {
 		succ[i] = -1;
 		comp[i] = -1;
 	}
@@ -2502,15 +2495,14 @@ void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 		if (comp[start] >= 0)
 			continue;
 
-		(*ncomp)++;
-		//comp[start] = *ncomp;
-		int prv = -1;
-		int i = start;
-		int found_succ = 0;
+		(*ncomp)++;						// the tour id number
+		int prv = -1;					// previous node of i in the tour, used to keep j != i
+		int i = start;				// iterate over nodes to complete the tour
+		int found_succ = 0;		// 1 when found a succ of i
 		while (comp[start] == -1) {
-			for (int j = 0; j < inst->nnodes; j++) {
-				if (i != j && inst->best_sol[xpos(i, j, inst)] > 0.5  && j != prv) {
-
+			found_succ = 0;
+			for (int j = 0; j < inst->nnodes; j++) {	// j iterate to be the subsequent node of i in the tour
+				if (i != j && inst->best_sol[xpos(i, j, inst)] > 0.5  && j != prv) {  // found subsequent of i (j)
 					succ[i] = j;
 					comp[j] = *ncomp;
 					prv = i;
@@ -2520,56 +2512,21 @@ void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 				}
 			}
 			if (!found_succ) {  // no succ found, i is isolated
-				comp[start] = *ncomp;
-				break;
-			}
-
-		}
-	}
-	/*		SBAGLIATO
-	for ( int start = 0; start < inst->nnodes; start++ )
-	{
-		if ( comp[start] >= 0 ) continue;  // node "start" has already been setted
-
-		// a new component is found
-		(*ncomp)++;
-		comp[start] = *ncomp;
-
-		int i = start;
-		//int done = 0;
-		while ( succ[i] == -1  )  // go and visit the current component
-		{
-			comp[i] = *ncomp;
-			// done = 1;
-			for ( int j = 0; j < inst->nnodes; j++ ) {
-				if (j == i) continue;
-
-				if ( inst->best_sol[xpos(i,j,inst)] > 0.5) {  // the edge [i,j] is selected in inst->best_sol and j was not visited before
-					// intern edge of the cycle
-					if (comp[j] == -1) {
-						succ[i] = j;
-						i = j;
-						break;
-					}
-					// last edge of the cycle
-					if (start == j) {
-						succ[i] = j;
-					}
+				if (prv == -1) {	// if no prv found either
+					comp[start] = *ncomp;
+					break;
+				} else {  // it's not a tour, i has no subsequent, but is connected to prv
+					print_error("inst->best_sol is not made of tours and isolated nodes");
 				}
 			}
-			if (succ[i] == -1) {
-				break;
-			}
-		}	// while
-	// go to the next component...
-}*/
+		}
+	}
 
 	// print succ, comp and ncomp
-	if (inst->verbose >= 100)
-	{
-		printf("\ni:      "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", i);
-		printf("\nsucc:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", succ[i]);
-		printf("\ncomp:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
+	if (inst->verbose >= 100) {
+		printf("\ni:    "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", i);
+		printf("\nsucc: "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", succ[i]);
+		printf("\ncomp: "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
 		printf("\n");
 		fflush(stdout);
 	}
@@ -2852,14 +2809,14 @@ double dist(int i, int j, tspinstance *inst) {
 			double tij = round(rij);
 			if (tij < rij)
 				return tij + 1.0;
-			else 
+			else
 				return tij;
 			break;
 		}
 		case 1: {
 			double dx = inst->xcoord[i] - inst->xcoord[j];
 			double dy = inst->ycoord[i] - inst->ycoord[j];
-			if (!inst->integer_costs) return sqrt(dx * dx + dy * dy);	
+			if (!inst->integer_costs) return sqrt(dx * dx + dy * dy);
 			return round(sqrt(dx * dx + dy * dy)); 			// nearest integer
 			break;
 		}
@@ -2868,7 +2825,7 @@ double dist(int i, int j, tspinstance *inst) {
 			double RRR = 6378.388;
 
 			double deg = (int)inst->xcoord[i] + 0.0;
-			double min = inst->xcoord[i] - deg;								// min è diviso per 100	
+			double min = inst->xcoord[i] - deg;								// min è diviso per 100
 			double latitude_i = PI * (deg + 5.0 * min / 3.0) / 180.0;		// PI * ( deg + min/60)/180
 			deg = (int)inst->ycoord[i] + 0.0;
 			min = inst->ycoord[i] - deg;
@@ -2880,7 +2837,7 @@ double dist(int i, int j, tspinstance *inst) {
 			deg = (int)inst->ycoord[j] + 0.0;
 			min = inst->ycoord[j] - deg;
 			double longitude_j = PI * (deg + 5.0 * min / 3.0) / 180.0;
-			
+
 			double q1 = cos(longitude_i - longitude_j);
 			double q2 = cos(latitude_i - latitude_j);
 			double q3 = cos(latitude_i + latitude_j);
@@ -2892,7 +2849,7 @@ double dist(int i, int j, tspinstance *inst) {
 			return -1;
 		break;
 	}
-	
+
 }
 
 
