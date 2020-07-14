@@ -110,13 +110,13 @@ void build_mtz_lazy(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 void add_lazy_mtz(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 
 void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* status);
-void test_warm_start(CPXENVptr env, CPXLPptr lp);
 
 void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, double fixing_ratio);
-int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+
+int tabu_search(CPXENVptr env, tspinstance* inst, int* status);
 void push(tabu_list** head, int arc, int isArc);
 int pop_first(tabu_list** head);
 int pop_last(tabu_list* head);
@@ -125,6 +125,9 @@ int contained_in_posix(tabu_list** head, int arc);
 void print_list(tabu_list* head);
 void write_list_lb(tabu_list* head);
 void delete_list(tabu_list* head, tabu_list** head_ref);
+
+int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status);
+int contained_in_posix_array(int tabu_array_size, int* tabu_array, int arc);
 
 int* heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int* heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);

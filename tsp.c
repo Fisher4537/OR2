@@ -174,26 +174,31 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->model_type = 0;
 			inst->warm_start = 1;
 			inst->heuristic = 6;
-			return "tabu_search";						// Greedy + TABU' SEARCH
+			return "tabu_search";						// Greedy + TABU' SEARCH (Linked List version)
 		case 18:
+			inst->model_type = 0;
+			inst->warm_start = 1;
+			inst->heuristic = 7;
+			return "tabu_search_array";					// Greedy + TABU' SEARCH (Array version)
+		case 19:
 			inst->model_type = 0;
 			inst->warm_start = 1;
 			inst->mip_opt = 2;
 			inst->useCplex = 1;
 			return "heuristic_greedy";					// Heuristic Greedy (Warm Start for CPLEX)
-		case 19:
+		case 20:
 			inst->model_type = 0;
 			inst->warm_start = 2;
 			inst->mip_opt = 2;
 			inst->useCplex = 1;
 			return "heuristic_greedy_cgal";				// Heuristic Greedy CGAL (Warm Start for CPLEX)
-		case 20:
+		case 21:
 			inst->model_type = 0;
 			inst->warm_start = 3;
 			inst->mip_opt = 2;
 			inst->useCplex = 1;
 			return "heuristic_grasp";					// Heuristic GRASP (Warm Start for CPLEX)
-		case 21:
+		case 22:
 			inst->model_type = 0;
 			inst->warm_start = 4;
 			inst->mip_opt = 2;
@@ -1260,7 +1265,11 @@ void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		break;
 
 		case 6:
-			*status = tabu_search(env, lp, inst, status);
+			*status = tabu_search(env, inst, status);
+		break;
+		
+		case 7:
+			*status = tabu_search_array(env, inst, status);
 		break;
 
 		default:
@@ -1545,7 +1554,7 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 	return 0;
 }
 
-int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
+int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 	if (inst->verbose >= 100) printf("Tabu Search\n");
 
 	// check if current solution has only one tour
@@ -1559,7 +1568,6 @@ int tabu_search(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status){
 	}
 
 	CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit);
-	//double* best_sol = (double*)calloc(inst->nedges, sizeof(double));
 	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
 	double best_lb = inst->best_lb;
 	double best_temp_lb = best_lb;
@@ -1727,7 +1735,7 @@ void push(struct tabu_list** head_ref, int arc, int isArc) {
 	new_node->next = *head_ref;
 	*head_ref = new_node;
 
-	if(isArc)
+	if(isArc)														// used to distinguish tabu_list for arcs and list for LBs found
 		printf("++++ ADD element %d to Tabu List\n", arc);
 }
 int pop_first(tabu_list** head) {
@@ -1852,6 +1860,214 @@ void write_list_lb(tabu_list* head) {
 
 	fclose(fptr);
 }
+
+int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
+	if (inst->verbose >= 100) printf("Tabu Search\n");
+
+	// check if current solution has only one tour
+	int* succ = (int*)calloc(inst->nnodes, sizeof(int));
+	int* comp = (int*)calloc(inst->nnodes, sizeof(int));
+	int* ncomp = (int*)calloc(1, sizeof(int));
+	build_sol(inst, succ, comp, ncomp);
+	if (*ncomp != 1) {
+		printf("Error: tabu_search is called with best_sol with multiple tour!");
+		return 1;
+	}
+
+	CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit);
+	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
+	double best_lb = inst->best_lb;
+	double best_temp_lb = best_lb;
+	double remaining_time = inst->timelimit;
+	int isImprovement = 1;
+	int best_pre_i = -1;
+	int best_pre_j = -1;
+
+	// tabù list (array)
+	tabu_list* head_save = NULL;
+
+	// Arrotonda per eccesso nnodes / 2. +1 viene usato per tenere conto di dove inserire l'arco proibito 
+	int tabu_array_size = (inst->nnodes / 2) % 2 == 0 ? (inst->nnodes / 2) + 1 : ((inst->nnodes + 1) / 2) + 1;
+	int* tabu_array = (int*)calloc(tabu_array_size, sizeof(int));
+	for (int i = 0; i < tabu_array_size; i++)
+		tabu_array[i] = -1;
+
+
+
+	for (int countListSize = 0; remaining_time > 0.0; ) {
+		double ini = second();
+
+		if (inst->verbose > 100) printf("*** Calc new 2_opt sol ***\n");
+
+		// search in 2opt if a better solution is found
+		int i = 0;		// start from node 0
+		int j = succ[succ[0]];
+		int best_i = i;
+		int best_j = i;
+
+		double best_improve = 0.0;
+		if (!isImprovement)
+			best_improve = -CPX_INFBOUND;
+		double d_i1_i2;
+		double d_j1_j2;
+		double d_i1_j1;
+		double d_i2_j2;
+		double cur_improve;
+
+
+		// Best 2-opt
+		for (int ti = 0; ti < inst->nnodes - 3; ti++) {
+			if (!isImprovement && contained_in_posix_array(tabu_array_size, tabu_array, xpos(i, succ[i], inst)) != -1) {
+				i = succ[i];
+				j = succ[succ[i]];
+			}
+			else {
+				d_i1_i2 = dist(i, succ[i], inst);
+				for (int tj = ti + 2; tj < inst->nnodes; tj++) {			// no 2opt with consequence arches
+					if (i == succ[j] || contained_in_posix_array(tabu_array_size, tabu_array, xpos(j, succ[j], inst)) != -1) break;								// should happen only when i = 0,
+					d_j1_j2 = dist(j, succ[j], inst);
+					d_i1_j1 = dist(i, j, inst);
+					d_i2_j2 = dist(succ[i], succ[j], inst);
+
+					if (inst->verbose > 100) printf("*** i - j: %d - %d\n", i, j);
+
+					cur_improve = (d_i1_i2 + d_j1_j2) - (d_i1_j1 + d_i2_j2);
+					if (cur_improve > best_improve) {						// cross is better
+						best_i = i;
+						best_j = j;
+						best_improve = cur_improve;
+
+						if (inst->verbose > 99) printf("Best_improve: %f\n", best_improve);
+					}
+					j = succ[j];
+				}
+				i = succ[i];
+				j = succ[succ[i]];
+			}
+		}
+		// if find new best solution change the arches
+		if (best_i != best_j) {
+			int i2 = succ[best_i];
+			int j2 = succ[best_j];
+			int pre_node = succ[i2];
+			succ[best_i] = best_j;
+			succ[i2] = j2;
+			int cur_node = i2;
+			int suc_node = j2;
+			while (cur_node != best_j) {  // reverse the succ
+				suc_node = cur_node;
+				cur_node = pre_node;
+				pre_node = succ[pre_node];
+				succ[cur_node] = suc_node;
+				if (inst->verbose >= 101) print_succ(succ, inst);
+			}
+			best_pre_i = best_i;
+			best_pre_j = best_j;
+		}
+		else {
+			if (contained_in_posix_array(tabu_array_size, tabu_array, xpos(best_pre_i, best_pre_j, inst)) == -1) {
+				for(int i = 0; i < tabu_array_size; i++)
+					if (tabu_array[i] == -1) {
+						tabu_array[i] = xpos(best_pre_i, best_pre_j, inst);
+						printf("++++ ADD element %d to Tabu List\n", tabu_array[i]);
+						printf("---- REPLACE element %d with -1 to Tabu List\n", tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)]);
+						tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)] = -1;
+						break;
+					}
+			}
+			if (contained_in_posix_array(tabu_array_size, tabu_array, xpos(succ[best_pre_i], succ[best_pre_j], inst)) == -1) {
+				for (int i = 0; i < tabu_array_size; i++)
+					if (tabu_array[i] == -1) {
+						tabu_array[i] = xpos(succ[best_pre_i], succ[best_pre_j], inst);
+						printf("++++ ADD element %d to Tabu List\n", tabu_array[i]);
+						printf("---- REPLACE element %d with -1 to Tabu List\n", tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)]);
+						tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)] = -1;
+						break;
+					}
+			}
+		}
+
+		if (!isImprovement) {
+			if (contained_in_posix_array(tabu_array_size, tabu_array, xpos(best_pre_i, best_pre_j, inst)) == -1) {
+				for (int i = 0; i < tabu_array_size; i++)
+					if (tabu_array[i] == -1) {
+						tabu_array[i] = xpos(best_pre_i, best_pre_j, inst);
+						printf("++++ ADD element %d to Tabu List\n", tabu_array[i]);
+						printf("---- REPLACE element %d with -1 to Tabu List\n", tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)]);
+						tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)] = -1;
+						break;
+					}
+			}
+			if (contained_in_posix_array(tabu_array_size, tabu_array, xpos(succ[best_pre_i], succ[best_pre_j], inst)) == -1) {
+				for (int i = 0; i < tabu_array_size; i++)
+					if (tabu_array[i] == -1) {
+						tabu_array[i] = xpos(succ[best_pre_i], succ[best_pre_j], inst);
+						printf("++++ ADD element %d to Tabu List\n", tabu_array[i]);
+						printf("---- REPLACE element %d with -1 to Tabu List\n", tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)]);
+						tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)] = -1;
+						break;
+					}
+			}
+
+			if (inst->verbose > 99) {
+				printf("Tabu List: \n");
+				for (int k = 0; k < tabu_array_size; k++)
+					printf("%d ", tabu_array[k]);
+				printf("\n");
+			}
+		}
+
+		best_lb -= best_improve;
+		if (best_temp_lb == best_lb) {
+			// Local/Global minimum found
+			isImprovement = 0;
+			printf("Local (possible global) Minimum found! Start to rise again\n");
+			if (best_lb < inst->best_lb) {
+				inst->best_lb = best_lb;
+				best_temp_lb = best_lb;
+				int first_node = 0;
+				int second_node = succ[first_node];
+				for (int i = 0; i < inst->nedges; i++) {
+					inst->best_sol[xpos(first_node, second_node, inst)] = 1.0;
+					first_node = second_node;
+					second_node = succ[second_node];
+				}
+				printf("BEST_LB GLOBAL update to : [%f]\n", inst->best_lb);
+
+			}
+
+		}
+		else {
+			if (best_improve > 0) {
+				isImprovement = 1;
+
+				printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_temp_lb, best_lb);
+				best_temp_lb = best_lb;
+
+			}
+		}
+
+		push(&head_save, best_lb, 0);
+
+		remaining_time -= second() - ini;
+	}
+
+	if (inst->verbose >= 100) print_succ(succ, inst);
+	free(succ);
+	free(comp);
+	free(ncomp);
+	printf("BEST FINAL GLOBAL LB found: [%f]\n", inst->best_lb);
+
+	write_list_lb(head_save);
+
+}
+int contained_in_posix_array(int tabu_array_size, int* tabu_array, int arc) {
+	for (int i = 0; i < tabu_array_size; i++)
+		if (tabu_array[i] == arc)
+			return i;
+	return -1;
+}
+
 
 // optimization methods run the problem optimization
 int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status) {
