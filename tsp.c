@@ -32,7 +32,8 @@
 			  e dobbiamo stare attenti, dovremmo tenere un remaining_time globale in modo che se utilizziamo modelli con più metodi scalino tutti dallo stesso remaining_time
 
 			- Hard fixing usa CPLEX? cioè ti serve il parametro useCplex a TRUE? ora è a TRUE (riga 134), se non ti serve che faccia il CPXSolution nel metodo TSPopt allora togli quella riga
-
+			
+			- Tabu search: we can add variable length of list and add the check also for tabu solution
 */
 
 char * model_name(int i) {
@@ -206,9 +207,9 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			return "heuristic_insertion";				// Heuristic Insertion (Warm Start for CPLEX)
 		case 23:
 			inst->model_type = 0;
-			inst->warm_start = 1;
+			inst->warm_start = 3;
 			inst->heuristic = 8;
-			return "simulating_annealing";				// Simulating Annealing
+			return "simulating_annealing";				// GRASP + Simulating Annealing
 		default: return "not_supported";
 	}
 }
@@ -2131,8 +2132,7 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 	double delta_perc = 1.0;
 	double K = 1.0;					// Boltzmann constant
 
-	// linked list used to save LB found
-	tabu_list* head_save = NULL;
+	int dont_print_same_number = 100;
 
 	while (remaining_time > 0.0) {
 		double ini = second();
@@ -2158,7 +2158,10 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 		if (delta > 0.0)  {
 			delta_perc = delta / inst->best_lb;																	// Can accept bad move
 			double prob = (double)rand() / (double)RAND_MAX;
-			printf("**** Temp_perc, Delta_perc = [%0.2f,%0.4f] --- Probability [%0.3f] >= [%0.3f] ??\n", temperature_perc, delta_perc, prob, exp(-delta_perc / (K * temperature_perc)));
+			if (((int)(temperature_perc * 100) % 10 == 0 && dont_print_same_number != (int)(temperature_perc * 100)) || inst->verbose > 100) {
+				dont_print_same_number = (int)(temperature_perc * 100);
+				printf("**** Temp_perc, Delta_perc = [%0.2f,%0.4f] --- Probability [%0.3f] >= [%0.3f] ??\n", temperature_perc, delta_perc, prob, exp(-delta_perc / (K * temperature_perc)));
+			}
 			if (prob >= exp(- delta_perc / (K * temperature_perc))) {			// Rejected bad move
 				for (int i = 0; i < inst->nedges; i++)		
 					if (best_sol[i] == 1.0)
@@ -2166,20 +2169,28 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 					else
 						inst->best_sol[i] = 0.0;
 
-				//printf("BAD Moves found but refused!!\n");
-				//printf("LB reset from -> to : [%f] -> [%f]\n", inst->best_lb, best_lb);
+				if (inst->verbose > 100) {
+					printf("BAD Moves found but refused!!\n");
+					printf("LB reset from -> to : [%f] -> [%f]\n", inst->best_lb, best_lb);
+				}
 				inst->best_lb = best_lb;
 			}else {
-				//printf("BAD Moves found and Accepted\n");													// Accepted bad move
-				//printf("LB update from -> to : [%f] -> [%f]\n", best_lb, inst->best_lb);
+				if (inst->verbose > 100) {
+					printf("BAD Moves found and Accepted\n");													// Accepted bad move
+					printf("LB update from -> to : [%f] -> [%f]\n", best_lb, inst->best_lb);
+				}
 				best_lb = inst->best_lb;
 			}
-		}else {																								// good move always accepted
-			//printf("GOOD Moves found and Accepted\n");
-			//printf("LB update from -> to : [%f] -> [%f]\n", best_lb, inst->best_lb);
+		}
+		else {																								// good move always accepted
+			if (inst->verbose > 100) {
+				printf("GOOD Moves found and Accepted\n");
+				printf("LB update from -> to : [%f] -> [%f]\n", best_lb, inst->best_lb);
+			}
 			best_lb = inst->best_lb;
 
 			if (inst->best_lb < best_global_lb) {
+				printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_global_lb, inst->best_lb);
 				best_global_lb = inst->best_lb;
 				for (int i = 0; i < inst->nedges; i++)
 					if (inst->best_sol[i] == 1.0)
@@ -2193,8 +2204,11 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 		remaining_time -= second() - ini;
 		if (decrease == -1) {
 			double single_step = inst->timelimit / (inst->timelimit - remaining_time);
-			decrease = temperature / (single_step * 3);
-			printf("Temperature step = %f\n", decrease);
+			decrease = temperature / (single_step * 2);
+
+			// TODO: metti in relazione temperatura e tempo e fai la decresita ad ogni ciclo
+
+			printf("Temperature max %.0f - Step Decreasing = %d\n", temperature, decrease);
 		}
 
 	}
