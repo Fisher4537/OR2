@@ -33,7 +33,6 @@
 
 			- Hard fixing usa CPLEX? cioè ti serve il parametro useCplex a TRUE? ora è a TRUE (riga 134), se non ti serve che faccia il CPXSolution nel metodo TSPopt allora togli quella riga
 
-
 */
 
 char * model_name(int i) {
@@ -169,7 +168,8 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->warm_start = 0;
 			inst->heuristic = 4;
 			return "patching";							// Patching			TODO: for testing needs to have a tour with ncomp > 1
-
+		case 16:
+			return "vns";								// VNS
 		case 17:
 			inst->model_type = 0;
 			inst->warm_start = 1;
@@ -204,6 +204,11 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->mip_opt = 2;
 			inst->useCplex = 1;
 			return "heuristic_insertion";				// Heuristic Insertion (Warm Start for CPLEX)
+		case 23:
+			inst->model_type = 0;
+			inst->warm_start = 1;
+			inst->heuristic = 8;
+			return "simulating_annealing";				// Simulating Annealing
 		default: return "not_supported";
 	}
 }
@@ -1272,6 +1277,9 @@ void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 			*status = tabu_search_array(env, inst, status);
 		break;
 
+		case 8:
+			*status = simulating_annealing(env, inst, status);
+			break;
 		default:
 			print_error("model ì_type not implemented in optimization method");
 		break;
@@ -1579,9 +1587,9 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 	// tabù list (linked list)
 	tabu_list* head = NULL;
 	tabu_list* head_save = NULL;
+	int countListSize = 0;
 
-
-	for (int countListSize = 0; remaining_time > 0.0; ) {
+	while (remaining_time > 0.0) {
 		double ini = second();
 
 		if (inst->verbose > 100) printf("*** Calc new 2_opt sol ***\n");
@@ -1687,9 +1695,10 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 			if (best_lb < inst->best_lb) {
 				inst->best_lb = best_lb;
 				best_temp_lb = best_lb;
+				clear_sol(inst);
 				int first_node = 0;
 				int second_node = succ[first_node];
-				for (int i = 0; i < inst->nedges; i++) {
+				for (int i = 0; i < inst->nnodes; i++) {
 					inst->best_sol[xpos(first_node, second_node, inst)] = 1.0;
 					first_node = second_node;
 					second_node = succ[second_node];
@@ -1705,11 +1714,6 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 
 				printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_temp_lb, best_lb);
 				best_temp_lb = best_lb;
-
-				if (head != NULL) {
-					//delete_list(head, &head);
-					//pop_first(&head);
-				}
 			}
 		}
 
@@ -1718,7 +1722,7 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 		remaining_time -= second() - ini;
 	}
 
-	if (inst->verbose >= 100) print_succ(succ, inst);
+	if (inst->verbose > 100) print_succ(succ, inst);
 	free(succ);
 	free(comp);
 	free(ncomp);
@@ -1894,7 +1898,7 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 
 
 
-	for (int countListSize = 0; remaining_time > 0.0; ) {
+	while(remaining_time > 0.0) {
 		double ini = second();
 
 		if (inst->verbose > 100) printf("*** Calc new 2_opt sol ***\n");
@@ -2025,9 +2029,10 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 			if (best_lb < inst->best_lb) {
 				inst->best_lb = best_lb;
 				best_temp_lb = best_lb;
+				clear_sol(inst);
 				int first_node = 0;
 				int second_node = succ[first_node];
-				for (int i = 0; i < inst->nedges; i++) {
+				for (int i = 0; i < inst->nnodes; i++) {
 					inst->best_sol[xpos(first_node, second_node, inst)] = 1.0;
 					first_node = second_node;
 					second_node = succ[second_node];
@@ -2068,6 +2073,143 @@ int contained_in_posix_array(int tabu_array_size, int* tabu_array, int arc) {
 	return -1;
 }
 
+int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
+	
+	/*
+		sol iniziale => alta temperatura
+		faccio un 2-opt random e la accetto anche se peggiorativa
+
+		accetto sempre se migliorativa
+		se è peggiorativa invece dipende da differenza di costo e dalla temperatura :
+		alta temperatura = probabilità 100% di accettare
+		bassa temperatura = probabilità di accettare molto bassa fino ad arrivare ad accettare solo le migliorative
+		
+		ripeto riducendo la temperatura
+
+
+		Eold = cost(γ);
+		for (i = tempMax; i >= tempMin; i= next_temp(temp)) {
+			for (i = 0; i < imax; i++) {
+				succesor_func(γ); //this is a randomized function
+				Enew = cost(γ);
+				delta = Enew - Eold;
+				if (delta > 0)
+					if (random() >= exp(-delta / K * temp)
+						undo_func(γ);							//rejected bad move
+					else
+						Eold = Enew								//accepted bad move
+				else
+						Eold = Enew;							//always accept good moves
+			}
+		}
+
+	*/
+	
+	if (inst->verbose >= 100) printf("Simulating Annealing\n");
+
+	// check if current solution has only one tour
+	int* succ = (int*)calloc(inst->nnodes, sizeof(int));
+	int* comp = (int*)calloc(inst->nnodes, sizeof(int));
+	int* ncomp = (int*)calloc(1, sizeof(int));
+	build_sol(inst, succ, comp, ncomp);
+	if (*ncomp != 1) {
+		printf("Error: simulating_annealing is called with best_sol with multiple tour!");
+		return 1;
+	}
+
+	CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit);
+
+	double* best_sol = (double*)calloc(inst->nedges, sizeof(double));
+	double* best_global_sol = (double*)calloc(inst->nedges, sizeof(double));
+	double best_lb = inst->best_lb;
+	double best_global_lb = inst->best_lb;
+	double remaining_time = inst->timelimit;
+	double temperature = MAXINT;
+	double temperature_perc = 1.0;
+	int decrease = -1;
+	double delta = -1;
+	double delta_perc = 1.0;
+	double K = 1.0;					// Boltzmann constant
+
+	// linked list used to save LB found
+	tabu_list* head_save = NULL;
+
+	while (remaining_time > 0.0) {
+		double ini = second();
+
+		for (int i = 0; i < inst->nedges; i++)
+			if (inst->best_sol[i] == 1.0)
+				best_sol[i] = 1.0;
+			else
+				best_sol[i] = 0.0;
+
+		random_two_opt(inst);
+
+		if (decrease != -1) {
+			if (decrease >= temperature)
+				temperature = 0;
+			else
+				temperature -= decrease;
+		}
+		temperature_perc = temperature / MAXINT;
+
+		delta = inst->best_lb - best_lb;
+
+		if (delta > 0.0)  {
+			delta_perc = delta / inst->best_lb;																	// Can accept bad move
+			double prob = (double)rand() / (double)RAND_MAX;
+			printf("**** Temp_perc, Delta_perc = [%0.2f,%0.4f] --- Probability [%0.3f] >= [%0.3f] ??\n", temperature_perc, delta_perc, prob, exp(-delta_perc / (K * temperature_perc)));
+			if (prob >= exp(- delta_perc / (K * temperature_perc))) {			// Rejected bad move
+				for (int i = 0; i < inst->nedges; i++)		
+					if (best_sol[i] == 1.0)
+						inst->best_sol[i] = 1.0;
+					else
+						inst->best_sol[i] = 0.0;
+
+				//printf("BAD Moves found but refused!!\n");
+				//printf("LB reset from -> to : [%f] -> [%f]\n", inst->best_lb, best_lb);
+				inst->best_lb = best_lb;
+			}else {
+				//printf("BAD Moves found and Accepted\n");													// Accepted bad move
+				//printf("LB update from -> to : [%f] -> [%f]\n", best_lb, inst->best_lb);
+				best_lb = inst->best_lb;
+			}
+		}else {																								// good move always accepted
+			//printf("GOOD Moves found and Accepted\n");
+			//printf("LB update from -> to : [%f] -> [%f]\n", best_lb, inst->best_lb);
+			best_lb = inst->best_lb;
+
+			if (inst->best_lb < best_global_lb) {
+				best_global_lb = inst->best_lb;
+				for (int i = 0; i < inst->nedges; i++)
+					if (inst->best_sol[i] == 1.0)
+						best_global_sol[i] = 1.0;
+					else
+						best_global_sol[i] = 0.0;
+			}
+		}
+					
+
+		remaining_time -= second() - ini;
+		if (decrease == -1) {
+			double single_step = inst->timelimit / (inst->timelimit - remaining_time);
+			decrease = temperature / (single_step * 3);
+			printf("Temperature step = %f\n", decrease);
+		}
+
+	}
+
+	inst->best_lb = best_global_lb;
+
+	if (inst->verbose > 100) 
+		print_succ(succ, inst);
+	
+	free(succ);
+	free(comp);
+	free(ncomp);
+
+	printf("BEST FINAL GLOBAL LB found: [%f]\n", inst->best_lb);
+}
 
 // optimization methods run the problem optimization
 int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status) {
@@ -2613,13 +2755,85 @@ void best_two_opt(tspinstance *inst) {
 		}
 	}
 	inst->best_lb -= best_improve;  // update best_lb
-																// TODO: assign best_sol found in inst->best_sol
+
+	// Assign best_sol found in inst->best_sol
+	int first_node = 0;
+	int second_node = succ[first_node];
+	for (int i = 0; i < inst->nedges; i++) {
+		inst->best_sol[xpos(first_node, second_node, inst)] = 1.0;
+		first_node = second_node;
+		second_node = succ[second_node];
+	}
+	
 	if (inst->verbose >= 100) print_succ(succ, inst);
 	free(succ);
 	free(comp);
 	free(ncomp);
 }
 
+void random_two_opt(tspinstance* inst) {
+
+	// return random solution in inst->best_sol
+	// the improvement of best_lb is already applied to inst->best_lb
+
+	if (inst->verbose > 100) printf("Random two_opt\n");
+
+	// check if current solution has only one tour
+	int* succ = (int*)calloc(inst->nnodes, sizeof(int));
+	int* comp = (int*)calloc(inst->nnodes, sizeof(int));
+	int* ncomp = (int*)calloc(1, sizeof(int));
+	build_sol(inst, succ, comp, ncomp);
+	if (inst->verbose > 100) print_succ(succ, inst);
+	if (*ncomp != 1) print_error("call random_two_opt with best_sol with multiple tour");
+
+	// random solution in 2opt 
+	int i = rand() % inst->nnodes;
+	int j = rand() % inst->nnodes;
+	while (j == i || j == succ[i]) {
+		j = rand() % inst->nnodes;
+	}
+
+	double d_i1_i2 = dist(i, succ[i], inst);
+	double d_j1_j2 = dist(j, succ[j], inst);
+	double d_i1_j1 = dist(i, j, inst);
+	double d_i2_j2 = dist(succ[i], succ[j], inst);
+	double cur_improve = (d_i1_i2 + d_j1_j2) - (d_i1_j1 + d_i2_j2);
+
+	// Change the arches
+	if (i != j) {
+
+		int i2 = succ[i];
+		int j2 = succ[j];
+		int pre_node = succ[i2];
+		succ[i] = j;
+		succ[i2] = j2;
+		int cur_node = i2;
+		int suc_node = j2;
+		while (cur_node != j) {  // reverse the succ
+			suc_node = cur_node;
+			cur_node = pre_node;
+			pre_node = succ[pre_node];
+			succ[cur_node] = suc_node;
+			if (inst->verbose > 100) print_succ(succ, inst);
+		}
+	}
+	inst->best_lb -= cur_improve;  // update best_lb
+
+	// Assign random solution found in inst->best_sol
+	clear_sol(inst);
+	int first_node = 0;
+	int second_node = succ[first_node];
+	for (int i = 0; i < inst->nnodes; i++) {
+		inst->best_sol[xpos(first_node, second_node, inst)] = 1.0;
+		first_node = second_node;
+		second_node = succ[second_node];
+	}
+
+	if (inst->verbose > 100) print_succ(succ, inst);
+	free(succ);
+	free(comp);
+	free(ncomp);
+}
 
 // Repair
 void patching(tspinstance* inst) {
@@ -2802,6 +3016,11 @@ int is_clockwise(tspinstance *inst, int x1, int x2, int x3) {
 				 (inst->ycoord[x3] - inst->ycoord[x1])*(inst->xcoord[x2] - inst->xcoord[x1]);
 }
 
+void clear_sol(tspinstance* inst) {
+	for (int i = 0; i < inst->nedges; i++)
+		inst->best_sol[i] = 0.0;
+}
+
 // build_sol methods use the optimized solution to plot
 void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp) {
 
@@ -2941,7 +3160,7 @@ void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 }*/
 
 	// print succ, comp and ncomp
-	if (inst->verbose >= 100)
+	if (inst->verbose > 100)
 	{
 		printf("\ni:      "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", i);
 		printf("\nsucc:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", succ[i]);

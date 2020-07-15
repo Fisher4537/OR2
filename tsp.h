@@ -129,6 +129,9 @@ void delete_list(tabu_list* head, tabu_list** head_ref);
 int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status);
 int contained_in_posix_array(int tabu_array_size, int* tabu_array, int arc);
 
+int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status);
+
+
 int* heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int* heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int succ_not_contained(int node, int* sol, tspinstance* inst);
@@ -138,10 +141,14 @@ int insertion_move(tspinstance* inst, int* best_sol, int count_sol, int vertex);
 int contained_in_index(int* vector, int count_sol, int elem);
 
 void best_two_opt(tspinstance *inst);
+void random_two_opt(tspinstance* inst);
 
 void patching(tspinstance* inst);
-int is_clockwise(tspinstance *inst, int x1, int x2, int x3);
 void single_patch(tspinstance* inst, int* succ, int* comp, int* ncomp);
+
+int is_clockwise(tspinstance* inst, int x1, int x2, int x3);
+
+void clear_sol(tspinstance* inst);
 
 int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
 int subtour_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status);
