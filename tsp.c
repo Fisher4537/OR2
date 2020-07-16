@@ -55,11 +55,14 @@ char * model_name(int i) {
 		case 14: return "grasp_best_two_opt";				// GRASP + best_two_opt
 		case 15: return "patching";							// Patching	
 		case 16: return ;
-		case 17: return "tabu_search";						// Greedy + TABU' SEARCH
-		case 18: return "heuristic_greedy_cplex";			// Greedy (Warm Start for CPLEX)
-		case 19: return "heuristic_greedy_cgal_cplex";		// Greedy (Warm Start for CPLEX)
-		case 20: return "heuristic_grasp_cplex";			// GRASP (Warm Start for CPLEX)
-		case 21: return "heuristic_insertion_cplex";		// Heuristic Insertion (Warm Start for CPLEX)
+		case 17: return "tabu_search";						// Greedy + TABU' SEARCH (linked list version)
+		case 18: return "tabu:search_array";				// Greedy + TABU' SEARCH (array version)
+		case 19: return "heuristic_greedy_cplex";			// Greedy (Warm Start for CPLEX)
+		case 20: return "heuristic_greedy_cgal_cplex";		// Greedy (Warm Start for CPLEX)
+		case 21: return "heuristic_grasp_cplex";			// GRASP (Warm Start for CPLEX)
+		case 22: return "heuristic_insertion_cplex";		// Heuristic Insertion (Warm Start for CPLEX)
+		case 23: return "simulating_annealing";				// GRASP + Simulating Annealing
+		case 24: return "genetic_algorithm";
 		default: return "not_supported";
 	}
 }
@@ -210,6 +213,11 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->warm_start = 3;
 			inst->heuristic = 8;
 			return "simulating_annealing";				// GRASP + Simulating Annealing
+		case 24:
+			inst->model_type = 0;
+			inst->warm_start = 3;
+			inst->heuristic = 9;
+			return "genetic_algorithm";					// Genetic Algorithm
 		default: return "not_supported";
 	}
 }
@@ -1281,6 +1289,11 @@ void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		case 8:
 			*status = simulating_annealing(env, inst, status);
 			break;
+
+		case 9:
+			*status = genetic_algorithm(env, inst, status);
+			break;
+
 		default:
 			print_error("model ì_type not implemented in optimization method");
 		break;
@@ -2076,36 +2089,6 @@ int contained_in_posix_array(int tabu_array_size, int* tabu_array, int arc) {
 
 int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 	
-	/*
-		sol iniziale => alta temperatura
-		faccio un 2-opt random e la accetto anche se peggiorativa
-
-		accetto sempre se migliorativa
-		se è peggiorativa invece dipende da differenza di costo e dalla temperatura :
-		alta temperatura = probabilità 100% di accettare
-		bassa temperatura = probabilità di accettare molto bassa fino ad arrivare ad accettare solo le migliorative
-		
-		ripeto riducendo la temperatura
-
-
-		Eold = cost(γ);
-		for (i = tempMax; i >= tempMin; i= next_temp(temp)) {
-			for (i = 0; i < imax; i++) {
-				succesor_func(γ); //this is a randomized function
-				Enew = cost(γ);
-				delta = Enew - Eold;
-				if (delta > 0)
-					if (random() >= exp(-delta / K * temp)
-						undo_func(γ);							//rejected bad move
-					else
-						Eold = Enew								//accepted bad move
-				else
-						Eold = Enew;							//always accept good moves
-			}
-		}
-
-	*/
-	
 	if (inst->verbose >= 100) printf("Simulating Annealing\n");
 
 	// check if current solution has only one tour
@@ -2245,6 +2228,10 @@ int max_dist_couple_nodes(tspinstance* inst) {
 		for (int j = i; j < inst->nnodes; j++)
 			dist(i, j, inst) > max ? max = dist(i, j, inst) : 0;
 	return max;
+}
+
+int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
+
 }
 
 // optimization methods run the problem optimization
