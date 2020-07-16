@@ -2238,7 +2238,6 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 
 	printf("BEST FINAL GLOBAL LB found: [%f]\n", inst->best_lb);
 }
-
 int max_dist_couple_nodes(tspinstance* inst) {
 	int max = -1;
 
