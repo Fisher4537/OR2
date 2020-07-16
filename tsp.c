@@ -2124,15 +2124,28 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 	double* best_global_sol = (double*)calloc(inst->nedges, sizeof(double));
 	double best_lb = inst->best_lb;
 	double best_global_lb = inst->best_lb;
+	double extra_time = inst->timelimit * 5 / 100;
 	double remaining_time = inst->timelimit;
+	double temp_time = remaining_time;
 	double temperature = MAXINT;
 	double temperature_perc = 1.0;
-	int decrease = -1;
+	double maxTemp = (double)MAXINT + 1e8;
+	double decrease = -1;
 	double delta = -1;
 	double delta_perc = 1.0;
 	double K = 1.0;					// Boltzmann constant
+	double single_step = 0.0;
+	double prob = 0.0;
 
-	int dont_print_same_number = 100;
+	int dont_print_same_number = 100;		// used to have a slim verbose
+
+
+	printf("\nSimulating Annealing uses a maxTemperature with an extra value of 1e8. This allow to do more iterations when temperature goes to 0.0!\n");
+
+	double max_dist = max_dist_couple_nodes(inst) * 2.0;
+	if (max_dist == -1)
+		print_error("Probably error during max_dist_couple_nodes excecution\n");
+
 
 	while (remaining_time > 0.0) {
 		double ini = second();
@@ -2156,12 +2169,15 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 		delta = inst->best_lb - best_lb;
 
 		if (delta > 0.0)  {
-			delta_perc = delta / inst->best_lb;																	// Can accept bad move
-			double prob = (double)rand() / (double)RAND_MAX;
+			delta_perc = delta / max_dist;																	// Can accept bad move
+			prob = (double)rand() / (double)RAND_MAX;
+
+			// Used to print some results during run
 			if (((int)(temperature_perc * 100) % 10 == 0 && dont_print_same_number != (int)(temperature_perc * 100)) || inst->verbose > 100) {
-				dont_print_same_number = (int)(temperature_perc * 100);
-				printf("**** Temp_perc, Delta_perc = [%0.2f,%0.4f] --- Probability [%0.3f] >= [%0.3f] ??\n", temperature_perc, delta_perc, prob, exp(-delta_perc / (K * temperature_perc)));
+				dont_print_same_number = (int)(temperature_perc * 100);	
+				printf("**** Temp_perc, Delta_perc = [%0.2f,%0.4f] --- Probability [%0.3f] >= [%0.3f] ?\n", temperature_perc, delta_perc, prob, exp(-delta_perc / (K * temperature_perc)));
 			}
+			
 			if (prob >= exp(- delta_perc / (K * temperature_perc))) {			// Rejected bad move
 				for (int i = 0; i < inst->nedges; i++)		
 					if (best_sol[i] == 1.0)
@@ -2181,8 +2197,7 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 				}
 				best_lb = inst->best_lb;
 			}
-		}
-		else {																								// good move always accepted
+		}else {																								// good move always accepted
 			if (inst->verbose > 100) {
 				printf("GOOD Moves found and Accepted\n");
 				printf("LB update from -> to : [%f] -> [%f]\n", best_lb, inst->best_lb);
@@ -2201,16 +2216,15 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 		}
 					
 
+		
+		single_step = (temp_time - remaining_time) / (inst->timelimit);
+		decrease = maxTemp * single_step;
+
+		if (inst->verbose > 100)
+			printf("Single Step [%f] -- Decrease [%.0f] => Step_time [%f] -- Temperature [%f]\n", single_step, decrease, temp_time - remaining_time, temperature);
+		
+		temp_time = remaining_time;
 		remaining_time -= second() - ini;
-		if (decrease == -1) {
-			double single_step = inst->timelimit / (inst->timelimit - remaining_time);
-			decrease = temperature / (single_step * 2);
-
-			// TODO: metti in relazione temperatura e tempo e fai la decresita ad ogni ciclo
-
-			printf("Temperature max %.0f - Step Decreasing = %d\n", temperature, decrease);
-		}
-
 	}
 
 	inst->best_lb = best_global_lb;
@@ -2223,6 +2237,15 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 	free(ncomp);
 
 	printf("BEST FINAL GLOBAL LB found: [%f]\n", inst->best_lb);
+}
+
+int max_dist_couple_nodes(tspinstance* inst) {
+	int max = -1;
+
+	for (int i = 0; i < inst->nnodes; i++)
+		for (int j = i; j < inst->nnodes; j++)
+			dist(i, j, inst) > max ? max = dist(i, j, inst) : 0;
+	return max;
 }
 
 // optimization methods run the problem optimization

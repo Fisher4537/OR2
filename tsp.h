@@ -130,7 +130,7 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status);
 int contained_in_posix_array(int tabu_array_size, int* tabu_array, int arc);
 
 int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status);
-
+int max_dist_couple_nodes(tspinstance* inst);
 
 int* heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int* heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
