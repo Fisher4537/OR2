@@ -9,6 +9,7 @@
 #include <math.h>
 #include <float.h>
 
+#include <omp.h>
 
 #ifdef _WIN32
 	#define DIR_DELIM '\\'
@@ -62,7 +63,7 @@ char * model_name(int i) {
 		case 21: return "heuristic_grasp_cplex";			// GRASP (Warm Start for CPLEX)
 		case 22: return "heuristic_insertion_cplex";		// Heuristic Insertion (Warm Start for CPLEX)
 		case 23: return "simulating_annealing";				// GRASP + Simulating Annealing
-		case 24: return "genetic_algorithm";
+		case 24: return "genetic_algorithm";				// Genetic Algorithm
 		default: return "not_supported";
 	}
 }
@@ -215,7 +216,6 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			return "simulating_annealing";				// GRASP + Simulating Annealing
 		case 24:
 			inst->model_type = 0;
-			inst->warm_start = 3;
 			inst->heuristic = 9;
 			return "genetic_algorithm";					// Genetic Algorithm
 		default: return "not_supported";
@@ -2231,6 +2231,21 @@ int max_dist_couple_nodes(tspinstance* inst) {
 }
 
 int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
+
+	// popolazione di taglia fissa di individui inizializzati random
+
+	// repair = salta nodi doppi e fai una costruzione per espansione per i nodi non visitati
+
+
+#pragma omp parallel
+	{
+		printf("\nHello from process : % d\n\n", omp_get_thread_num());
+	}
+	printf("\nHello from process : % d\n\n", omp_get_thread_num()); 
+
+}
+
+init_population() {
 
 }
 
