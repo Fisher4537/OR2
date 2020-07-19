@@ -35,6 +35,8 @@
 			- Hard fixing usa CPLEX? cioè ti serve il parametro useCplex a TRUE? ora è a TRUE (riga 134), se non ti serve che faccia il CPXSolution nel metodo TSPopt allora togli quella riga
 			
 			- Tabu search: we can add variable length of list and add the check also for tabu solution
+
+			- Remember to add: srand(time(NULL));  where and if needed	(during debug i don't use it)
 */
 
 char * model_name(int i) {
@@ -2232,21 +2234,132 @@ int max_dist_couple_nodes(tspinstance* inst) {
 
 int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 
-	// popolazione di taglia fissa di individui inizializzati random
+	/*	popolazione di taglia fissa di individui inizializzati random
+		repair = salta nodi doppi e fai una costruzione per espansione per i nodi non visitati
 
-	// repair = salta nodi doppi e fai una costruzione per espansione per i nodi non visitati
+	#pragma omp parallel
+		{
+			printf("\nHello from process : % d\n\n", omp_get_thread_num());
+		}
+		printf("\nHello from process : % d\n\n", omp_get_thread_num()); 
 
+	*/
 
-#pragma omp parallel
-	{
-		printf("\nHello from process : % d\n\n", omp_get_thread_num());
+	int nPop = 10, nKids = 30;			// GA-EAX/Stage1 & Parallel GA-EAX/Stage1
+	int sChunk = 10, nChunk = 30;		// Only for Parallel GA-EAX/Stage1
+	int nStag;							// Termination Criterion of GA-EAX/Stage1
+
+	double** population = (double**)calloc(nPop, sizeof(double*));
+
+	int* frequencyTable = (int*)calloc(inst->nedges, sizeof(int));
+
+	int pA, pB;	// Indexes of parents: pA as acceptor and pB as donor
+
+	init_population(inst, population, nPop);
+	print_population(inst, population, nPop);
+	init_frequency_edges(inst, population, frequencyTable, nPop);
+	print_frequency_table(inst, frequencyTable);
+
+	for (int g = 0; ; g++) {
+
+		shuffle_individuals(inst, population, nPop);
+		print_population(inst, population, nPop);
+
+		for (int i = 0; i < nPop; i++) {
+			pA = i;
+			pB = (i == nPop - 1) ? 0 : i + 1;
+
+			EAX_Single(population, pA, pB);			// Generate nKids offspring solutions from pA, pB using differents AB-Cycles
+			//repair tour/s of kids if needed
+			survival_selection(inst, population, nPop);
+		}
 	}
-	printf("\nHello from process : % d\n\n", omp_get_thread_num()); 
+	free_ga(population, frequencyTable, nPop);
+
+	
+
+}
+void init_population(tspinstance* inst, double** population, int nPop) {
+
+	for (int i = 0; i < nPop; i++) {
+		heur_grasp(inst, 1);
+		best_two_opt(inst);
+		population[i] = (double*)calloc(inst->nedges, sizeof(double));
+		for (int j = 0; j < inst->nedges; j++) {
+			population[i][j] = inst->best_sol[j];
+		}
+		clear_sol(inst);
+	}
+}
+void init_frequency_edges(tspinstance* inst, double** population, int* frequencyTable, int nPop) {
+	for (int i = 0; i < nPop; i++) {
+		for (int j = 0; j < inst->nedges; j++) {
+			if (population[i][j] == 1.0)
+				frequencyTable[j]++;
+		}
+	}
+}
+void shuffle_individuals(tspinstance* inst, double** population, int nPop) {
+	for (int i = nPop - 1; i > 0; i--)
+	{
+		// Pick a random index from 0 to i 
+		int j = rand() % (i + 1);
+
+		// Swap arr[i] with the element at random index 
+		swap(&population[i], &population[j]);
+	}
+}
+void swap(double* a, double* b)
+{
+	double temp = *a;
+	*a = *b;
+	*b = temp;
+}
+void EAX_Single(double** population, int pA, int pB) {
+
+}
+void survival_selection(tspinstance* inst, double** population, int nPop) {
+
+	double average_cost = 0.0;
+	for (int i = 0; i < nPop; i++) {
+		
+		double indiv_cost = 0.0;
+		for (int j = 0; j < inst->nedges; j++) {
+			if(population[i][j] == 1.0)
+				indiv_cost += dist(population[i][j], population[i][j + 1], inst);
+		}
+		average_cost += indiv_cost;
+
+	}
+	average_cost = average_cost / nPop;
+
 
 }
 
-init_population() {
+void print_population(tspinstance* inst, double** population, int nPop) {
 
+	printf("\n**** INDIVIDUALS POPULATION ****");
+	for (int i = 0; i < nPop; i++) {
+		printf("\nIndividual %d: ", i);
+		for (int j = 0; j < inst->nedges; j++) {
+			if (population[i][j] == 1.0)
+				printf("%d ", j);
+		}
+	}
+	printf("\n");
+}
+void print_frequency_table(tspinstance* inst, int* frequency_table) {
+
+	printf("\n**** FREQUENCY TABLE ****\n");
+	for (int i = 0; i < inst->nedges; i++) {
+		printf("Edge - Value: %d - %d\n", i, frequency_table[i]);
+	}
+}
+void free_ga(double** population, int* frequency_table, int nPop) {
+	for (int i = 0; i < nPop; i++)
+		free(population[i]);
+	free(population);
+	free(frequency_table);
 }
 
 // optimization methods run the problem optimization
@@ -2760,7 +2873,7 @@ void best_two_opt(tspinstance *inst) {
 			d_j1_j2 = dist(j, succ[j], inst);
 			d_i1_j1 = dist(i, j, inst);
 			d_i2_j2 = dist(succ[i], succ[j], inst);
-			if (inst->verbose >= 100) printf("*** i - j: %d - %d\n", i,j);
+			if (inst->verbose > 100) printf("*** i - j: %d - %d\n", i,j);
 			cur_improve = (d_i1_i2 + d_j1_j2) - (d_i1_j1 + d_i2_j2);
 			if ( cur_improve > best_improve ) { // cross is better
 				best_i = i;
@@ -2794,6 +2907,7 @@ void best_two_opt(tspinstance *inst) {
 	}
 	inst->best_lb -= best_improve;  // update best_lb
 
+	//clear_sol(inst);													// TODO: se chiamato più volte va pulita la soluzione inst->best_sol?
 	// Assign best_sol found in inst->best_sol
 	int first_node = 0;
 	int second_node = succ[first_node];

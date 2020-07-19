@@ -133,6 +133,14 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status);
 int max_dist_couple_nodes(tspinstance* inst);
 
 int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status);
+void init_population(tspinstance* inst, double** population, int nPop);
+void init_frequency_edges(tspinstance* inst, double** population, int* frequencyTable, int nPop);
+void shuffle_individuals(tspinstance* inst, double** population, int nPop);
+void swap(double* a, double* b);
+
+void print_population(tspinstance* inst, double** population, int nPop);
+void print_frequency_table(tspinstance* inst, int* frequency_table);
+void free_ga(double** population, int* frequency_table, int nPop);
 
 int* heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int* heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
