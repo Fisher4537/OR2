@@ -1278,7 +1278,7 @@ int vns(tspinstance* inst) {
 
 void patching(tspinstance* inst) {
 
-	if (inst->verbose >= 100) printf("PATCHING\n");
+	if (inst->verbose >= 100) printf("PATCHING\n"); fflush(stdout);
 
 	// check if current solution has only one tour
 	int *succ = (int*) calloc(inst->nnodes, sizeof(int));
@@ -1298,7 +1298,8 @@ void patching(tspinstance* inst) {
 		single_patch(inst, succ, comp, ncomp);
 		if (inst->verbose >= 100) {
 			print_succ(succ, inst);
-			printf("\ncomp:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
+			printf("comp:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
+			printf("\n");
 		}
 		plot_instance(inst);
 	}
@@ -2486,150 +2487,149 @@ void random_n_opt(tspinstance* inst, int n) {
 // Repair
 void single_patch(tspinstance* inst, int* succ, int* comp, int* ncomp) {
 
-	if (*ncomp == 1) {
-		return;
-	} else {
-		int initial_i = rand() % inst->nnodes;  // randomize the first node
+	if (inst->verbose >= 100) printf("\nSINGLE_PATCHING"); fflush(stdout);
+	// single patch merge the isolated nodes or tours,
+	// if already merged, exit the method
+	if (*ncomp == 1) return;
 
-		// get the closer node which is in another tour
-		int closer_j = initial_i;
-		double cn_dist = INT_MAX;
-		double d_ij = 0.;
-		for (int j = 0; j < inst->nnodes; j++) {
-			if (comp[initial_i] == comp[j]) continue; // skip if it's in the same components
+	int initial_i = rand() % inst->nnodes;  // randomize the first node
 
-			d_ij = dist(initial_i, j, inst);
-			if (d_ij < cn_dist) {
-				closer_j = j;
-				cn_dist = d_ij;
-			}
+	// get the closer node which is in another tour
+	int closer_j = initial_i;
+	double cn_dist = INT_MAX;		// dist(initial_i, closer_j, inst)
+	double d_ij = 0.;
+	for (int j = 0; j < inst->nnodes; j++) {
+		if (comp[initial_i] == comp[j]) continue; // skip if it's in the same components
+
+		d_ij = dist(initial_i, j, inst);
+		if (d_ij < cn_dist) {
+			closer_j = j;
+			cn_dist = d_ij;
 		}
-		// find the node of the i-tour which is closer to closer_j: closer_i
-		int i = initial_i;
-		int closer_i = i;
-		int counter = 0;
-		if (succ[i] > 0) { // only if i is not isolated
-			double best_improve;
-			if (succ[closer_j] > 0) { // j is not isolated
-				best_improve = dist(i, succ[closer_j], inst) + dist(succ[i], closer_j, inst)
-														- dist(i, succ[i], inst) - dist(closer_j, succ[closer_j], inst);
-			} else {									// j is isolated
-				best_improve = dist(i, closer_j, inst) + dist(closer_j, succ[i], inst)
+	}
+
+	int i = initial_i;
+	int i_tour_size = 1;
+	while (succ[i] != -1 && succ[i] != initial_i) { i = succ[i]; i_tour_size++; } // components of i_tour
+
+	int j = closer_j;
+	int j_tour_size = 1;
+	while (succ[j] != -1 && succ[j] != closer_j) { j = succ[j]; j_tour_size++; } // components of j_tour
+
+	// find the node of the i-tour which is closer to closer_j: closer_i
+	i = initial_i;
+	int closer_i = i;
+	int counter = 1;
+	if (succ[i] > 0) { // only if i is not isolated
+
+		double best_improve;
+		if (succ[closer_j] > 0) { // j is not isolated
+			best_improve = dist(i, succ[closer_j], inst) + dist(succ[i], closer_j, inst)
+													- dist(i, succ[i], inst) - dist(closer_j, succ[closer_j], inst);
+		} else {									// j is isolated
+			best_improve = dist(i, closer_j, inst) + dist(closer_j, succ[i], inst)
+													- dist(i, succ[i], inst);
+		}
+		double cur_improve = best_improve;
+		i = succ[i];
+
+		while (i != initial_i) {  // for each node of the i-tour
+			if (succ[closer_j] > 0) {  	// j is not isolated
+				cur_improve = dist(i, succ[closer_j], inst) + dist(succ[i], closer_j, inst)
+													- dist(i, succ[i], inst) - dist(closer_j, succ[closer_j], inst);
+			} else  {  									// j is isolated
+				cur_improve = dist(i, closer_j, inst) + dist(closer_j, succ[i], inst)
 														- dist(i, succ[i], inst);
 			}
-			double cur_improve = best_improve;
+
+			if (cur_improve < best_improve) {
+				best_improve = cur_improve;
+				closer_i = i;
+			}
+			counter++;
 			i = succ[i];
-
-
-			while (i != initial_i) {  // for each node of the i-tour (the tour which contain i)
-				if (succ[closer_j] > 0) {  // j is not isolated
-					cur_improve = dist(i, succ[closer_j], inst) + dist(succ[i], closer_j, inst)
-											- dist(i, succ[i], inst) - dist(closer_j, succ[closer_j], inst);
-				} else  {  // j is isolated
-					cur_improve = dist(i, closer_j, inst) + dist(closer_j, succ[i], inst)
-															- dist(i, succ[i], inst);
-				}
-				if (cur_improve < best_improve) {
-					best_improve = cur_improve;
-					closer_i = i;
-					cn_dist = dist(closer_i, closer_j, inst);
-				}
-				counter++;
-				i = succ[i];
-			}
 		}
-
-		// merge the tours: update best_sol, succ, comp, ncomp, best_lb
- 		if (succ[closer_j] < 0 && succ[closer_i] < 0) { // closer_j and closer_i are isolated
-			// update inst->best_sol
-			(inst->best_sol)[xpos(closer_i, closer_j, inst)] = 1.;
-
-			// update succ
-			succ[closer_j] = closer_i;
-			succ[closer_i] = closer_j;
-
-			// update comp
-			comp[closer_j] = comp[closer_i];
-
-			// update inst->best_lb
-			inst->best_lb += dist(closer_i, closer_j, inst);
-		} else if (succ[closer_j] < 0) { 		// closer_j isolated node
-			// update inst->best_sol
-			if (closer_i != succ[succ[closer_i]])
-				(inst->best_sol)[xpos(closer_i, succ[closer_i], inst)] = 0.;
-			(inst->best_sol)[xpos(closer_i, closer_j, inst)] = 1.;
-			(inst->best_sol)[xpos(closer_j, succ[closer_i], inst)] = 1.;
-
-			// update succ
-			if (closer_i == succ[succ[closer_i]]) {
-				if ( !is_clockwise(inst, closer_i, closer_j, succ[closer_i]) ) {
-					closer_i = succ[closer_i];	// reverse the orientation
-				}
-			}
-
-			succ[closer_j] = succ[closer_i];
-			succ[closer_i] = closer_j;
-
-
-			// update comp
-			comp[closer_j] = comp[closer_i];
-
-			// update inst->best_lb
-			inst->best_lb += cn_dist
-										+ dist(closer_j, succ[closer_j], inst)
-										- dist(closer_i, succ[closer_j], inst);
-		} else if (succ[closer_i] < 0) {  		// i is isolated
-			// update inst->best_sol
-			if (closer_j != succ[succ[closer_j]])
-				(inst->best_sol)[xpos(closer_j, succ[closer_j], inst)] = 0.;
-			(inst->best_sol)[xpos(closer_i, closer_j, inst)] = 1.;
-			(inst->best_sol)[xpos(closer_i, succ[closer_j], inst)] = 1.;
-
-			// update succ
-			if (closer_j == succ[succ[closer_j]]) {
-				if ( !is_clockwise(inst, closer_j, closer_i, succ[closer_j]) ) {
-					closer_j = succ[closer_j];	// reverse the orientation
-				}
-			}
-			succ[closer_i] = succ[closer_j];
-			succ[closer_j] = closer_i;
-
-			// update comp
-			comp[closer_i] = comp[closer_j];
-
-			// update inst->best_lb
-			inst->best_lb += cn_dist
-										+ dist(closer_i, succ[closer_i], inst)
-										- dist(closer_j, succ[closer_i], inst);
-		} else {  										// i and closer_j are not isolated
-			// update inst->best_sol
-			if (closer_j != succ[succ[closer_j]])
-				(inst->best_sol)[xpos(closer_j, succ[closer_j], inst)] = 0.;
-			if (closer_i != succ[succ[closer_i]])
-				(inst->best_sol)[xpos(closer_i, succ[closer_i], inst)] = 0.;
-			(inst->best_sol)[xpos(closer_i, succ[closer_j], inst)] = 1.;
-			(inst->best_sol)[xpos(closer_j, succ[closer_i], inst)] = 1.;
-
-			// update succ
-			int tmp = succ[closer_i];
-			succ[closer_i] = succ[closer_j];
-			succ[closer_j] = tmp;
-
-			// update comp
-			comp[closer_i] = comp[closer_j];
-			while (tmp != closer_i) {
-				comp[tmp] = comp[closer_j];
-				tmp = succ[tmp];
-			}
-
-			// update inst->best_lb
-			inst->best_lb += dist(closer_j, succ[closer_j], inst)
-										+ dist(closer_i, succ[closer_i], inst)
-										- dist(closer_j, succ[closer_i], inst)
-										- dist(closer_i, succ[closer_j], inst);
-		}
-		(*ncomp)--;
 	}
+	cn_dist = dist(closer_i, closer_j, inst);
+
+	// merge the tours: update best_sol, succ, comp, ncomp, best_lb
+	if (succ[closer_j] < 0 && succ[closer_i] < 0) { 	// closer_j and closer_i are isolated
+		// update inst->best_sol
+		inst->best_sol[xpos(closer_i, closer_j, inst)] = 1.;
+
+		// update succ
+		succ[closer_j] = closer_i;
+		succ[closer_i] = closer_j;
+
+		// update comp
+		comp[closer_j] = comp[closer_i];
+	} else if (succ[closer_j] < 0) { 									// closer_j isolated node
+		// update inst->best_sol
+		if (closer_i != succ[succ[closer_i]])  // i_tour_size == 2
+			inst->best_sol[xpos(closer_i, succ[closer_i], inst)] = 0.;
+		inst->best_sol[xpos(closer_i, closer_j, inst)] = 1.;
+		inst->best_sol[xpos(closer_j, succ[closer_i], inst)] = 1.;
+
+		// update succ
+		if (closer_i == succ[succ[closer_i]]) {
+			if ( !is_clockwise(inst, closer_i, closer_j, succ[closer_i]) ) {
+				closer_i = succ[closer_i];	// reverse the orientation
+			}
+		}
+		succ[closer_j] = succ[closer_i];
+		succ[closer_i] = closer_j;
+
+		// update comp
+		comp[closer_j] = comp[closer_i];
+
+	} else if (succ[closer_i] < 0) {  								// i is isolated
+		// update inst->best_sol
+		if (closer_j != succ[succ[closer_j]])
+			inst->best_sol[xpos(closer_j, succ[closer_j], inst)] = 0.;
+		inst->best_sol[xpos(closer_i, closer_j, inst)] = 1.;
+		inst->best_sol[xpos(closer_i, succ[closer_j], inst)] = 1.;
+
+		// update succ
+		if (closer_j == succ[succ[closer_j]]) {
+			if ( !is_clockwise(inst, closer_j, closer_i, succ[closer_j]) ) {
+				closer_j = succ[closer_j];	// reverse the orientation
+			}
+		}
+		succ[closer_i] = succ[closer_j];
+		succ[closer_j] = closer_i;
+
+		// update comp
+		comp[closer_i] = comp[closer_j];
+
+	} else {  																				// i and closer_j are not isolated
+		// update inst->best_sol
+		if (closer_j != succ[succ[closer_j]])
+			inst->best_sol[xpos(closer_j, succ[closer_j], inst)] = 0.;
+		if (closer_i != succ[succ[closer_i]])
+			inst->best_sol[xpos(closer_i, succ[closer_i], inst)] = 0.;
+		inst->best_sol[xpos(closer_i, succ[closer_j], inst)] = 1.;
+		inst->best_sol[xpos(closer_j, succ[closer_i], inst)] = 1.;
+
+		// update succ
+		int tmp = succ[closer_i];
+		succ[closer_i] = succ[closer_j];
+		succ[closer_j] = tmp;
+
+		// update comp
+		comp[closer_i] = comp[closer_j];
+		while (tmp != closer_i) {
+			comp[tmp] = comp[closer_j];
+			tmp = succ[tmp];
+		}
+	}
+
+	// update inst->best_lb
+	inst->best_lb = 0.0;
+	for (int i = 0; i < inst->nnodes; i++)
+	 	for (int j = i+1; j < inst->nnodes; j++)
+		 	if (inst->best_sol[xpos(i, j, inst)] > 0.5)
+				inst->best_lb += dist(i, j, inst);
+	(*ncomp)--;
 }
 
 int is_clockwise(tspinstance *inst, int x1, int x2, int x3) {
