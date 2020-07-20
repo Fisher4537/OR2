@@ -147,12 +147,12 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->warm_start = 0;
 			inst->model_type = 0;
 			inst->heuristic = 4;
-			return "patching";
+			return "patching";				// patching, no warm_start, no CPLEX.
 		case 16:
 			inst->model_type = 0;
 			inst->warm_start = 3;
 			inst->heuristic = 5;
-			return "vns";	 			// GRASP + 2opt and random5opt
+			return "vns";	 			// vns: GRASP + 2opt and random5opt
 		case 17:
 			inst->model_type = 0;
 			inst->warm_start = 4;
@@ -210,7 +210,7 @@ int TSPopt(tspinstance *inst) {
 
 	if (inst->verbose >= 100) printf("optimization complete!\n");
 
-	if(inst->setup_model != 9 && inst->setup_model != 14 && inst->setup_model != 15 &&
+	if (inst->setup_model != 9 && inst->setup_model != 14 && inst->setup_model != 15 &&
 			inst->setup_model != 11 && inst->setup_model != 12 && inst->setup_model != 13 &&
 			inst->setup_model != 10)
 		CPXsolution(env, lp, &status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
@@ -1212,6 +1212,10 @@ void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 			patching(inst);
 		break;
 
+		case 5:
+			*status = vns(inst);
+		break;
+
 		case 6:
 			*status = tabu_search(env, lp, inst, status);
 		break;
@@ -1222,8 +1226,71 @@ void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	}
 }
 
-int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
+int vns(tspinstance* inst) {
 
+	if (inst->verbose >= 100) printf("VNS\n");
+	// stop condition: time_limit, number of iteration (i)
+	int i = 0;  // number of iteration
+	int max_iteration = 100;	// max number of iteration before stop
+ 	double init_time = second();
+
+	// struct to keep solution
+	double prev_lb = inst->best_lb;
+	// int* succ = (int*)calloc(inst->nnodes, sizeof(int));
+	// int* comp = (int*)calloc(inst->nnodes, sizeof(int));
+	// int* ncomp = (int*)calloc(1, sizeof(int));
+	// build_sol(inst, succ, comp, ncomp);
+	// if (*ncomp != 1) {print_error("VNS need to start with a single tour solution.");}
+
+	while (!(inst->timelimit < second() - init_time || i >= max_iteration)) {  // stop condition
+
+		while (1) {  // iterate best_two_opt
+			best_two_opt(inst);
+			if (prev_lb <= inst->best_lb) {  // found a new best, continue iteration
+				prev_lb = inst->best_lb;
+			} else {		// no new best_lb found, stop iteration
+				break;
+			}
+		}
+
+		// move to a random 5 opt solution
+		random_n_opt(inst, 5);
+		prev_lb = inst->best_lb;	// update solution
+		i++;  // one iteration compleate
+	}
+
+	return 0;
+}
+
+void patching(tspinstance* inst) {
+
+	if (inst->verbose >= 100) printf("PATCHING\n");
+
+	// check if current solution has only one tour
+	int *succ = (int*) calloc(inst->nnodes, sizeof(int));
+	int *comp = (int*) calloc(inst->nnodes, sizeof(int));
+	int *ncomp = (int*) calloc(1, sizeof(int));
+	build_sol(inst, succ, comp, ncomp);
+	if (inst->verbose >= 100) print_succ(succ, inst);
+	if (*ncomp == 1) {
+		printf("WARNING: solution already has 1 tour, patching has no effect.\n");
+		free(succ);
+		free(comp);
+		free(ncomp);
+		return;
+	}
+
+	while (*ncomp > 1) {
+		single_patch(inst, succ, comp, ncomp);
+		if (inst->verbose >= 100) {
+			print_succ(succ, inst);
+			printf("\ncomp:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
+		}
+		plot_instance(inst);
+	}
+}
+
+int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
 	double external_time_limit = inst->timelimit;
 	double internal_time_limit = 50.0;
@@ -1233,7 +1300,6 @@ int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	double objval_p = 0.0;
 	double gap = 1.0;						// best_lb - objval_p / best_lb
 	double fr = 0.9;				// fixing_ratio
-
 
 	// structure init
 	// int *succ = (int*) calloc(inst->nnodes, sizeof(int));
@@ -1301,7 +1367,6 @@ int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	// free(ncomp);
 	return 0;
 }
-
 void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, double fixing_ratio) {
 
 	if (inst->verbose >= 100) printf("FIXING %.5lf %%\n", fixing_ratio);
@@ -2251,11 +2316,9 @@ void best_two_opt(tspinstance *inst) {
 	free(ncomp);
 }
 
-
-// Repair
-void patching(tspinstance* inst) {
-
-	if (inst->verbose >= 100) printf("PATCHING\n");
+void random_n_opt(tspinstance* inst, int n) {
+	if (inst->verbose >= 100) printf("RANDOM_N_OPT\n");
+	if (inst->nnodes < n) print_error("n should be lower than the number of nodes of the problem.");
 
 	// check if current solution has only one tour
 	int *succ = (int*) calloc(inst->nnodes, sizeof(int));
@@ -2263,23 +2326,79 @@ void patching(tspinstance* inst) {
 	int *ncomp = (int*) calloc(1, sizeof(int));
 	build_sol(inst, succ, comp, ncomp);
 	if (inst->verbose >= 100) print_succ(succ, inst);
-	if (*ncomp == 1) {
-		printf("WARNING: solution already has 1 tour, patching has no effect.\n");
-		free(succ);
-		free(comp);
-		free(ncomp);
-		return;
+	if (*ncomp != 1) print_error("call random_n_opt with best_sol with multiple tour");
+
+	// ramdoly select n nodes and save n successor
+	int *c_1 = (int*) calloc(n, sizeof(int));		// this will be used as array
+	int *c_2 = (int*) calloc(n, sizeof(int));		// of pairs
+
+	// 	initialization to -1
+	for (int i = 0; i < n; i++) {c_1[i] = -1; c_2[i] = -1;}
+
+	srand(second());	// set random seed
+	int i;  // tour iterator, assume index nodes value
+	int c_iter = 0;		// iterate over n pairs, each time a random index is selected
+	int already_selected;  // tell if i has already been added in the c_2 struct
+	while (c_iter < n) {
+		i = rand() % inst->nnodes; 	// random node
+		already_selected = 0;
+
+		// check if i have been already selected
+		for (int j = 0; j < c_iter; j++) if (c_2[j] == i) already_selected = 1;
+
+		if (!already_selected) {  // add to selected
+			c_2[c_iter] = i;
+
+			if (succ[i] == -1)  // isolated node, should never happen
+				print_error("Selected isolated node. Random_n_opt error");
+			else
+				c_1[c_iter] = succ[i];
+
+			c_iter++;		// update c_iter
+			succ[i] = -1;  // break the edges
+			inst->best_lb -= dist(i, succ[i], inst);  // update distances
+		} else {
+			// continue and choose another index
+		}
+
 	}
 
-	while (*ncomp > 1) {
-		single_patch(inst, succ, comp, ncomp);
-		if (inst->verbose >= 100) {
-			print_succ(succ, inst);
-			printf("\ncomp:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
+	// for n times, merge a random node with random successor. (no need to reverse the orientation)
+	int i_1 = -1;
+	int i_2 = -1;
+	c_iter = 0;
+	already_selected = 0;
+	while (c_iter < n) {
+		i_1 = rand() % n;
+		i_2 = rand() % n;
+
+		// check i_1 and i_2 are not selected yet
+		for (int j = 0; j < n; j++) {
+			if (succ[c_2[j]] == c_1[i_1]) {  // already selected i_1
+				j = 0;
+				i_1 = (i_1 + 1) % n;
+			}
 		}
-		plot_instance(inst);
+		while (succ[c_2[i_2]] != -1) {	// already selected i_2
+			i_2 = (i_2 + 1) % n;
+		}
+
+		// if i has not been merged, and
+		succ[c_2[i_2]] = c_1[i_1];
+		c_iter++;
+		inst->best_lb += dist(c_2[i_2], c_1[i_1], inst);
 	}
+
+	if (inst->verbose >= 100) print_succ(succ, inst);
+	free(succ);
+	free(comp);
+	free(ncomp);
+	free(c_1);
+	free(c_2);
 }
+
+
+// Repair
 void single_patch(tspinstance* inst, int* succ, int* comp, int* ncomp) {
 
 	if (*ncomp == 1) {
