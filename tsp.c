@@ -292,6 +292,24 @@ int xpos(int i, int j, tspinstance *inst) {
 	return i*inst->nnodes + j - ((i + 1)*(i + 2))/2; 				// default case
 } 
 
+int* invers_xpos(int pos, tspinstance* inst) {
+	if (pos < 0) print_error(" position cannot be negative");
+	if (pos > (inst->nnodes * inst->nnodes - inst->nnodes - 2) / 2) print_error(" position exceeds max value");
+
+	int* ij = (int*)calloc(2, sizeof(int));
+	int temp_pos = 0;
+	for (int i = 0; i < inst->nnodes - 1; i++){
+		for (int j = i + 1; j < inst->nnodes; j++) {
+			if (temp_pos == pos) {
+				ij[0] = i;
+				ij[1] = j;
+				return ij;
+			}
+			temp_pos++;
+		}
+	}
+}
+
 int asym_xpos(int i, int j, tspinstance *inst) {
 	if ( i == j ) print_error(" i == j in asym_upos" );
 	return i*(inst->nnodes - 1) + ( i < j ? j-1 : j );
@@ -2269,9 +2287,10 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 			pA = i;
 			pB = (i == nPop - 1) ? 0 : i + 1;
 
-			EAX_Single(population, pA, pB);			// Generate nKids offspring solutions from pA, pB using differents AB-Cycles
-			//repair tour/s of kids if needed
-			survival_selection(inst, population, nPop);
+			double** kids = (double**)calloc(nKids, sizeof(double*));
+
+			kids = EAX_Single(population, pA, pB);			// Generate nKids offspring solutions from pA, pB using differents AB-Cycles
+			survival_selection(inst, population, nPop, frequencyTable, nKids, pA, kids);
 		}
 	}
 	free_ga(population, frequencyTable, nPop);
@@ -2315,25 +2334,92 @@ void swap(double* a, double* b)
 	*a = *b;
 	*b = temp;
 }
-void EAX_Single(double** population, int pA, int pB) {
-
+double** EAX_Single(double** population, int pA, int pB) {
+	//repair tour/s of kids if needed ( 1 or more kids???)
 }
-void survival_selection(tspinstance* inst, double** population, int nPop) {
+void survival_selection(tspinstance* inst, double** population, int nPop, int* frequencyTable, int nKids, int pA, double** kids) {
 
-	double average_cost = 0.0;
-	for (int i = 0; i < nPop; i++) {
-		
-		double indiv_cost = 0.0;
-		for (int j = 0; j < inst->nedges; j++) {
-			if(population[i][j] == 1.0)
-				indiv_cost += dist(population[i][j], population[i][j + 1], inst);
+	double L_parents = calc_L(inst, population, nPop);					// Average Tour Length of Population
+	double H_parents = calc_H(inst, frequencyTable, nPop);				// Edge Entropy of Population H = - Σ(e in E) [ F(e) / Npop (log(F(e) / Npop)) ]
+	int y = -1;															// index of best kid
+	double best_eval = MININT;
+	double** best_population = (double**)calloc(nPop, sizeof(double*));
+	int* best_frequencyTable = (int*)calloc(inst->nedges, sizeof(int));
+	double epsilon; 
+
+	for (int i = 0; i < nKids; i++) {
+		double** new_population = (double**)calloc(nPop, sizeof(double*));
+		int* new_frequencyTable = (int*)calloc(inst->nedges, sizeof(int));
+
+		new_population = population;
+		new_frequencyTable = frequencyTable;
+
+		update_frequency_table(inst, new_frequencyTable, new_population[pA], kids[i]);
+		new_population[pA] = kids[i];
+
+
+		double delta_L = L_parents - calc_L(inst, new_population, nPop);
+		double delta_H = H_parents - calc_H(inst, new_frequencyTable, nPop);
+
+		double eval = MININT;
+		if (delta_L < 0 && delta_H < 0){
+			eval = delta_L / delta_H;
+		}else if (delta_L < 0 && delta_H >= 0) {
+			eval = -delta_L / epsilon;
+		}else if (delta_L >= 0) {
+			eval = -delta_L;
 		}
-		average_cost += indiv_cost;
+		if (eval > best_eval) {
+			best_eval = eval;
+			y = i;
+			best_population = new_population;
+			best_frequencyTable = new_frequencyTable;
+		}
+
+		free(new_population);
+		free(new_frequencyTable);
+	}
+
+	population = best_population;
+	frequencyTable = best_frequencyTable;
+}
+
+void update_frequency_table(tspinstance* inst, int* frequencyTable, double* pA, double* kid) {
+	for (int i = 0; i < inst->nedges; i++) {
+		if (pA[i] == 1.0)
+			frequencyTable[i]--;
+		if (kid[i] == 1.0)
+			frequencyTable[i]++;
+	}
+}
+double calc_L(tspinstance* inst, double** population, int nPop) {
+	double L = 0.0;
+	int* ij = (int*)calloc(2, sizeof(int));
+	for (int k = 0; k < nPop; k++) {
+
+		double indiv_cost = 0.0;
+		int i = 0, j = 0;
+		for (int w = 0; w < inst->nedges; w++) {
+			if (population[k][w] == 1.0) {
+				ij = invers_xpos(w, inst);
+				indiv_cost += dist(ij[0], ij[1], inst);
+			}
+		}
+		L += indiv_cost;
 
 	}
-	average_cost = average_cost / nPop;
-
-
+	L = L / nPop;
+	return L;
+}
+double calc_H(tspinstance* inst, int* frequencyTable, int nPop){
+	double H = 0.0;
+	for (int i = 0; i < inst->nedges; i++) {
+		if (frequencyTable[i] != 0) {
+			H += (double)frequencyTable[i] / nPop * (log((double)frequencyTable[i]) / nPop);
+		}
+	}
+	H *= -1;
+	return H;
 }
 
 void print_population(tspinstance* inst, double** population, int nPop) {

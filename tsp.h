@@ -98,6 +98,7 @@ char* model_name(int i);
 char * setup_model(tspinstance* inst);
 int TSPopt(tspinstance *inst);
 int xpos(int i, int j, tspinstance *inst);
+int* invers_xpos(int pos, tspinstance* inst);
 int asym_xpos(int i, int j, tspinstance *inst);
 int asym_upos(int i, tspinstance *inst);
 int asym_ypos(int i, int j, tspinstance* inst);
@@ -137,6 +138,10 @@ void init_population(tspinstance* inst, double** population, int nPop);
 void init_frequency_edges(tspinstance* inst, double** population, int* frequencyTable, int nPop);
 void shuffle_individuals(tspinstance* inst, double** population, int nPop);
 void swap(double* a, double* b);
+double** EAX_Single(double** population, int pA, int pB);
+void survival_selection(tspinstance* inst, double** population, int nPop, int* frequencyTable, int nKids, int pA, double** kids);
+double calc_L(tspinstance* inst, double** population, int nPop);
+double calc_H(tspinstance* inst, int* frequencyTable, int nPop);
 
 void print_population(tspinstance* inst, double** population, int nPop);
 void print_frequency_table(tspinstance* inst, int* frequency_table);
