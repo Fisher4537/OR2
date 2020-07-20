@@ -1009,9 +1009,8 @@ int succ_not_contained(int node, int* sol, tspinstance* inst) {
 void heur_grasp(tspinstance* inst, int* status) {
 	if (inst->verbose >= 100) printf("heur_grasp helloworld!\n");
 
-	double* best_sol = (double*)calloc(inst->nedges, sizeof(double));
-
 	// get first node, randomly selected
+	double* best_sol = (double *) calloc(inst->nedges, sizeof(double));
 	int* succ = (int*)malloc(inst->nnodes * sizeof(int));
 	for (int i = 0; i < inst->nnodes; i++) succ[i] = -1;
 
@@ -1080,7 +1079,7 @@ void heur_grasp(tspinstance* inst, int* status) {
 			inst->best_sol[xpos(i,j,inst)] = best_sol[xpos(i,j,inst)];		// TODO: forse qua puoi mettere = 1.0
 	inst->best_lb = best_lb;
 	if (inst->verbose >= 100) printf("GRASP BEST_LB: %lf\n", inst->best_lb);
-
+	fflush(stdout);
 }
 
 int heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
@@ -1229,28 +1228,41 @@ void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 int vns(tspinstance* inst) {
 
 	if (inst->verbose >= 100) printf("VNS\n");
+	fflush(stdout);
+
+	// struct to keep solution
+	double* best_sol = (double *) calloc(inst->nedges, sizeof(double));
+
+	// copy current solution
+	for (int i = 0; i < inst->nedges; i++) best_sol[i] = inst->best_sol[i];
+	double prev_lb = inst->best_lb;
+	double best_lb = inst->best_lb;
+
 	// stop condition: time_limit, number of iteration (i)
 	int i = 0;  // number of iteration
 	int max_iteration = 100;	// max number of iteration before stop
  	double init_time = second();
-
-	// struct to keep solution
-	double prev_lb = inst->best_lb;
 	// int* succ = (int*)calloc(inst->nnodes, sizeof(int));
 	// int* comp = (int*)calloc(inst->nnodes, sizeof(int));
 	// int* ncomp = (int*)calloc(1, sizeof(int));
 	// build_sol(inst, succ, comp, ncomp);
 	// if (*ncomp != 1) {print_error("VNS need to start with a single tour solution.");}
 
-	while (!(inst->timelimit < second() - init_time || i >= max_iteration)) {  // stop condition
+	while (inst->timelimit > second() - init_time && i < max_iteration) {  // stop condition
 
 		while (1) {  // iterate best_two_opt
 			best_two_opt(inst);
-			if (prev_lb <= inst->best_lb) {  // found a new best, continue iteration
+			if (prev_lb > inst->best_lb) {  // found a new best, continue iteration
 				prev_lb = inst->best_lb;
 			} else {		// no new best_lb found, stop iteration
 				break;
 			}
+		}
+
+		// save the solution
+		if (best_lb > inst->best_lb) {
+			for (int i = 0; i < inst->nedges; i++) best_sol[i] = inst->best_sol[i];
+			best_lb = inst->best_lb;
 		}
 
 		// move to a random 5 opt solution
@@ -1259,6 +1271,8 @@ int vns(tspinstance* inst) {
 		i++;  // one iteration compleate
 	}
 
+	for (int i = 0; i < inst->nedges; i++) inst->best_sol[i] = best_sol[i];
+	inst->best_lb = best_lb;
 	return 0;
 }
 
@@ -2248,6 +2262,7 @@ void best_two_opt(tspinstance *inst) {
 	// improving the best_sol if possibile in 2opt set
 
 	if (inst->verbose >= 100) printf("BEST_TWO_OPT\n");
+	fflush(stdout);
 
 	// check if current solution has only one tour
 	int *succ = (int*) calloc(inst->nnodes, sizeof(int));
@@ -2258,16 +2273,16 @@ void best_two_opt(tspinstance *inst) {
 	if (*ncomp != 1) print_error("call best_two_opt with best_sol with multiple tour");
 
 	// search in 2opt if a better solution is found
-	int i = 0;		// start from node 0
+	int i = 0;					// start from node 0
 	int j = succ[succ[0]];
-	int best_i = i;
-	int best_j = i;
+	double d_i1_i2;			// distance from i and succ[i], -
+	double d_j1_j2;			// distance from j and succ[j], -
+	double d_i1_j1;			// distance from i and j, +
+	double d_i2_j2;			// dist from succ[i] and succ[j], +
+	double cur_improve;	// + d_i1_i2 + d_j1_j2 - d_i1_j1 - d_i2_j2
+	int best_i = i;			// i that perform the best improve
+	int best_j = i;			// j that perform the best improve
 	double best_improve = 0.0;
-	double d_i1_i2;
-	double d_j1_j2;
-	double d_i1_j1;
-	double d_i2_j2;
-	double cur_improve;
 
 	for (int ti = 0; ti < inst->nnodes - 3; ti++) {
 		d_i1_i2 = dist(i, succ[i], inst);
@@ -2276,13 +2291,12 @@ void best_two_opt(tspinstance *inst) {
 			d_j1_j2 = dist(j, succ[j], inst);
 			d_i1_j1 = dist(i, j, inst);
 			d_i2_j2 = dist(succ[i], succ[j], inst);
-			if (inst->verbose >= 100) printf("*** i - j: %d - %d\n", i,j);
 			cur_improve = (d_i1_i2 + d_j1_j2) - (d_i1_j1 + d_i2_j2);
-			if ( cur_improve > best_improve ) { // cross is better
+			if ( cur_improve > best_improve ) {  // cross is better
 				best_i = i;
 				best_j = j;
 				best_improve = cur_improve;
-				if (inst->verbose >= 100) printf("*** Best_improve: %f\n", best_improve);
+				if (inst->verbose >= 100) printf("BTO best_improve: %7.1f\n", best_improve);
 			}
 			j = succ[j];
 		}
@@ -2296,8 +2310,14 @@ void best_two_opt(tspinstance *inst) {
 		int i2 = succ[best_i];
 		int j2 = succ[best_j];
 		int pre_node = succ[i2];
+		inst->best_sol[xpos(best_i, i2, inst)] = 0.0;
+		inst->best_sol[xpos(best_j, j2, inst)] = 0.0;
+
 		succ[best_i] = best_j;
 		succ[i2] = j2;
+		inst->best_sol[xpos(best_i, best_j, inst)] = 1.0;
+		inst->best_sol[xpos(i2, j2, inst)] = 1.0;
+
 		int cur_node = i2;
 		int suc_node = j2;
 		while (cur_node != best_j) {  // reverse the succ
@@ -2305,11 +2325,13 @@ void best_two_opt(tspinstance *inst) {
 			cur_node = pre_node;
 			pre_node = succ[pre_node];
 			succ[cur_node] = suc_node;
-			if (inst->verbose >= 100) print_succ(succ, inst);
 		}
+		if (inst->verbose >= 100) print_succ(succ, inst);
 	}
+	if (inst->verbose >= 100) printf("BTO i j: %3d %3d\n", i,j);
+	if (inst->verbose >= 100) printf("BTO Best_improve: %f\n", best_improve);
 	inst->best_lb -= best_improve;  // update best_lb
-
+	if (inst->verbose >= 100) printf("BTO new best_lb: %7.1f\n", inst->best_lb);
 	if (inst->verbose >= 100) print_succ(succ, inst);
 	free(succ);
 	free(comp);
@@ -2319,6 +2341,7 @@ void best_two_opt(tspinstance *inst) {
 void random_n_opt(tspinstance* inst, int n) {
 	if (inst->verbose >= 100) printf("RANDOM_N_OPT\n");
 	if (inst->nnodes < n) print_error("n should be lower than the number of nodes of the problem.");
+	fflush(stdout);
 
 	// check if current solution has only one tour
 	int *succ = (int*) calloc(inst->nnodes, sizeof(int));
@@ -2355,8 +2378,9 @@ void random_n_opt(tspinstance* inst, int n) {
 				c_1[c_iter] = succ[i];
 
 			c_iter++;		// update c_iter
-			succ[i] = -1;  // break the edges
 			inst->best_lb -= dist(i, succ[i], inst);  // update distances
+			inst->best_sol[xpos(i, succ[i], inst)] = 0.0;
+			succ[i] = -1;  // break the edges
 		} else {
 			// continue and choose another index
 		}
@@ -2364,32 +2388,93 @@ void random_n_opt(tspinstance* inst, int n) {
 	}
 
 	// for n times, merge a random node with random successor. (no need to reverse the orientation)
-	int i_1 = -1;
+	int i_1 = rand() % n;
+	int first_node = c_1[i_1];
 	int i_2 = -1;
 	c_iter = 0;
-	already_selected = 0;
 	while (c_iter < n) {
-		i_1 = rand() % n;
-		i_2 = rand() % n;
 
-		// check i_1 and i_2 are not selected yet
-		for (int j = 0; j < n; j++) {
-			if (succ[c_2[j]] == c_1[i_1]) {  // already selected i_1
-				j = 0;
-				i_1 = (i_1 + 1) % n;
+		// initialize i_1 as not already initialize and prefere isolated node
+		// int isolated = 0;
+		// already_selected = 0;
+		// i_1 = 0;
+		// for (i = 0; i < n; i++) {
+		//
+		// 	for (int j = 0; j < n; j++) {
+		// 		already_selected = succ[c_2[j]] == c_1[i];
+		// 		if (already_selected) {  // already selected c_1[i]
+		// 			break;		// no matter what, it can not be selected, change c_1[i]
+		// 		}
+		// 		if (c_1[i] == c_2[j]) {  // check if c_1[i] is isolated
+		// 			isolated = 1;
+		// 		}
+		// 	}
+		// 	if (isolated && !already_selected) {  // select isolated node that has is not already selected
+		// 		i_1 = i;
+		// 		printf("c_1[i_1] is isolated and is not already selected: %d\n", c_1[i_1]);
+		// 		fflush(stdout);
+		// 		break;
+		// 	} else if (!isolated && !already_selected) {	// propose i because it is not isolated
+		// 		i_1 = i;
+		// 	}
+		// }
+		// if (!isolated) {
+		// 	printf("c_1[i_1] is NOT isolated and is not already selected: %d\n", c_1[i_1]);
+		// 	fflush(stdout);
+		// }
+		// if (already_selected) print_error("node already selected. Random_n_opt");
+		//
+		// // select i_2
+		// int c = 0;  // count
+		// while (succ[c_2[i_2]] != -1 || c_2[i_2] == c_1[i_1]) {	// already selected i_2
+		// 	i_2 = (i_2 + 1) % n;
+		// 	if (c >= n) {  // only a node with
+		// 		print_error("no available node to select. random_n_opt");
+		// 	}
+		// 	c++;
+		// }
+
+		// select one of the c_1 at random and set as first nodes
+
+		int i = c_1[i_1];
+		while (succ[i] != -1) i = succ[i];
+
+		// select a c_1[i_1] not already selected and != from first_node
+		int already_selected = 0;
+		int is_first = 0;
+		for (i_1 = 0; i_1 < n; i_1++){
+
+			is_first = c_1[i_1] == first_node;  // the node is the first_node, skip
+			if (is_first) continue;
+
+			// check if c_1[i_1] is already selected
+			for (int j = 0; j < n; j++) {
+				already_selected = succ[c_2[j]] == c_1[i_1];
+				if (already_selected) {  // already selected c_1[i]
+					break;		// no matter what, it can not be selected, change c_1[i]
+				}
 			}
-		}
-		while (succ[c_2[i_2]] != -1) {	// already selected i_2
-			i_2 = (i_2 + 1) % n;
+			// if not already seelected here, it is selected
+			if (!already_selected) break;
 		}
 
-		// if i has not been merged, and
-		succ[c_2[i_2]] = c_1[i_1];
-		c_iter++;
-		inst->best_lb += dist(c_2[i_2], c_1[i_1], inst);
+		// check if it is the last edge or not
+		if (i_1 == n) { // close the tour and exit
+			succ[i] = first_node;
+			inst->best_lb += dist(i, first_node, inst);
+			inst->best_sol[xpos(i, first_node, inst)] = 1.0;
+			c_iter++;
+			break;
+		} else {  	// add new arch i -> c_1[i_1]
+			succ[i] = c_1[i_1];
+			inst->best_lb += dist(i, c_1[i_1], inst);
+			inst->best_sol[xpos(i, c_1[i_1], inst)] = 1.0;
+			c_iter++;
+		}
 	}
 
 	if (inst->verbose >= 100) print_succ(succ, inst);
+	fflush(stdout);
 	free(succ);
 	free(comp);
 	free(ncomp);
