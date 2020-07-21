@@ -32,7 +32,7 @@
 			  e dobbiamo stare attenti, dovremmo tenere un remaining_time globale in modo che se utilizziamo modelli con più metodi scalino tutti dallo stesso remaining_time
 
 			- Hard fixing usa CPLEX? cioè ti serve il parametro useCplex a TRUE? ora è a TRUE (riga 134), se non ti serve che faccia il CPXSolution nel metodo TSPopt allora togli quella riga
-			
+
 			- Tabu search: we can add variable length of list and add the check also for tabu solution
 */
 
@@ -53,7 +53,7 @@ char * model_name(int i) {
 		case 12: return "heuristic_grasp";					// GRASP (no CPLEX)
 		case 13: return "heuristic_insertion";				// Heuristic Insertion (no CPLEX)
 		case 14: return "grasp_best_two_opt";				// GRASP + best_two_opt
-		case 15: return "patching";							// Patching	
+		case 15: return "patching";							// Patching
 		case 16: return "vns";
 		case 17: return "tabu_search";						// Greedy + TABU' SEARCH (linked list version)
 		case 18: return "tabu:search_array";				// Greedy + TABU' SEARCH (array version)
@@ -75,9 +75,12 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
  1		  build_mtz					heur_greedy				hard_fixing			subtour_heur_iter_opt				lazy
  2		 build_flow1			heur_greedy_cgal	local_branching				 CPXmipopt					 generic CAND
  3		build_mtz_lazy			heur_grasp				best_two_opt													generic CAND, GLOBAL
- 4									heur_insertion												patching
+ 4											heur_insertion				patching
  5																							vns
- 6
+ 6																				tabu_search (LL)
+ 7																				tabu_search (Ar)
+ 8																			simulating_annealing
+ 9																				genetic_algorithm
 */
 
 	inst->callback = 0;
@@ -190,7 +193,7 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 		case 19:
 			inst->model_type = 0;
 			inst->warm_start = 1;
-			inst->mip_opt = 2;
+			inst->mip_opt = 0;
 			inst->useCplex = 1;
 			return "heuristic_greedy";					// Heuristic Greedy (Warm Start for CPLEX)
 		case 20:
@@ -202,13 +205,13 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 		case 21:
 			inst->model_type = 0;
 			inst->warm_start = 3;
-			inst->mip_opt = 2;
+			inst->mip_opt = 0;
 			inst->useCplex = 1;
 			return "heuristic_grasp";					// Heuristic GRASP (Warm Start for CPLEX)
 		case 22:
 			inst->model_type = 0;
 			inst->warm_start = 4;
-			inst->mip_opt = 2;
+			inst->mip_opt = 0;
 			inst->useCplex = 1;
 			return "heuristic_insertion";				// Heuristic Insertion (Warm Start for CPLEX)
 		case 23:
@@ -289,7 +292,7 @@ int xpos(int i, int j, tspinstance *inst) {
 	if ( i == j ) print_error(" i == j in xpos" );
 	if ( i > j ) return xpos(j,i,inst);								// simplify returned formula
 	return i*inst->nnodes + j - ((i + 1)*(i + 2))/2; 				// default case
-} 
+}
 
 int asym_xpos(int i, int j, tspinstance *inst) {
 	if ( i == j ) print_error(" i == j in asym_upos" );
@@ -818,10 +821,10 @@ void add_lazy_mtz(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 
 // heuristic warm start
 void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* status) {
-	
+
 	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
 
-	switch (inst->warm_start) {					
+	switch (inst->warm_start) {
 
 		case 0:
 		break;
@@ -848,24 +851,26 @@ void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* statu
 	}
 	if (inst->useCplex) {
 
-		if (best_sol[0] == -1) {							// first element best_sol == -1 => error and return status at best_sol[1]
+		if (best_sol[0] == -1) {	// first element best_sol == -1 => error and return status at best_sol[1]
 			*status = best_sol[1];
 			return *status;
 		}
 
-		int nocheck_warmstart = CPX_MIPSTART_REPAIR;			//CPLEX attempts to repair the MIP start if it is infeasible, according to the parameter that sets the frequency to try to repair an infeasible MIP start 
-																// number of attempts to repair infeasible MIP start = CPXPARAM_MIP_Limits_RepairTries. Default => CPLEX choose
-								//CPX_MIPSTART_SOLVEMIP;		// CPLEX solves a subMIP.
+		int nocheck_warmstart = CPX_MIPSTART_REPAIR;
+		// CPLEX attempts to repair the MIP start if it is infeasible, according to
+		// the parameter that sets the frequency to try to repair an infeasible MIP
+		// start
+		// number of attempts to repair infeasible MIP start = CPXPARAM_MIP_Limits_RepairTries. Default => CPLEX choose
+		// CPX_MIPSTART_SOLVEMIP;		// CPLEX solves a subMIP.
 		double val = 1.0;
 		int izero = 0;
 
 		if (*status = CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) {
 			print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
-			return *status;
 		}
 	}
 	free(best_sol);
-	
+
 }
 
 int* heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
@@ -1093,12 +1098,12 @@ int* heur_grasp(tspinstance* inst, int* status){
 	double cur_dist[3];  		// distance from current node
 	double best_lb = 0.0;  	// the cost of the solution
 
-	
+
 	for (int tour_length = 0; tour_length < inst->nnodes; tour_length++) {
 
 		// initialization
-		for (int k = 0; k < 3; k++) { 
-			cur_dist[k] = INT_MAX; cur_nearest[k] = -1; 
+		for (int k = 0; k < 3; k++) {
+			cur_dist[k] = INT_MAX; cur_nearest[k] = -1;
 		}
 
 		// get the three nearest node
@@ -1144,7 +1149,7 @@ int* heur_grasp(tspinstance* inst, int* status){
 	}
 
 	// save the tour and the cost
-	print_succ(succ, inst);
+	if (inst->verbose >= 100) print_succ(succ, inst);
 	free(succ);
 	for (int i = 0; i < inst->nnodes; i++) {
 		inst->best_sol[best_sol[i]] = 1.0;
@@ -1196,7 +1201,7 @@ int* heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 			count_sol++;
 		}
 	}
-	
+
 	// Copy and convert to double sol in best_sol
 	for (int i = 0; i < inst->nnodes; i++) {
 		inst->best_sol[best_sol[i]] = 1.0;
@@ -1284,7 +1289,7 @@ void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		case 6:
 			*status = tabu_search(env, inst, status);
 		break;
-		
+
 		case 7:
 			*status = tabu_search_array(env, inst, status);
 		break;
@@ -1786,7 +1791,7 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 		if (best_temp_lb == best_lb){
 			// Local/Global minimum found
 			isImprovement = 0;
-			printf("Local (possible global) Minimum found! Start to rise again\n");
+			if(inst->verbose > 100) printf("Local (possible global) Minimum found! Start to rise again\n");
 			if (best_lb < inst->best_lb) {
 				inst->best_lb = best_lb;
 				best_temp_lb = best_lb;
@@ -1798,7 +1803,7 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 					first_node = second_node;
 					second_node = succ[second_node];
 				}
-				printf("BEST_LB GLOBAL update to : [%f]\n", inst->best_lb);
+				if (inst->verbose >= 100) printf("BEST_LB GLOBAL update to : [%f]\n", inst->best_lb);
 				//plot_instance(inst);
 
 			}
@@ -1807,7 +1812,7 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 			if (best_improve > 0) {
 				isImprovement = 1;
 
-				printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_temp_lb, best_lb);
+				if (inst->verbose >= 100) printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_temp_lb, best_lb);
 				best_temp_lb = best_lb;
 			}
 		}
@@ -1821,12 +1826,12 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 	free(succ);
 	free(comp);
 	free(ncomp);
-	printf("BEST FINAL GLOBAL LB found: [%f]\n", inst->best_lb);
+	if (inst->verbose >= 100) printf("BEST FINAL GLOBAL LB found: [%f]\n", inst->best_lb);
 
-	write_list_lb(head_save);
+	if (inst->verbose >= 10000) write_list_lb(head_save);
 
 }
-void push(struct tabu_list** head_ref, int arc, int isArc) {
+void push(tabu_list** head_ref, int arc, int isArc) {
 	tabu_list* new_node = (tabu_list*)malloc(sizeof(tabu_list));
 
 	new_node->arc = arc;
@@ -1834,8 +1839,8 @@ void push(struct tabu_list** head_ref, int arc, int isArc) {
 	new_node->next = *head_ref;
 	*head_ref = new_node;
 
-	if(isArc)														// used to distinguish tabu_list for arcs and list for LBs found
-		printf("++++ ADD element %d to Tabu List\n", arc);
+	// used to distinguish tabu_list for arcs and list for LBs found
+	// if(isArc)	printf("++++ ADD element %d to Tabu List\n", arc);
 }
 int pop_first(tabu_list** head) {
 	int retval = -1;
@@ -1920,7 +1925,7 @@ int contained_in_posix(tabu_list** head, int arc) {
 		current = current->next;
 
 	}
-	
+
 	return retval;
 }
 void print_list(tabu_list* head) {
@@ -1946,8 +1951,13 @@ void delete_list(tabu_list* head, tabu_list** head_ref) {
 }
 void write_list_lb(tabu_list* head) {
 	FILE* fptr;
-	fptr = fopen("plot\\lb_result.txt", "w");
-	
+
+	#ifdef _WIN32
+		fptr = fopen("plot\\lb_result.txt", "w");
+	#elif __linux__
+		fptr = fopen("plot/lb_result.txt", "w");
+	#endif
+
 	tabu_list* current = head;
 	int printval;
 	printf("--- Writing LB list elements ---\n");
@@ -1985,7 +1995,7 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 	// tabù list (array)
 	tabu_list* head_save = NULL;
 
-	// Arrotonda per eccesso nnodes / 2. +1 viene usato per tenere conto di dove inserire l'arco proibito 
+	// Arrotonda per eccesso nnodes / 2. +1 viene usato per tenere conto di dove inserire l'arco proibito
 	int tabu_array_size = (inst->nnodes / 2) % 2 == 0 ? (inst->nnodes / 2) + 1 : ((inst->nnodes + 1) / 2) + 1;
 	int* tabu_array = (int*)calloc(tabu_array_size, sizeof(int));
 	for (int i = 0; i < tabu_array_size; i++)
@@ -2068,8 +2078,8 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 				for(int i = 0; i < tabu_array_size; i++)
 					if (tabu_array[i] == -1) {
 						tabu_array[i] = xpos(best_pre_i, best_pre_j, inst);
-						printf("++++ ADD element %d to Tabu List\n", tabu_array[i]);
-						printf("---- REPLACE element %d with -1 to Tabu List\n", tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)]);
+						if (inst->verbose >= 100) printf("++++ ADD element %d to Tabu List\n", tabu_array[i]);
+						if (inst->verbose >= 100) printf("---- REPLACE element %d with -1 to Tabu List\n", tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)]);
 						tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)] = -1;
 						break;
 					}
@@ -2078,8 +2088,8 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 				for (int i = 0; i < tabu_array_size; i++)
 					if (tabu_array[i] == -1) {
 						tabu_array[i] = xpos(succ[best_pre_i], succ[best_pre_j], inst);
-						printf("++++ ADD element %d to Tabu List\n", tabu_array[i]);
-						printf("---- REPLACE element %d with -1 to Tabu List\n", tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)]);
+						if (inst->verbose >= 100) printf("++++ ADD element %d to Tabu List\n", tabu_array[i]);
+						if (inst->verbose >= 100) printf("---- REPLACE element %d with -1 to Tabu List\n", tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)]);
 						tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)] = -1;
 						break;
 					}
@@ -2091,8 +2101,8 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 				for (int i = 0; i < tabu_array_size; i++)
 					if (tabu_array[i] == -1) {
 						tabu_array[i] = xpos(best_pre_i, best_pre_j, inst);
-						printf("++++ ADD element %d to Tabu List\n", tabu_array[i]);
-						printf("---- REPLACE element %d with -1 to Tabu List\n", tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)]);
+						if (inst->verbose >= 100) printf("++++ ADD element %d to Tabu List\n", tabu_array[i]);
+						if (inst->verbose >= 100) printf("---- REPLACE element %d with -1 to Tabu List\n", tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)]);
 						tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)] = -1;
 						break;
 					}
@@ -2101,8 +2111,8 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 				for (int i = 0; i < tabu_array_size; i++)
 					if (tabu_array[i] == -1) {
 						tabu_array[i] = xpos(succ[best_pre_i], succ[best_pre_j], inst);
-						printf("++++ ADD element %d to Tabu List\n", tabu_array[i]);
-						printf("---- REPLACE element %d with -1 to Tabu List\n", tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)]);
+						if (inst->verbose >= 100) printf("++++ ADD element %d to Tabu List\n", tabu_array[i]);
+						if (inst->verbose >= 100) printf("---- REPLACE element %d with -1 to Tabu List\n", tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)]);
 						tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)] = -1;
 						break;
 					}
@@ -2120,7 +2130,7 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 		if (best_temp_lb == best_lb) {
 			// Local/Global minimum found
 			isImprovement = 0;
-			printf("Local (possible global) Minimum found! Start to rise again\n");
+			if (inst->verbose >= 100) printf("Local (possible global) Minimum found! Start to rise again\n");
 			if (best_lb < inst->best_lb) {
 				inst->best_lb = best_lb;
 				best_temp_lb = best_lb;
@@ -2132,7 +2142,7 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 					first_node = second_node;
 					second_node = succ[second_node];
 				}
-				printf("BEST_LB GLOBAL update to : [%f]\n", inst->best_lb);
+				if (inst->verbose >= 100) printf("BEST_LB GLOBAL update to : [%f]\n", inst->best_lb);
 
 			}
 
@@ -2141,7 +2151,7 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 			if (best_improve > 0) {
 				isImprovement = 1;
 
-				printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_temp_lb, best_lb);
+				if (inst->verbose >= 100) printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_temp_lb, best_lb);
 				best_temp_lb = best_lb;
 
 			}
@@ -2156,9 +2166,9 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 	free(succ);
 	free(comp);
 	free(ncomp);
-	printf("BEST FINAL GLOBAL LB found: [%f]\n", inst->best_lb);
+	if (inst->verbose >= 100) printf("BEST FINAL GLOBAL LB found: [%f]\n", inst->best_lb);
 
-	write_list_lb(head_save);
+	if (inst->verbose >= 10000) write_list_lb(head_save);
 
 }
 int contained_in_posix_array(int tabu_array_size, int* tabu_array, int arc) {
@@ -2169,7 +2179,7 @@ int contained_in_posix_array(int tabu_array_size, int* tabu_array, int arc) {
 }
 
 int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
-	
+
 	if (inst->verbose >= 100) printf("Simulating Annealing\n");
 
 	// check if current solution has only one tour
@@ -2191,9 +2201,9 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 	double extra_time = inst->timelimit * 5 / 100;
 	double remaining_time = inst->timelimit;
 	double temp_time = remaining_time;
-	double temperature = MAXINT;
+	double temperature = INT_MAX;
 	double temperature_perc = 1.0;
-	double maxTemp = (double)MAXINT + 1e8;
+	double maxTemp = (double)INT_MAX + 1e8;
 	double decrease = -1;
 	double delta = -1;
 	double delta_perc = 1.0;
@@ -2204,7 +2214,9 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 	int dont_print_same_number = 100;		// used to have a slim verbose
 
 
-	printf("\nSimulating Annealing uses a maxTemperature with an extra value of 1e8. This allow to do more iterations when temperature goes to 0.0!\n");
+	if (inst->verbose >= 100)
+		printf("\nSimulating Annealing uses a maxTemperature with an extra value of\
+		 				1e8. This allow to do more iterations when temperature goes to 0.0!\n");
 
 	double max_dist = max_dist_couple_nodes(inst) * 2.0;
 	if (max_dist == -1)
@@ -2228,7 +2240,7 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 			else
 				temperature -= decrease;
 		}
-		temperature_perc = temperature / MAXINT;
+		temperature_perc = temperature / INT_MAX;
 
 		delta = inst->best_lb - best_lb;
 
@@ -2238,12 +2250,14 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 
 			// Used to print some results during run
 			if (((int)(temperature_perc * 100) % 10 == 0 && dont_print_same_number != (int)(temperature_perc * 100)) || inst->verbose > 100) {
-				dont_print_same_number = (int)(temperature_perc * 100);	
-				printf("**** Temp_perc, Delta_perc = [%0.2f,%0.4f] --- Probability [%0.3f] >= [%0.3f] ?\n", temperature_perc, delta_perc, prob, exp(-delta_perc / (K * temperature_perc)));
+				dont_print_same_number = (int)(temperature_perc * 100);
+				if (inst->verbose >= 100)
+					printf("**** Temp_perc, Delta_perc = [%0.2f,%0.4f] --- Probability [%0.3f] >= [%0.3f] ?\n",
+									temperature_perc, delta_perc, prob, exp(-delta_perc / (K * temperature_perc)));
 			}
-			
+
 			if (prob >= exp(- delta_perc / (K * temperature_perc))) {			// Rejected bad move
-				for (int i = 0; i < inst->nedges; i++)		
+				for (int i = 0; i < inst->nedges; i++)
 					if (best_sol[i] == 1.0)
 						inst->best_sol[i] = 1.0;
 					else
@@ -2269,7 +2283,7 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 			best_lb = inst->best_lb;
 
 			if (inst->best_lb < best_global_lb) {
-				printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_global_lb, inst->best_lb);
+				if (inst->verbose >= 100) printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_global_lb, inst->best_lb);
 				best_global_lb = inst->best_lb;
 				for (int i = 0; i < inst->nedges; i++)
 					if (inst->best_sol[i] == 1.0)
@@ -2278,29 +2292,29 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 						best_global_sol[i] = 0.0;
 			}
 		}
-					
 
-		
+
+
 		single_step = (temp_time - remaining_time) / (inst->timelimit);
 		decrease = maxTemp * single_step;
 
 		if (inst->verbose > 100)
 			printf("Single Step [%f] -- Decrease [%.0f] => Step_time [%f] -- Temperature [%f]\n", single_step, decrease, temp_time - remaining_time, temperature);
-		
+
 		temp_time = remaining_time;
 		remaining_time -= second() - ini;
 	}
 
 	inst->best_lb = best_global_lb;
 
-	if (inst->verbose > 100) 
+	if (inst->verbose > 100)
 		print_succ(succ, inst);
-	
+
 	free(succ);
 	free(comp);
 	free(ncomp);
 
-	printf("BEST FINAL GLOBAL LB found: [%f]\n", inst->best_lb);
+	if (inst->verbose >= 100) printf("BEST FINAL GLOBAL LB found: [%f]\n", inst->best_lb);
 }
 int max_dist_couple_nodes(tspinstance* inst) {
 	int max = -1;
@@ -2889,7 +2903,7 @@ void random_two_opt(tspinstance* inst) {
 	if (inst->verbose > 100) print_succ(succ, inst);
 	if (*ncomp != 1) print_error("call random_two_opt with best_sol with multiple tour");
 
-	// random solution in 2opt 
+	// random solution in 2opt
 	int i = rand() % inst->nnodes;
 	int j = rand() % inst->nnodes;
 	while (j == i || j == succ[i]) {
@@ -2939,7 +2953,7 @@ void random_two_opt(tspinstance* inst) {
 }
 
 void random_n_opt(tspinstance* inst, int n) {
-    
+
 	if (inst->verbose >= 100) printf("RANDOM_N_OPT\n");
 	if (inst->nnodes < n) print_error("n should be lower than the number of nodes of the problem.");
 	fflush(stdout);
@@ -3452,7 +3466,7 @@ void build_sol_lazy_std(tspinstance* inst, const double* xstar, int* succ, int* 
 	// go to the next component...
 	}
 	*/
-	
+
 	// print succ, comp and ncomp
 	if (inst->verbose >= 2000)
 	{
@@ -3965,7 +3979,7 @@ void plot_instance(tspinstance *inst) {
 void setup_style(FILE *gnuplot, tspinstance *inst) {
 
 	switch (inst->model_type) {
-	case 17:	
+	case 17:
 		case 0:			// Line
 			setup_linestyle2(gnuplot);
 			break;
@@ -3977,11 +3991,11 @@ void setup_style(FILE *gnuplot, tspinstance *inst) {
 		case 2:			// Arrow
 			setup_arrowstyle2(gnuplot);
 			break;
-		
+
 		case 3:			// Arrow
 			setup_arrowstyle2(gnuplot);
 			break;
-		
+
 		default:
 			fclose(gnuplot);
 			print_error(" Model type unknown!!\n");
