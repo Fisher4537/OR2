@@ -180,12 +180,12 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->model_type = 0;
 			inst->warm_start = 0;
 			inst->heuristic = 4;
-			return "patching";				// patching, no warm_start, no CPLEX.
+			return "patching";							// patching, no warm_start, no CPLEX.
 		case 16:
 			inst->model_type = 0;
 			inst->warm_start = 3;
 			inst->heuristic = 5;
-			return "vns";	 			// vns: GRASP + 2opt and random5opt
+			return "vns";	 							// VSN: GRASP + 2opt and random5opt
 		case 17:
 			inst->model_type = 0;
 			inst->warm_start = 1;
@@ -2491,7 +2491,13 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 		}
 
 		for (int j = 0; j < inst->nedges; j++) {
-			kids[i][j] = y[j];
+			inst->best_sol[j] = y[j];
+		}
+
+		patching(inst);
+
+		for (int j = 0; j < inst->nedges; j++) {
+			kids[i][j] = inst->best_sol[j];
 		}
 	}
 
