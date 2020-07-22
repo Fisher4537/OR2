@@ -162,6 +162,7 @@ int contained_in_index(int* vector, int count_sol, int elem);
 
 void best_two_opt(tspinstance *inst);
 void random_two_opt(tspinstance* inst);
+void random_n_opt(tspinstance* inst, int n);
 
 void patching(tspinstance* inst);
 void single_patch(tspinstance* inst, int* succ, int* comp, int* ncomp);

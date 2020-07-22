@@ -2461,8 +2461,10 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 
 	double* graph_AB = (double*)calloc(inst->nedges, sizeof(double));
 	for (int i = 0; i < inst->nedges; i++) {
-		if (population[pA][i] == 1.0 || population[pB][i] == 1.0)
-			graph_AB[i] = 1.0;
+		if (population[pA][i] == 1.0)
+			graph_AB[i]++;
+		if(population[pB][i] == 1.0)
+			graph_AB[i]++;
 		if(inst->verbose >= 100)
 			printf("%.0f %.0f %.0f - ", graph_AB[i], population[pA][i], population[pB][i]);
 	}
@@ -2474,31 +2476,64 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 
 	int real_nKids = nKids > countCycle ? countCycle : nKids;
 
+	// considera solo i cicli con almeno 4 nodi diversi!!!!
+
 	for (int i = 0; i < real_nKids; i++) {
 
 		int random_ABcycle = rand() % real_nKids;
 
+		int* countN = (int*)calloc(inst->nnodes, sizeof(int));
+		for (int k = 0; k < inst->nedges; k++) {
+			if (ABcycles[random_ABcycle][k] == 1.0) {
+				countN[invers_xpos(k, inst)[0]]++;
+				countN[invers_xpos(k, inst)[1]]++;
+			}
+		}
+		printf("AB_Cycle Randomly choosen: %d\n", countN);
+		if (inst->verbose >= 1000) {
+			printf("\ni:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", w);
+			printf("\nc:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", countN[w]);
+			printf("\n");
+		}
+
 		kids[i] = (double*)calloc(inst->nedges, sizeof(double));
 		double* y = (double*)calloc(inst->nedges, sizeof(double));
 
+		/*
+			- We define the size of an AB-cycle as the number of edges of EA (or EB) included in it. 
+			Note that some of the AB-cycles might consist of two overlapping edges, one from EA and one from EB. 
+			We call such an ABcycle “ineffective” because the inclusion of ineffective AB-cycles in an E-set does not affect the resulting intermediate solution.
+			We call an AB-cycle consisting of more than four edges “effective” 
+			In Step 3, we select only effective AB-cycles for constructing E-sets unless stated otherwise. We define the size of an E-set as the number of edges of EA (or EB) included in it. 
+			- According to the definition of an E-set and the procedure in Step 4, EAX generates an intermediate solution
+			from EA by replacing edges with the same number of edges selected from EB, under the condition that every vertex is linked by just two edges. 
+			- An intermediate solution therefore consists of one or more subtours.
+
+			Ec = (Ea \ (E-set intersected EA)) united (E-set intersected Eb)
+		*/
+
+		/*
 		for (int j = 0; j < inst->nedges; j++) {
 			if (population[pA][j] == 1.0 && ABcycles[random_ABcycle][j] == 0.0) {
 				y[j] = 1.0;
-			}
-			if (population[pB][j] == 1.0 && ABcycles[random_ABcycle][j] == 1.0) {
+			}if (population[pB][j] == 1.0 && ABcycles[random_ABcycle][j] == 1.0) {
 				y[j] = 1.0;
 			}
-		}
+		}*/
 
 		for (int j = 0; j < inst->nedges; j++) {
+			if(y[j] != 0.0 && inst->verbose >= 100)
+				printf("%d <- %d, %d\n", j, invers_xpos(j,inst)[0], invers_xpos(j, inst)[1]);
 			inst->best_sol[j] = y[j];
 		}
-
+		plot_instance(inst);
 		patching(inst);
 
 		for (int j = 0; j < inst->nedges; j++) {
 			kids[i][j] = inst->best_sol[j];
 		}
+
+		free(countN);
 	}
 
 	print_population(inst, kids, real_nKids);
@@ -2520,7 +2555,7 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 		- If the current traced path is not empty, start the tracing process again from the end of the current traced path.
 		Otherwise, start the tracing process by randomly selecting a vertex from among those linked by at least one edge in GAB.
 		- If there is no edge in GAB, iterations of the tracing process are terminated.
-	*/
+	
 
 	int* succA = (int*)calloc(inst->nnodes, sizeof(int));
 	int* prevA = (int*)calloc(inst->nnodes, sizeof(int));
@@ -2619,12 +2654,50 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 
 		if (init_rand_vertex != -1) {
 			evaluate_traced_ABcycle(inst, traced_AB, ABcycles, idxCycle, &tourFound);
+			if (tourFound) {
+				int* countN = (int*)calloc(inst->nnodes, sizeof(int));
+				for (int k = 0; k < inst->nedges; k++) {
+					if (traced_AB[k] == 1.0) {
+						countN[invers_xpos(k, inst)[0]]++;
+						countN[invers_xpos(k, inst)[1]]++;
+					}
+				}
+
+				if (inst->verbose >= 1000) {
+					printf("\ni:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", w);
+					printf("\nc:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", countN[w]);
+					printf("\n");
+				}
+
+				printf("Node with 1 edge remained in traced path\n");
+				int* nodes = (int*)calloc(inst->nnodes, sizeof(int));
+				int idx_nodes = 0;
+				for (int k = 0; k < inst->nnodes; k++) {
+					if (countN[k] == 1) {
+						nodes[idx_nodes] = k;
+						printf("%d ", nodes[idx_nodes]);
+						idx_nodes++;
+					}
+				}
+				printf("\n");
+
+				if (idx_nodes > 0) {
+					//init_rand_vertex = nodes[idx_nodes-1];
+					init_rand_vertex = rand() % (idx_nodes-1);
+					printf("Node choosen: %d\n", init_rand_vertex);
+				}else {
+					init_rand_vertex = -1;
+				}
+
+				free(countN);
+				free(nodes);
+			}
 		}
 
 		printf("\nEdges graph_AB:   "); 
 		for (int w = 0; w < inst->nedges; w++)
 			if (graph_AB[w] == 1.0)
-				printf("%6d", w);
+				printf("%2d ", w);
 		printf("\n");
 
 		// Termination criterion
@@ -2637,6 +2710,176 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 		}
 		if(idxCycle == maxNcycles - 1)
 			EdgeInGAB = 1;
+	}
+	printf("Graph_AB doesn't have any edge or max number [%d] of cycles reatched! ***\n", maxNcycles);
+	free(succA);
+	free(prevA);
+	free(succB);
+	free(prevB);
+	free(traced_AB);
+
+	*/
+
+	int* succA = (int*)calloc(inst->nnodes, sizeof(int));
+	int* prevA = (int*)calloc(inst->nnodes, sizeof(int));
+	build_sol_ga(inst, population[pA], succA, prevA);
+
+	int* succB = (int*)calloc(inst->nnodes, sizeof(int));
+	int* prevB = (int*)calloc(inst->nnodes, sizeof(int));
+	build_sol_ga(inst, population[pB], succB, prevB);
+
+	int init_rand_vertex = -1;
+	double* traced_AB = (double*)calloc(inst->nedges, sizeof(double));
+
+	int A_or_B = 1;
+	int nextRight = -1, nextLeft = -1, nextEdgeR = -1, nextEdgeL = -1;
+	int tourFound = 0;
+	int EdgeInGAB = 1;
+	while (EdgeInGAB) {
+
+		if (init_rand_vertex == -1) {
+			init_rand_vertex = rand() % inst->nnodes;
+		}
+
+		// Find next vertex parentA or parentB and so find EA or EB. Remove it from GAB, add it to traced_GAB
+		if (A_or_B) {
+
+			nextLeft = prevA[init_rand_vertex];
+			nextEdgeL = xpos(nextLeft, init_rand_vertex, inst);
+
+			nextRight = succA[init_rand_vertex];
+			nextEdgeR = xpos(init_rand_vertex, nextRight, inst);
+
+			if (graph_AB[nextEdgeL] == 0.0 && graph_AB[nextEdgeR] == 0.0) {
+				init_rand_vertex = -1;
+			}
+			else if (graph_AB[nextEdgeL] >= 1.0 && graph_AB[nextEdgeR] >= 1.0) {
+				if (rand() % 2 == 0) {
+					graph_AB[nextEdgeL]--;
+					traced_AB[nextEdgeL]++;
+					init_rand_vertex = nextLeft;
+				}
+				else {
+					graph_AB[nextEdgeR]--;
+					traced_AB[nextEdgeR]++;
+					init_rand_vertex = nextRight;
+				}
+			}
+			else if (graph_AB[nextEdgeL] >= 1.0) {
+				graph_AB[nextEdgeL]--;
+				traced_AB[nextEdgeL]++;
+				init_rand_vertex = nextLeft;
+			}
+			else {
+				graph_AB[nextEdgeR]--;
+				traced_AB[nextEdgeR]++;
+				init_rand_vertex = nextRight;
+			}
+
+			A_or_B = 0;
+		}
+		else {
+
+			nextLeft = prevB[init_rand_vertex];
+			nextEdgeL = xpos(nextLeft, init_rand_vertex, inst);
+
+			nextRight = succB[init_rand_vertex];
+			nextEdgeR = xpos(init_rand_vertex, nextRight, inst);
+
+			if (graph_AB[nextEdgeL] == 0.0 && graph_AB[nextEdgeR] == 0.0) {
+				init_rand_vertex = -1;
+			}
+			else if (graph_AB[nextEdgeL] >= 1.0 && graph_AB[nextEdgeR] >= 1.0) {
+				if (rand() % 2 == 0) {
+					graph_AB[nextEdgeL]--;
+					traced_AB[nextEdgeL]++;
+					init_rand_vertex = nextLeft;
+				}
+				else {
+					graph_AB[nextEdgeR]--;
+					traced_AB[nextEdgeR]++;
+					init_rand_vertex = nextRight;
+				}
+			}
+			else if (graph_AB[nextEdgeL] >= 1.0) {
+				graph_AB[nextEdgeL]--;
+				traced_AB[nextEdgeL]++;
+				init_rand_vertex = nextLeft;
+			}
+			else {
+				graph_AB[nextEdgeR]--;
+				traced_AB[nextEdgeR]++;
+				init_rand_vertex = nextRight;
+			}
+
+			A_or_B = 1;
+		}
+
+		if (init_rand_vertex != -1) {
+			evaluate_traced_ABcycle(inst, traced_AB, ABcycles, idxCycle, &tourFound);
+			if (tourFound) {
+				int* countN = (int*)calloc(inst->nnodes, sizeof(int));
+				for (int k = 0; k < inst->nedges; k++) {
+					if (traced_AB[k] == 1.0) {
+						countN[invers_xpos(k, inst)[0]]++;
+						countN[invers_xpos(k, inst)[1]]++;
+					}else if (traced_AB[k] == 2.0) {
+						countN[invers_xpos(k, inst)[0]] += 2;
+						countN[invers_xpos(k, inst)[1]] += 2;
+					}
+				}
+
+				if (inst->verbose >= 1000) {
+					printf("\ni:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", w);
+					printf("\nc:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", countN[w]);
+					printf("\n");
+				}
+
+				printf("Node with 1 edge remained in traced path\n");
+				int* nodes = (int*)calloc(inst->nnodes, sizeof(int));
+				int idx_nodes = 0;
+				for (int k = 0; k < inst->nnodes; k++) {
+					if (countN[k] == 1) {
+						nodes[idx_nodes] = k;
+						printf("%d ", nodes[idx_nodes]);
+						idx_nodes++;
+					}
+				}
+				printf("\n");
+
+				if (idx_nodes > 0) {
+					//init_rand_vertex = nodes[idx_nodes-1];
+					init_rand_vertex = nodes[rand() % (idx_nodes - 1)];
+					printf("Node choosen: %d\n", init_rand_vertex);
+				}
+				else {
+					init_rand_vertex = -1;
+				}
+
+				free(countN);
+				free(nodes);
+			}
+		}
+
+		printf("\nEdges graph_AB:   ");
+		for (int w = 0; w < inst->nedges; w++) {
+			if (graph_AB[w] == 1.0)
+				printf("%2d ", w);
+			else if (graph_AB[w] == 2.0)
+				printf("%2d(%.0f) ", w, graph_AB[w]);
+		}
+		printf("\n");
+
+		// Termination criterion
+		EdgeInGAB = 0;
+		for (int w = 0; w < inst->nedges; w++) {
+			if (graph_AB[w] >= 1.0) {
+				EdgeInGAB = 1;
+				break;
+			}
+		}
+		if (idxCycle == maxNcycles)
+			EdgeInGAB = 0;
 	}
 	printf("Graph_AB doesn't have any edge or max number [%d] of cycles reatched! ***\n", maxNcycles);
 	free(succA);
@@ -2747,6 +2990,18 @@ void evaluate_traced_ABcycle(tspinstance* inst, double* traced_AB, double** ABcy
 	for (int e = 0, t = 0; e < inst->nedges; e++) {
 
 		if (traced_AB[e] == 1.0) {
+			i[t] = invers_xpos(e, inst)[0];
+			j[t] = invers_xpos(e, inst)[1];
+			if (inst->verbose >= 100)
+				printf("%d <- [%d, %d]\n", e, i[t], j[t]);
+			t++;
+
+		}else if (traced_AB[e] == 2.0) {
+			i[t] = invers_xpos(e, inst)[0];
+			j[t] = invers_xpos(e, inst)[1];
+			if (inst->verbose >= 100)
+				printf("%d <- [%d, %d]\n", e, i[t], j[t]);
+			t++;
 			i[t] = invers_xpos(e, inst)[0];
 			j[t] = invers_xpos(e, inst)[1];
 			if (inst->verbose >= 100)
@@ -2882,27 +3137,33 @@ void evaluate_traced_ABcycle(tspinstance* inst, double* traced_AB, double** ABcy
 		for (int k = 0; k < inst->nnodes; k++) {
 			if (tour[k] == -1) {
 				break;
-			}
-			else {
+			}else{
 				int edge = xpos(tour[k], tour[k + 1] == -1 ? tour[0] : tour[k + 1], inst);
-				ABcycles[*idxCycle][edge] = 1.0;
-				traced_AB[edge] = 0.0;
+				ABcycles[*idxCycle][edge]++;
+				traced_AB[edge]--;
 			}
 		}
-		(*idxCycle)++;
 	}
 
 	if (inst->verbose >= 99) {
-		printf("\nABcycles:   "); for (int w = 0; w < inst->nedges; w++) {
-			if(ABcycles[*idxCycle == 0 ? 0 : *idxCycle - 1][w] == 1.0)
-			printf("%6d", w);
+		printf("\nABcycles:   "); 
+		for (int w = 0; w < inst->nedges; w++) {
+			if(ABcycles[*idxCycle][w] == 1.0)
+				printf("%2d ", w);
+			else if (ABcycles[*idxCycle][w] == 2.0)
+				printf("%2d(%.0f) ", w, ABcycles[*idxCycle][w]);
 		}
-		printf("\ntraced_AB:  "); for (int w = 0; w < inst->nedges; w++) {
+		printf("\ntraced_AB:  "); 
+		for (int w = 0; w < inst->nedges; w++) {
 			if(traced_AB[w] == 1.0)
-			printf("%6d", w);
+				printf("%2d ", w);
+			else if (traced_AB[w] == 2.0)
+				printf("%2d(%.0f) ", w, traced_AB[w]);
 		}
 		printf("\n");
 	}
+	if (tour[0] != -1)
+		(*idxCycle)++;
 
 	free(i);
 	free(j);
@@ -3027,6 +3288,8 @@ void print_population(tspinstance* inst, double** population, int nPop) {
 		for (int j = 0; j < inst->nedges; j++) {
 			if (population[i][j] == 1.0)
 				printf("%d ", j);
+			else if (population[i][j] == 2.0)
+				printf("%d(%.0f) ", j, population[i][j]);
 		}
 	}
 	printf("\n");
@@ -4002,7 +4265,7 @@ void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp) {
 void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// build succ() and comp() wrt xstar()...
 
 	// check if nodes degree is 2 or 0 (isolated node) for each node
-	if (inst->verbose >= 2000) {
+	if (inst->verbose >= 20000) {
 		int *degree = (int *) calloc(inst->nnodes, sizeof(int));
 		printf("nnodes=%d\n", inst->nnodes);
 		for (int i = 0; i < inst->nnodes; i++) {
