@@ -33,7 +33,7 @@
 			  e dobbiamo stare attenti, dovremmo tenere un remaining_time globale in modo che se utilizziamo modelli con più metodi scalino tutti dallo stesso remaining_time
 
 			- Hard fixing usa CPLEX? cioè ti serve il parametro useCplex a TRUE? ora è a TRUE (riga 134), se non ti serve che faccia il CPXSolution nel metodo TSPopt allora togli quella riga
-			
+
 			- Tabu search: we can add variable length of list and add the check also for tabu solution
 
 			- Remember to add: srand(time(NULL));  where and if needed	(during debug i don't use it)
@@ -59,8 +59,8 @@ char * model_name(int i) {
 		case 12: return "heuristic_grasp";					// GRASP (no CPLEX)
 		case 13: return "heuristic_insertion";				// Heuristic Insertion (no CPLEX)
 		case 14: return "grasp_best_two_opt";				// GRASP + best_two_opt
-		case 15: return "patching";							// Patching	
-		case 16: return ;
+		case 15: return "patching";							// Patching
+		case 16: return "vns";
 		case 17: return "tabu_search";						// Greedy + TABU' SEARCH (linked list version)
 		case 18: return "tabu:search_array";				// Greedy + TABU' SEARCH (array version)
 		case 19: return "heuristic_greedy_cplex";			// Greedy (Warm Start for CPLEX)
@@ -77,13 +77,16 @@ char * setup_model(tspinstance* inst) {
 /**
 NUM			model_type				warm_start					heuristic						mip_opt							callback
 
- 0		build_sym_std										mip_optimization				subtour_iter_opt
- 1		  build_mtz					heur_greedy				hard_fixing						subtour_heur_iter_opt				lazy
- 2		 build_flow1				heur_greedy_cgal		local_branching						CPXmipopt					 generic CAND
- 3		build_mtz_lazy				heur_grasp				best_two_opt													generic CAND, GLOBAL
- 4									heur_insertion												patching
- 5
- 6
+ 0		build_sym_std												mip_optimization		subtour_iter_opt
+ 1		  build_mtz					heur_greedy				hard_fixing			subtour_heur_iter_opt				lazy
+ 2		 build_flow1			heur_greedy_cgal	local_branching				 CPXmipopt					 generic CAND
+ 3		build_mtz_lazy			heur_grasp				best_two_opt													generic CAND, GLOBAL
+ 4											heur_insertion				patching
+ 5																							vns
+ 6																				tabu_search (LL)
+ 7																				tabu_search (Ar)
+ 8																			simulating_annealing
+ 9																				genetic_algorithm
 */
 
 	inst->callback = 0;
@@ -147,7 +150,7 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->heuristic = 2;
 			inst->callback = 2;
 			inst->mip_opt = 2;
-			return "local_branching";					// Soft-Fixing => Local Branching
+			return "local_branching";				// Soft-Fixing => Local Branching
 		case 10:
 			inst->model_type = 0;
 			inst->warm_start = 1;
@@ -177,9 +180,12 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->model_type = 0;
 			inst->warm_start = 0;
 			inst->heuristic = 4;
-			return "patching";							// Patching			TODO: for testing needs to have a tour with ncomp > 1
+			return "patching";				// patching, no warm_start, no CPLEX.
 		case 16:
-			return "vns";								// VNS
+			inst->model_type = 0;
+			inst->warm_start = 3;
+			inst->heuristic = 5;
+			return "vns";	 			// vns: GRASP + 2opt and random5opt
 		case 17:
 			inst->model_type = 0;
 			inst->warm_start = 1;
@@ -193,7 +199,7 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 		case 19:
 			inst->model_type = 0;
 			inst->warm_start = 1;
-			inst->mip_opt = 2;
+			inst->mip_opt = 0;
 			inst->useCplex = 1;
 			return "heuristic_greedy";					// Heuristic Greedy (Warm Start for CPLEX)
 		case 20:
@@ -205,13 +211,13 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 		case 21:
 			inst->model_type = 0;
 			inst->warm_start = 3;
-			inst->mip_opt = 2;
+			inst->mip_opt = 0;
 			inst->useCplex = 1;
 			return "heuristic_grasp";					// Heuristic GRASP (Warm Start for CPLEX)
 		case 22:
 			inst->model_type = 0;
 			inst->warm_start = 4;
-			inst->mip_opt = 2;
+			inst->mip_opt = 0;
 			inst->useCplex = 1;
 			return "heuristic_insertion";				// Heuristic Insertion (Warm Start for CPLEX)
 		case 23:
@@ -263,8 +269,6 @@ int TSPopt(tspinstance *inst) {
 	// set warm start if used
 	switch_warm_start(inst, env, lp, &status);
 
-
-
 	if (inst->verbose >= 100) printf("\nbuild model succesfully.\n");
 	if (inst->verbose >= 100) printf("optimizing model...\n");
 
@@ -293,7 +297,7 @@ int xpos(int i, int j, tspinstance *inst) {
 	if ( i == j ) print_error(" i == j in xpos" );
 	if ( i > j ) return xpos(j,i,inst);								// simplify returned formula
 	return i*inst->nnodes + j - ((i + 1)*(i + 2))/2; 				// default case
-} 
+}
 
 int* invers_xpos(int pos, tspinstance* inst) {
 	if (pos < 0) print_error(" position cannot be negative");
@@ -840,10 +844,10 @@ void add_lazy_mtz(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 
 // heuristic warm start
 void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* status) {
-	
+
 	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
 
-	switch (inst->warm_start) {					
+	switch (inst->warm_start) {
 
 		case 0:
 		break;
@@ -863,31 +867,33 @@ void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* statu
 		case 4:
 			best_sol = heur_insertion(env, lp, inst, status);	// Heuristic Insertion
 		break;
-		
+
 		default:
 			print_error(" model type unknown!!");
 		break;
 	}
 	if (inst->useCplex) {
 
-		if (best_sol[0] == -1) {							// first element best_sol == -1 => error and return status at best_sol[1]
+		if (best_sol[0] == -1) {	// first element best_sol == -1 => error and return status at best_sol[1]
 			*status = best_sol[1];
 			return *status;
 		}
 
-		int nocheck_warmstart = CPX_MIPSTART_REPAIR;			//CPLEX attempts to repair the MIP start if it is infeasible, according to the parameter that sets the frequency to try to repair an infeasible MIP start 
-																// number of attempts to repair infeasible MIP start = CPXPARAM_MIP_Limits_RepairTries. Default => CPLEX choose
-								//CPX_MIPSTART_SOLVEMIP;		// CPLEX solves a subMIP.
+		int nocheck_warmstart = CPX_MIPSTART_REPAIR;
+		// CPLEX attempts to repair the MIP start if it is infeasible, according to
+		// the parameter that sets the frequency to try to repair an infeasible MIP
+		// start
+		// number of attempts to repair infeasible MIP start = CPXPARAM_MIP_Limits_RepairTries. Default => CPLEX choose
+		// CPX_MIPSTART_SOLVEMIP;		// CPLEX solves a subMIP.
 		double val = 1.0;
 		int izero = 0;
 
 		if (*status = CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) {
 			print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
-			return *status;
 		}
 	}
 	free(best_sol);
-	
+
 }
 
 int* heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
@@ -1103,7 +1109,6 @@ int* heur_grasp(tspinstance* inst, int* status){
 	if (inst->verbose >= 100) printf("Heuristic GRASP\n");
 
 	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
-
 	// get first node, randomly selected
 	int* succ = (int*)malloc(inst->nnodes * sizeof(int));
 	for (int i = 0; i < inst->nnodes; i++) succ[i] = -1;
@@ -1116,12 +1121,12 @@ int* heur_grasp(tspinstance* inst, int* status){
 	double cur_dist[3];  		// distance from current node
 	double best_lb = 0.0;  	// the cost of the solution
 
-	
+
 	for (int tour_length = 0; tour_length < inst->nnodes; tour_length++) {
 
 		// initialization
-		for (int k = 0; k < 3; k++) { 
-			cur_dist[k] = INT_MAX; cur_nearest[k] = -1; 
+		for (int k = 0; k < 3; k++) {
+			cur_dist[k] = INT_MAX; cur_nearest[k] = -1;
 		}
 
 		// get the three nearest node
@@ -1167,15 +1172,14 @@ int* heur_grasp(tspinstance* inst, int* status){
 	}
 
 	// save the tour and the cost
-	print_succ(succ, inst);
+	if (inst->verbose >= 100) print_succ(succ, inst);
 	free(succ);
 	for (int i = 0; i < inst->nnodes; i++) {
 		inst->best_sol[best_sol[i]] = 1.0;
 	}
 	inst->best_lb = best_lb;
-	
-	if (inst->verbose >= 100) 
-		printf("GRASP BEST_LB: %lf\n", inst->best_lb);
+	if (inst->verbose >= 100) printf("GRASP BEST_LB: %lf\n", inst->best_lb);
+	fflush(stdout);
 
 	return best_sol;
 }
@@ -1221,7 +1225,7 @@ int* heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 			count_sol++;
 		}
 	}
-	
+
 	// Copy and convert to double sol in best_sol
 	for (int i = 0; i < inst->nnodes; i++) {
 		inst->best_sol[best_sol[i]] = 1.0;
@@ -1303,10 +1307,14 @@ void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 			patching(inst);
 		break;
 
+		case 5:
+			*status = vns(inst);
+		break;
+
 		case 6:
 			*status = tabu_search(env, inst, status);
 		break;
-		
+
 		case 7:
 			*status = tabu_search_array(env, inst, status);
 		break;
@@ -1325,8 +1333,87 @@ void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	}
 }
 
-int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
+int vns(tspinstance* inst) {
 
+	if (inst->verbose >= 100) printf("VNS\n");
+	fflush(stdout);
+
+	// struct to keep solution
+	double* best_sol = (double *) calloc(inst->nedges, sizeof(double));
+
+	// copy current solution
+	for (int i = 0; i < inst->nedges; i++) best_sol[i] = inst->best_sol[i];
+	double prev_lb = inst->best_lb;
+	double best_lb = inst->best_lb;
+
+	// stop condition: time_limit, number of iteration (i)
+	int i = 0;  // number of iteration
+	int max_iteration = 100;	// max number of iteration before stop
+ 	double init_time = second();
+	// int* succ = (int*)calloc(inst->nnodes, sizeof(int));
+	// int* comp = (int*)calloc(inst->nnodes, sizeof(int));
+	// int* ncomp = (int*)calloc(1, sizeof(int));
+	// build_sol(inst, succ, comp, ncomp);
+	// if (*ncomp != 1) {print_error("VNS need to start with a single tour solution.");}
+
+	while (inst->timelimit > second() - init_time && i < max_iteration) {  // stop condition
+
+		while (1) {  // iterate best_two_opt
+			best_two_opt(inst);
+			if (prev_lb > inst->best_lb) {  // found a new best, continue iteration
+				prev_lb = inst->best_lb;
+			} else {		// no new best_lb found, stop iteration
+				break;
+			}
+		}
+
+		// save the solution
+		if (best_lb > inst->best_lb) {
+			for (int i = 0; i < inst->nedges; i++) best_sol[i] = inst->best_sol[i];
+			best_lb = inst->best_lb;
+		}
+
+		// move to a random 5 opt solution
+		random_n_opt(inst, 5);
+		prev_lb = inst->best_lb;	// update solution
+		i++;  // one iteration compleate
+	}
+
+	for (int i = 0; i < inst->nedges; i++) inst->best_sol[i] = best_sol[i];
+	inst->best_lb = best_lb;
+	return 0;
+}
+
+void patching(tspinstance* inst) {
+
+	if (inst->verbose >= 100) printf("PATCHING\n"); fflush(stdout);
+
+	// check if current solution has only one tour
+	int *succ = (int*) calloc(inst->nnodes, sizeof(int));
+	int *comp = (int*) calloc(inst->nnodes, sizeof(int));
+	int *ncomp = (int*) calloc(1, sizeof(int));
+	build_sol(inst, succ, comp, ncomp);
+	if (inst->verbose >= 100) print_succ(succ, inst);
+	if (*ncomp == 1) {
+		printf("WARNING: solution already has 1 tour, patching has no effect.\n");
+		free(succ);
+		free(comp);
+		free(ncomp);
+		return;
+	}
+
+	while (*ncomp > 1) {
+		single_patch(inst, succ, comp, ncomp);
+		if (inst->verbose >= 100) {
+			print_succ(succ, inst);
+			printf("comp:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
+			printf("\n");
+		}
+		plot_instance(inst);
+	}
+}
+
+int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
 	double external_time_limit = inst->timelimit;
 	double internal_time_limit = 50.0;
@@ -1336,7 +1423,6 @@ int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	double objval_p = 0.0;
 	double gap = 1.0;						// best_lb - objval_p / best_lb
 	double fr = 0.9;				// fixing_ratio
-
 
 	// structure init
 	// int *succ = (int*) calloc(inst->nnodes, sizeof(int));
@@ -1730,7 +1816,7 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 		if (best_temp_lb == best_lb){
 			// Local/Global minimum found
 			isImprovement = 0;
-			printf("Local (possible global) Minimum found! Start to rise again\n");
+			if(inst->verbose > 100) printf("Local (possible global) Minimum found! Start to rise again\n");
 			if (best_lb < inst->best_lb) {
 				inst->best_lb = best_lb;
 				best_temp_lb = best_lb;
@@ -1742,7 +1828,7 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 					first_node = second_node;
 					second_node = succ[second_node];
 				}
-				printf("BEST_LB GLOBAL update to : [%f]\n", inst->best_lb);
+				if (inst->verbose >= 100) printf("BEST_LB GLOBAL update to : [%f]\n", inst->best_lb);
 				//plot_instance(inst);
 
 			}
@@ -1751,7 +1837,7 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 			if (best_improve > 0) {
 				isImprovement = 1;
 
-				printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_temp_lb, best_lb);
+				if (inst->verbose >= 100) printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_temp_lb, best_lb);
 				best_temp_lb = best_lb;
 			}
 		}
@@ -1765,9 +1851,9 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 	free(succ);
 	free(comp);
 	free(ncomp);
-	printf("BEST FINAL GLOBAL LB found: [%f]\n", inst->best_lb);
+	if (inst->verbose >= 100) printf("BEST FINAL GLOBAL LB found: [%f]\n", inst->best_lb);
 
-	write_list_lb(head_save);
+	if (inst->verbose >= 10000) write_list_lb(head_save);
 
 }
 void push(tabu_list** head_ref, int arc, int isArc) {
@@ -1778,8 +1864,8 @@ void push(tabu_list** head_ref, int arc, int isArc) {
 	new_node->next = *head_ref;
 	*head_ref = new_node;
 
-	if(isArc)														// used to distinguish tabu_list for arcs and list for LBs found
-		printf("++++ ADD element %d to Tabu List\n", arc);
+	// used to distinguish tabu_list for arcs and list for LBs found
+	// if(isArc)	printf("++++ ADD element %d to Tabu List\n", arc);
 }
 int pop_first(tabu_list** head) {
 	int retval = -1;
@@ -1864,7 +1950,7 @@ int contained_in_posix(tabu_list** head, int arc) {
 		current = current->next;
 
 	}
-	
+
 	return retval;
 }
 void print_list(tabu_list* head) {
@@ -1890,8 +1976,13 @@ void delete_list(tabu_list* head, tabu_list** head_ref) {
 }
 void write_list_lb(tabu_list* head) {
 	FILE* fptr;
-	fptr = fopen("plot\\lb_result.txt", "w");
-	
+
+	#ifdef _WIN32
+		fptr = fopen("plot\\lb_result.txt", "w");
+	#elif __linux__
+		fptr = fopen("plot/lb_result.txt", "w");
+	#endif
+
 	tabu_list* current = head;
 	int printval;
 	printf("--- Writing LB list elements ---\n");
@@ -1929,7 +2020,7 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 	// tabù list (array)
 	tabu_list* head_save = NULL;
 
-	// Arrotonda per eccesso nnodes / 2. +1 viene usato per tenere conto di dove inserire l'arco proibito 
+	// Arrotonda per eccesso nnodes / 2. +1 viene usato per tenere conto di dove inserire l'arco proibito
 	int tabu_array_size = (inst->nnodes / 2) % 2 == 0 ? (inst->nnodes / 2) + 1 : ((inst->nnodes + 1) / 2) + 1;
 	int* tabu_array = (int*)calloc(tabu_array_size, sizeof(int));
 	for (int i = 0; i < tabu_array_size; i++)
@@ -2012,8 +2103,8 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 				for(int i = 0; i < tabu_array_size; i++)
 					if (tabu_array[i] == -1) {
 						tabu_array[i] = xpos(best_pre_i, best_pre_j, inst);
-						printf("++++ ADD element %d to Tabu List\n", tabu_array[i]);
-						printf("---- REPLACE element %d with -1 to Tabu List\n", tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)]);
+						if (inst->verbose >= 100) printf("++++ ADD element %d to Tabu List\n", tabu_array[i]);
+						if (inst->verbose >= 100) printf("---- REPLACE element %d with -1 to Tabu List\n", tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)]);
 						tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)] = -1;
 						break;
 					}
@@ -2022,8 +2113,8 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 				for (int i = 0; i < tabu_array_size; i++)
 					if (tabu_array[i] == -1) {
 						tabu_array[i] = xpos(succ[best_pre_i], succ[best_pre_j], inst);
-						printf("++++ ADD element %d to Tabu List\n", tabu_array[i]);
-						printf("---- REPLACE element %d with -1 to Tabu List\n", tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)]);
+						if (inst->verbose >= 100) printf("++++ ADD element %d to Tabu List\n", tabu_array[i]);
+						if (inst->verbose >= 100) printf("---- REPLACE element %d with -1 to Tabu List\n", tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)]);
 						tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)] = -1;
 						break;
 					}
@@ -2035,8 +2126,8 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 				for (int i = 0; i < tabu_array_size; i++)
 					if (tabu_array[i] == -1) {
 						tabu_array[i] = xpos(best_pre_i, best_pre_j, inst);
-						printf("++++ ADD element %d to Tabu List\n", tabu_array[i]);
-						printf("---- REPLACE element %d with -1 to Tabu List\n", tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)]);
+						if (inst->verbose >= 100) printf("++++ ADD element %d to Tabu List\n", tabu_array[i]);
+						if (inst->verbose >= 100) printf("---- REPLACE element %d with -1 to Tabu List\n", tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)]);
 						tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)] = -1;
 						break;
 					}
@@ -2045,8 +2136,8 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 				for (int i = 0; i < tabu_array_size; i++)
 					if (tabu_array[i] == -1) {
 						tabu_array[i] = xpos(succ[best_pre_i], succ[best_pre_j], inst);
-						printf("++++ ADD element %d to Tabu List\n", tabu_array[i]);
-						printf("---- REPLACE element %d with -1 to Tabu List\n", tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)]);
+						if (inst->verbose >= 100) printf("++++ ADD element %d to Tabu List\n", tabu_array[i]);
+						if (inst->verbose >= 100) printf("---- REPLACE element %d with -1 to Tabu List\n", tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)]);
 						tabu_array[(i + 1) == tabu_array_size ? 0 : (i + 1)] = -1;
 						break;
 					}
@@ -2064,7 +2155,7 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 		if (best_temp_lb == best_lb) {
 			// Local/Global minimum found
 			isImprovement = 0;
-			printf("Local (possible global) Minimum found! Start to rise again\n");
+			if (inst->verbose >= 100) printf("Local (possible global) Minimum found! Start to rise again\n");
 			if (best_lb < inst->best_lb) {
 				inst->best_lb = best_lb;
 				best_temp_lb = best_lb;
@@ -2076,7 +2167,7 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 					first_node = second_node;
 					second_node = succ[second_node];
 				}
-				printf("BEST_LB GLOBAL update to : [%f]\n", inst->best_lb);
+				if (inst->verbose >= 100) printf("BEST_LB GLOBAL update to : [%f]\n", inst->best_lb);
 
 			}
 
@@ -2085,7 +2176,7 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 			if (best_improve > 0) {
 				isImprovement = 1;
 
-				printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_temp_lb, best_lb);
+				if (inst->verbose >= 100) printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_temp_lb, best_lb);
 				best_temp_lb = best_lb;
 
 			}
@@ -2100,9 +2191,9 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 	free(succ);
 	free(comp);
 	free(ncomp);
-	printf("BEST FINAL GLOBAL LB found: [%f]\n", inst->best_lb);
+	if (inst->verbose >= 100) printf("BEST FINAL GLOBAL LB found: [%f]\n", inst->best_lb);
 
-	write_list_lb(head_save);
+	if (inst->verbose >= 10000) write_list_lb(head_save);
 
 }
 int contained_in_posix_array(int tabu_array_size, int* tabu_array, int arc) {
@@ -2113,7 +2204,7 @@ int contained_in_posix_array(int tabu_array_size, int* tabu_array, int arc) {
 }
 
 int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
-	
+
 	if (inst->verbose >= 100) printf("Simulating Annealing\n");
 
 	// check if current solution has only one tour
@@ -2148,7 +2239,9 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 	int dont_print_same_number = 100;		// used to have a slim verbose
 
 
-	printf("\nSimulating Annealing uses a maxTemperature with an extra value of 1e8. This allow to do more iterations when temperature goes to 0.0!\n");
+	if (inst->verbose >= 100)
+		printf("\nSimulating Annealing uses a maxTemperature with an extra value of\
+		 				1e8. This allow to do more iterations when temperature goes to 0.0!\n");
 
 	double max_dist = max_dist_couple_nodes(inst) * 2.0;
 	if (max_dist == -1)
@@ -2182,12 +2275,14 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 
 			// Used to print some results during run
 			if (((int)(temperature_perc * 100) % 10 == 0 && dont_print_same_number != (int)(temperature_perc * 100)) || inst->verbose > 100) {
-				dont_print_same_number = (int)(temperature_perc * 100);	
-				printf("**** Temp_perc, Delta_perc = [%0.2f,%0.4f] --- Probability [%0.3f] >= [%0.3f] ?\n", temperature_perc, delta_perc, prob, exp(-delta_perc / (K * temperature_perc)));
+				dont_print_same_number = (int)(temperature_perc * 100);
+				if (inst->verbose >= 100)
+					printf("**** Temp_perc, Delta_perc = [%0.2f,%0.4f] --- Probability [%0.3f] >= [%0.3f] ?\n",
+									temperature_perc, delta_perc, prob, exp(-delta_perc / (K * temperature_perc)));
 			}
-			
+
 			if (prob >= exp(- delta_perc / (K * temperature_perc))) {			// Rejected bad move
-				for (int i = 0; i < inst->nedges; i++)		
+				for (int i = 0; i < inst->nedges; i++)
 					if (best_sol[i] == 1.0)
 						inst->best_sol[i] = 1.0;
 					else
@@ -2213,7 +2308,7 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 			best_lb = inst->best_lb;
 
 			if (inst->best_lb < best_global_lb) {
-				printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_global_lb, inst->best_lb);
+				if (inst->verbose >= 100) printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_global_lb, inst->best_lb);
 				best_global_lb = inst->best_lb;
 				for (int i = 0; i < inst->nedges; i++)
 					if (inst->best_sol[i] == 1.0)
@@ -2222,29 +2317,29 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 						best_global_sol[i] = 0.0;
 			}
 		}
-					
 
-		
+
+
 		single_step = (temp_time - remaining_time) / (inst->timelimit);
 		decrease = maxTemp * single_step;
 
 		if (inst->verbose > 100)
 			printf("Single Step [%f] -- Decrease [%.0f] => Step_time [%f] -- Temperature [%f]\n", single_step, decrease, temp_time - remaining_time, temperature);
-		
+
 		temp_time = remaining_time;
 		remaining_time -= second() - ini;
 	}
 
 	inst->best_lb = best_global_lb;
 
-	if (inst->verbose > 100) 
+	if (inst->verbose > 100)
 		print_succ(succ, inst);
-	
+
 	free(succ);
 	free(comp);
 	free(ncomp);
 
-	printf("BEST FINAL GLOBAL LB found: [%f]\n", inst->best_lb);
+	if (inst->verbose >= 100) printf("BEST FINAL GLOBAL LB found: [%f]\n", inst->best_lb);
 }
 int max_dist_couple_nodes(tspinstance* inst) {
 	int max = -1;
@@ -3427,6 +3522,7 @@ void best_two_opt(tspinstance *inst) {
 	// improving the best_sol if possibile in 2opt set
 
 	if (inst->verbose >= 100) printf("BEST_TWO_OPT\n");
+	fflush(stdout);
 
 	// check if current solution has only one tour
 	int *succ = (int*) calloc(inst->nnodes, sizeof(int));
@@ -3437,16 +3533,16 @@ void best_two_opt(tspinstance *inst) {
 	if (*ncomp != 1) print_error("call best_two_opt with best_sol with multiple tour");
 
 	// search in 2opt if a better solution is found
-	int i = 0;		// start from node 0
+	int i = 0;					// start from node 0
 	int j = succ[succ[0]];
-	int best_i = i;
-	int best_j = i;
+	double d_i1_i2;			// distance from i and succ[i], -
+	double d_j1_j2;			// distance from j and succ[j], -
+	double d_i1_j1;			// distance from i and j, +
+	double d_i2_j2;			// dist from succ[i] and succ[j], +
+	double cur_improve;	// + d_i1_i2 + d_j1_j2 - d_i1_j1 - d_i2_j2
+	int best_i = i;			// i that perform the best improve
+	int best_j = i;			// j that perform the best improve
 	double best_improve = 0.0;
-	double d_i1_i2;
-	double d_j1_j2;
-	double d_i1_j1;
-	double d_i2_j2;
-	double cur_improve;
 
 	for (int ti = 0; ti < inst->nnodes - 3; ti++) {
 		d_i1_i2 = dist(i, succ[i], inst);
@@ -3457,11 +3553,11 @@ void best_two_opt(tspinstance *inst) {
 			d_i2_j2 = dist(succ[i], succ[j], inst);
 			if (inst->verbose > 100) printf("*** i - j: %d - %d\n", i,j);
 			cur_improve = (d_i1_i2 + d_j1_j2) - (d_i1_j1 + d_i2_j2);
-			if ( cur_improve > best_improve ) { // cross is better
+			if ( cur_improve > best_improve ) {  // cross is better
 				best_i = i;
 				best_j = j;
 				best_improve = cur_improve;
-				if (inst->verbose >= 100) printf("*** Best_improve: %f\n", best_improve);
+				if (inst->verbose >= 100) printf("BTO best_improve: %7.1f\n", best_improve);
 			}
 			j = succ[j];
 		}
@@ -3475,8 +3571,14 @@ void best_two_opt(tspinstance *inst) {
 		int i2 = succ[best_i];
 		int j2 = succ[best_j];
 		int pre_node = succ[i2];
+		inst->best_sol[xpos(best_i, i2, inst)] = 0.0;
+		inst->best_sol[xpos(best_j, j2, inst)] = 0.0;
+
 		succ[best_i] = best_j;
 		succ[i2] = j2;
+		inst->best_sol[xpos(best_i, best_j, inst)] = 1.0;
+		inst->best_sol[xpos(i2, j2, inst)] = 1.0;
+
 		int cur_node = i2;
 		int suc_node = j2;
 		while (cur_node != best_j) {  // reverse the succ
@@ -3484,21 +3586,13 @@ void best_two_opt(tspinstance *inst) {
 			cur_node = pre_node;
 			pre_node = succ[pre_node];
 			succ[cur_node] = suc_node;
-			if (inst->verbose >= 100) print_succ(succ, inst);
 		}
+		if (inst->verbose >= 100) print_succ(succ, inst);
 	}
+	if (inst->verbose >= 100) printf("BTO i j: %3d %3d\n", i,j);
+	if (inst->verbose >= 100) printf("BTO Best_improve: %f\n", best_improve);
 	inst->best_lb -= best_improve;  // update best_lb
-
-	clear_sol(inst);													// TODO: se chiamato più volte va pulita la soluzione inst->best_sol
-	// Assign best_sol found in inst->best_sol
-	int first_node = 0;
-	int second_node = succ[first_node];
-	for (int i = 0; i < inst->nedges; i++) {
-		inst->best_sol[xpos(first_node, second_node, inst)] = 1.0;
-		first_node = second_node;
-		second_node = succ[second_node];
-	}
-	
+	if (inst->verbose >= 100) printf("BTO new best_lb: %7.1f\n", inst->best_lb);
 	if (inst->verbose >= 100) print_succ(succ, inst);
 	free(succ);
 	free(comp);
@@ -3520,7 +3614,7 @@ void random_two_opt(tspinstance* inst) {
 	if (inst->verbose > 100) print_succ(succ, inst);
 	if (*ncomp != 1) print_error("call random_two_opt with best_sol with multiple tour");
 
-	// random solution in 2opt 
+	// random solution in 2opt
 	int i = rand() % inst->nnodes;
 	int j = rand() % inst->nnodes;
 	while (j == i || j == succ[i]) {
@@ -3569,180 +3663,297 @@ void random_two_opt(tspinstance* inst) {
 	free(ncomp);
 }
 
-// Repair
-void patching(tspinstance* inst) {
+void random_n_opt(tspinstance* inst, int n) {
 
-	if (inst->verbose >= 100) printf("PATCHING\n");
-
+	if (inst->verbose >= 100) printf("RANDOM_N_OPT\n");
+	if (inst->nnodes < n) print_error("n should be lower than the number of nodes of the problem.");
+	fflush(stdout);
 	// check if current solution has only one tour
 	int *succ = (int*) calloc(inst->nnodes, sizeof(int));
 	int *comp = (int*) calloc(inst->nnodes, sizeof(int));
 	int *ncomp = (int*) calloc(1, sizeof(int));
 	build_sol(inst, succ, comp, ncomp);
 	if (inst->verbose >= 100) print_succ(succ, inst);
-	if (*ncomp == 1) {
-		printf("WARNING: solution already has 1 tour, patching has no effect.\n");
-		free(succ);
-		free(comp);
-		free(ncomp);
-		return;
+	if (*ncomp != 1) print_error("call random_n_opt with best_sol with multiple tour");
+
+	// ramdoly select n nodes and save n successor
+	int *c_1 = (int*) calloc(n, sizeof(int));		// this will be used as array
+	int *c_2 = (int*) calloc(n, sizeof(int));		// of pairs
+
+	// 	initialization to -1
+	for (int i = 0; i < n; i++) {c_1[i] = -1; c_2[i] = -1;}
+
+	srand(second());	// set random seed
+	int i;  // tour iterator, assume index nodes value
+	int c_iter = 0;		// iterate over n pairs, each time a random index is selected
+	int already_selected;  // tell if i has already been added in the c_2 struct
+	while (c_iter < n) {
+		i = rand() % inst->nnodes; 	// random node
+		already_selected = 0;
+
+		// check if i have been already selected
+		for (int j = 0; j < c_iter; j++) if (c_2[j] == i) already_selected = 1;
+
+		if (!already_selected) {  // add to selected
+			c_2[c_iter] = i;
+
+			if (succ[i] == -1)  // isolated node, should never happen
+				print_error("Selected isolated node. Random_n_opt error");
+			else
+				c_1[c_iter] = succ[i];
+
+			c_iter++;		// update c_iter
+			inst->best_lb -= dist(i, succ[i], inst);  // update distances
+			inst->best_sol[xpos(i, succ[i], inst)] = 0.0;
+			succ[i] = -1;  // break the edges
+		} else {
+			// continue and choose another index
+		}
+
 	}
 
-	while (*ncomp > 1) {
-		single_patch(inst, succ, comp, ncomp);
-		if (inst->verbose >= 100) {
-			print_succ(succ, inst);
-			printf("\ncomp:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
+	// for n times, merge a random node with random successor. (no need to reverse the orientation)
+	int i_1 = rand() % n;
+	int first_node = c_1[i_1];
+	int i_2 = -1;
+	c_iter = 0;
+	while (c_iter < n) {
+
+		// initialize i_1 as not already initialize and prefere isolated node
+		// int isolated = 0;
+		// already_selected = 0;
+		// i_1 = 0;
+		// for (i = 0; i < n; i++) {
+		//
+		// 	for (int j = 0; j < n; j++) {
+		// 		already_selected = succ[c_2[j]] == c_1[i];
+		// 		if (already_selected) {  // already selected c_1[i]
+		// 			break;		// no matter what, it can not be selected, change c_1[i]
+		// 		}
+		// 		if (c_1[i] == c_2[j]) {  // check if c_1[i] is isolated
+		// 			isolated = 1;
+		// 		}
+		// 	}
+		// 	if (isolated && !already_selected) {  // select isolated node that has is not already selected
+		// 		i_1 = i;
+		// 		printf("c_1[i_1] is isolated and is not already selected: %d\n", c_1[i_1]);
+		// 		fflush(stdout);
+		// 		break;
+		// 	} else if (!isolated && !already_selected) {	// propose i because it is not isolated
+		// 		i_1 = i;
+		// 	}
+		// }
+		// if (!isolated) {
+		// 	printf("c_1[i_1] is NOT isolated and is not already selected: %d\n", c_1[i_1]);
+		// 	fflush(stdout);
+		// }
+		// if (already_selected) print_error("node already selected. Random_n_opt");
+		//
+		// // select i_2
+		// int c = 0;  // count
+		// while (succ[c_2[i_2]] != -1 || c_2[i_2] == c_1[i_1]) {	// already selected i_2
+		// 	i_2 = (i_2 + 1) % n;
+		// 	if (c >= n) {  // only a node with
+		// 		print_error("no available node to select. random_n_opt");
+		// 	}
+		// 	c++;
+		// }
+
+		// select one of the c_1 at random and set as first nodes
+
+		int i = c_1[i_1];
+		while (succ[i] != -1) i = succ[i];
+
+		// select a c_1[i_1] not already selected and != from first_node
+		int already_selected = 0;
+		int is_first = 0;
+		for (i_1 = 0; i_1 < n; i_1++){
+
+			is_first = c_1[i_1] == first_node;  // the node is the first_node, skip
+			if (is_first) continue;
+
+			// check if c_1[i_1] is already selected
+			for (int j = 0; j < n; j++) {
+				already_selected = succ[c_2[j]] == c_1[i_1];
+				if (already_selected) {  // already selected c_1[i]
+					break;		// no matter what, it can not be selected, change c_1[i]
+				}
+			}
+			// if not already seelected here, it is selected
+			if (!already_selected) break;
 		}
-		plot_instance(inst);
+
+		// check if it is the last edge or not
+		if (i_1 == n) { // close the tour and exit
+			succ[i] = first_node;
+			inst->best_lb += dist(i, first_node, inst);
+			inst->best_sol[xpos(i, first_node, inst)] = 1.0;
+			c_iter++;
+			break;
+		} else {  	// add new arch i -> c_1[i_1]
+			succ[i] = c_1[i_1];
+			inst->best_lb += dist(i, c_1[i_1], inst);
+			inst->best_sol[xpos(i, c_1[i_1], inst)] = 1.0;
+			c_iter++;
+		}
 	}
+
+	if (inst->verbose >= 100) print_succ(succ, inst);
+	fflush(stdout);
+	free(succ);
+	free(comp);
+	free(ncomp);
+	free(c_1);
+	free(c_2);
 }
+
+
+// Repair
 void single_patch(tspinstance* inst, int* succ, int* comp, int* ncomp) {
 
-	if (*ncomp == 1) {
-		return;
-	} else {
-		int initial_i = rand() % inst->nnodes;  // randomize the first node
+	if (inst->verbose >= 100) printf("\nSINGLE_PATCHING"); fflush(stdout);
+	// single patch merge the isolated nodes or tours,
+	// if already merged, exit the method
+	if (*ncomp == 1) return;
 
-		// get the closer node which is in another tour
-		int closer_j = initial_i;
-		double cn_dist = INT_MAX;
-		double d_ij = 0.;
-		for (int j = 0; j < inst->nnodes; j++) {
-			if (comp[initial_i] == comp[j]) continue; // skip if it's in the same components
+	int initial_i = rand() % inst->nnodes;  // randomize the first node
 
-			d_ij = dist(initial_i, j, inst);
-			if (d_ij < cn_dist) {
-				closer_j = j;
-				cn_dist = d_ij;
-			}
+	// get the closer node which is in another tour
+	int closer_j = initial_i;
+	double cn_dist = INT_MAX;		// dist(initial_i, closer_j, inst)
+	double d_ij = 0.;
+	for (int j = 0; j < inst->nnodes; j++) {
+		if (comp[initial_i] == comp[j]) continue; // skip if it's in the same components
+
+		d_ij = dist(initial_i, j, inst);
+		if (d_ij < cn_dist) {
+			closer_j = j;
+			cn_dist = d_ij;
 		}
-		// find the node of the i-tour which is closer to closer_j: closer_i
-		int i = initial_i;
-		int closer_i = i;
-		int counter = 0;
-		if (succ[i] > 0) { // only if i is not isolated
-			double best_improve;
-			if (succ[closer_j] > 0) { // j is not isolated
-				best_improve = dist(i, succ[closer_j], inst) + dist(succ[i], closer_j, inst)
-														- dist(i, succ[i], inst) - dist(closer_j, succ[closer_j], inst);
-			} else {									// j is isolated
-				best_improve = dist(i, closer_j, inst) + dist(closer_j, succ[i], inst)
+	}
+
+	int i = initial_i;
+	int i_tour_size = 1;
+	while (succ[i] != -1 && succ[i] != initial_i) { i = succ[i]; i_tour_size++; } // components of i_tour
+
+	int j = closer_j;
+	int j_tour_size = 1;
+	while (succ[j] != -1 && succ[j] != closer_j) { j = succ[j]; j_tour_size++; } // components of j_tour
+
+	// find the node of the i-tour which is closer to closer_j: closer_i
+	i = initial_i;
+	int closer_i = i;
+	int counter = 1;
+	if (succ[i] > 0) { // only if i is not isolated
+
+		double best_improve;
+		if (succ[closer_j] > 0) { // j is not isolated
+			best_improve = dist(i, succ[closer_j], inst) + dist(succ[i], closer_j, inst)
+													- dist(i, succ[i], inst) - dist(closer_j, succ[closer_j], inst);
+		} else {									// j is isolated
+			best_improve = dist(i, closer_j, inst) + dist(closer_j, succ[i], inst)
+													- dist(i, succ[i], inst);
+		}
+		double cur_improve = best_improve;
+		i = succ[i];
+
+		while (i != initial_i) {  // for each node of the i-tour
+			if (succ[closer_j] > 0) {  	// j is not isolated
+				cur_improve = dist(i, succ[closer_j], inst) + dist(succ[i], closer_j, inst)
+													- dist(i, succ[i], inst) - dist(closer_j, succ[closer_j], inst);
+			} else  {  									// j is isolated
+				cur_improve = dist(i, closer_j, inst) + dist(closer_j, succ[i], inst)
 														- dist(i, succ[i], inst);
 			}
-			double cur_improve = best_improve;
+
+			if (cur_improve < best_improve) {
+				best_improve = cur_improve;
+				closer_i = i;
+			}
+			counter++;
 			i = succ[i];
-
-
-			while (i != initial_i) {  // for each node of the i-tour (the tour which contain i)
-				if (succ[closer_j] > 0) {  // j is not isolated
-					cur_improve = dist(i, succ[closer_j], inst) + dist(succ[i], closer_j, inst)
-											- dist(i, succ[i], inst) - dist(closer_j, succ[closer_j], inst);
-				} else  {  // j is isolated
-					cur_improve = dist(i, closer_j, inst) + dist(closer_j, succ[i], inst)
-															- dist(i, succ[i], inst);
-				}
-				if (cur_improve < best_improve) {
-					best_improve = cur_improve;
-					closer_i = i;
-					cn_dist = dist(closer_i, closer_j, inst);
-				}
-				counter++;
-				i = succ[i];
-			}
 		}
-
-		// merge the tours: update best_sol, succ, comp, ncomp, best_lb
- 		if (succ[closer_j] < 0 && succ[closer_i] < 0) { // closer_j and closer_i are isolated
-			// update inst->best_sol
-			(inst->best_sol)[xpos(closer_i, closer_j, inst)] = 1.;
-
-			// update succ
-			succ[closer_j] = closer_i;
-			succ[closer_i] = closer_j;
-
-			// update comp
-			comp[closer_j] = comp[closer_i];
-
-			// update inst->best_lb
-			inst->best_lb += dist(closer_i, closer_j, inst);
-		} else if (succ[closer_j] < 0) { 		// closer_j isolated node
-			// update inst->best_sol
-			if (closer_i != succ[succ[closer_i]])
-				(inst->best_sol)[xpos(closer_i, succ[closer_i], inst)] = 0.;
-			(inst->best_sol)[xpos(closer_i, closer_j, inst)] = 1.;
-			(inst->best_sol)[xpos(closer_j, succ[closer_i], inst)] = 1.;
-
-			// update succ
-			if (closer_i == succ[succ[closer_i]]) {
-				if ( !is_clockwise(inst, closer_i, closer_j, succ[closer_i]) ) {
-					closer_i = succ[closer_i];	// reverse the orientation
-				}
-			}
-
-			succ[closer_j] = succ[closer_i];
-			succ[closer_i] = closer_j;
-
-
-			// update comp
-			comp[closer_j] = comp[closer_i];
-
-			// update inst->best_lb
-			inst->best_lb += cn_dist
-										+ dist(closer_j, succ[closer_j], inst)
-										- dist(closer_i, succ[closer_j], inst);
-		} else if (succ[closer_i] < 0) {  		// i is isolated
-			// update inst->best_sol
-			if (closer_j != succ[succ[closer_j]])
-				(inst->best_sol)[xpos(closer_j, succ[closer_j], inst)] = 0.;
-			(inst->best_sol)[xpos(closer_i, closer_j, inst)] = 1.;
-			(inst->best_sol)[xpos(closer_i, succ[closer_j], inst)] = 1.;
-
-			// update succ
-			if (closer_j == succ[succ[closer_j]]) {
-				if ( !is_clockwise(inst, closer_j, closer_i, succ[closer_j]) ) {
-					closer_j = succ[closer_j];	// reverse the orientation
-				}
-			}
-			succ[closer_i] = succ[closer_j];
-			succ[closer_j] = closer_i;
-
-			// update comp
-			comp[closer_i] = comp[closer_j];
-
-			// update inst->best_lb
-			inst->best_lb += cn_dist
-										+ dist(closer_i, succ[closer_i], inst)
-										- dist(closer_j, succ[closer_i], inst);
-		} else {  										// i and closer_j are not isolated
-			// update inst->best_sol
-			if (closer_j != succ[succ[closer_j]])
-				(inst->best_sol)[xpos(closer_j, succ[closer_j], inst)] = 0.;
-			if (closer_i != succ[succ[closer_i]])
-				(inst->best_sol)[xpos(closer_i, succ[closer_i], inst)] = 0.;
-			(inst->best_sol)[xpos(closer_i, succ[closer_j], inst)] = 1.;
-			(inst->best_sol)[xpos(closer_j, succ[closer_i], inst)] = 1.;
-
-			// update succ
-			int tmp = succ[closer_i];
-			succ[closer_i] = succ[closer_j];
-			succ[closer_j] = tmp;
-
-			// update comp
-			comp[closer_i] = comp[closer_j];
-			while (tmp != closer_i) {
-				comp[tmp] = comp[closer_j];
-				tmp = succ[tmp];
-			}
-
-			// update inst->best_lb
-			inst->best_lb += dist(closer_j, succ[closer_j], inst)
-										+ dist(closer_i, succ[closer_i], inst)
-										- dist(closer_j, succ[closer_i], inst)
-										- dist(closer_i, succ[closer_j], inst);
-		}
-		(*ncomp)--;
 	}
+	cn_dist = dist(closer_i, closer_j, inst);
+
+	// merge the tours: update best_sol, succ, comp, ncomp, best_lb
+	if (succ[closer_j] < 0 && succ[closer_i] < 0) { 	// closer_j and closer_i are isolated
+		// update inst->best_sol
+		inst->best_sol[xpos(closer_i, closer_j, inst)] = 1.;
+
+		// update succ
+		succ[closer_j] = closer_i;
+		succ[closer_i] = closer_j;
+
+		// update comp
+		comp[closer_j] = comp[closer_i];
+	} else if (succ[closer_j] < 0) { 									// closer_j isolated node
+		// update inst->best_sol
+		if (closer_i != succ[succ[closer_i]])  // i_tour_size == 2
+			inst->best_sol[xpos(closer_i, succ[closer_i], inst)] = 0.;
+		inst->best_sol[xpos(closer_i, closer_j, inst)] = 1.;
+		inst->best_sol[xpos(closer_j, succ[closer_i], inst)] = 1.;
+
+		// update succ
+		if (closer_i == succ[succ[closer_i]]) {
+			if ( !is_clockwise(inst, closer_i, closer_j, succ[closer_i]) ) {
+				closer_i = succ[closer_i];	// reverse the orientation
+			}
+		}
+		succ[closer_j] = succ[closer_i];
+		succ[closer_i] = closer_j;
+
+		// update comp
+		comp[closer_j] = comp[closer_i];
+
+	} else if (succ[closer_i] < 0) {  								// i is isolated
+		// update inst->best_sol
+		if (closer_j != succ[succ[closer_j]])
+			inst->best_sol[xpos(closer_j, succ[closer_j], inst)] = 0.;
+		inst->best_sol[xpos(closer_i, closer_j, inst)] = 1.;
+		inst->best_sol[xpos(closer_i, succ[closer_j], inst)] = 1.;
+
+		// update succ
+		if (closer_j == succ[succ[closer_j]]) {
+			if ( !is_clockwise(inst, closer_j, closer_i, succ[closer_j]) ) {
+				closer_j = succ[closer_j];	// reverse the orientation
+			}
+		}
+		succ[closer_i] = succ[closer_j];
+		succ[closer_j] = closer_i;
+
+		// update comp
+		comp[closer_i] = comp[closer_j];
+
+	} else {  																				// i and closer_j are not isolated
+		// update inst->best_sol
+		if (closer_j != succ[succ[closer_j]])
+			inst->best_sol[xpos(closer_j, succ[closer_j], inst)] = 0.;
+		if (closer_i != succ[succ[closer_i]])
+			inst->best_sol[xpos(closer_i, succ[closer_i], inst)] = 0.;
+		inst->best_sol[xpos(closer_i, succ[closer_j], inst)] = 1.;
+		inst->best_sol[xpos(closer_j, succ[closer_i], inst)] = 1.;
+
+		// update succ
+		int tmp = succ[closer_i];
+		succ[closer_i] = succ[closer_j];
+		succ[closer_j] = tmp;
+
+		// update comp
+		comp[closer_i] = comp[closer_j];
+		while (tmp != closer_i) {
+			comp[tmp] = comp[closer_j];
+			tmp = succ[tmp];
+		}
+	}
+
+	// update inst->best_lb
+	inst->best_lb = 0.0;
+	for (int i = 0; i < inst->nnodes; i++)
+	 	for (int j = i+1; j < inst->nnodes; j++)
+		 	if (inst->best_sol[xpos(i, j, inst)] > 0.5)
+				inst->best_lb += dist(i, j, inst);
+	(*ncomp)--;
 }
 
 int is_clockwise(tspinstance *inst, int x1, int x2, int x3) {
@@ -3784,32 +3995,26 @@ void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp) {
 
 void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// build succ() and comp() wrt xstar()...
 
-	// check if nodes degree is 2 for each node
-	if (inst->verbose >= 2000)
-	{
+	// check if nodes degree is 2 or 0 (isolated node) for each node
+	if (inst->verbose >= 2000) {
 		int *degree = (int *) calloc(inst->nnodes, sizeof(int));
-		printf("nnodes=%d\n", inst->nnodes );
-		for ( int i = 0; i < inst->nnodes; i++ )
-		{
-			for ( int j = i+1; j < inst->nnodes; j++ )
-			{
+		printf("nnodes=%d\n", inst->nnodes);
+		for (int i = 0; i < inst->nnodes; i++) {
+			for (int j = i+1; j < inst->nnodes; j++) {
 				int k = xpos(i,j,inst);
-				if ( fabs(inst->best_sol[k]) > EPS && fabs(inst->best_sol[k]-1.0) > EPS ) print_error(" wrong inst->best_sol in build_sol()");
-				if ( inst->best_sol[k] > 0.5 )
-				{
-					printf("x[%d,%d] = 1\n", i, j );
+				if (fabs(inst->best_sol[k]) > EPS && fabs(inst->best_sol[k]-1.0) > EPS ) print_error(" wrong inst->best_sol in build_sol()");
+				if (inst->best_sol[k] > 0.5) {
+					printf("x[%d,%d] = 1\n", i, j);
 					++degree[i];
 					++degree[j];
 				} else {
-					printf("x[%d,%d] = 0\n", i, j );
+					printf("x[%d,%d] = 0\n", i, j);
 				}
 
 			}
 		}
-		for ( int i = 0; i < inst->nnodes; i++ )
-		{
-			if ( degree[i] != 2 )
-			{
+		for (int i = 0; i < inst->nnodes; i++) {
+			if (degree[i] != 2 || degree[i] != 0) {
 				char msg[40];
 				snprintf(msg, sizeof(msg), "wrong degree[%d] = %d in build_sol_sym", i, degree[i]);
 				print_error(msg);
@@ -3820,8 +4025,7 @@ void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 
 	// initialization of succ, comp and ncomp
 	*ncomp = 0;
-	for ( int i = 0; i < inst->nnodes; i++ )
-	{
+	for (int i = 0; i < inst->nnodes; i++) {
 		succ[i] = -1;
 		comp[i] = -1;
 	}
@@ -3831,15 +4035,14 @@ void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 		if (comp[start] >= 0)
 			continue;
 
-		(*ncomp)++;
-		//comp[start] = *ncomp;
-		int prv = -1;
-		int i = start;
-		int found_succ = 0;
+		(*ncomp)++;						// the tour id number
+		int prv = -1;					// previous node of i in the tour, used to keep j != i
+		int i = start;				// iterate over nodes to complete the tour
+		int found_succ = 0;		// 1 when found a succ of i
 		while (comp[start] == -1) {
-			for (int j = 0; j < inst->nnodes; j++) {
-				if (i != j && inst->best_sol[xpos(i, j, inst)] > 0.5  && j != prv) {
-
+			found_succ = 0;
+			for (int j = 0; j < inst->nnodes; j++) {	// j iterate to be the subsequent node of i in the tour
+				if (i != j && inst->best_sol[xpos(i, j, inst)] > 0.5  && j != prv) {  // found subsequent of i (j)
 					succ[i] = j;
 					comp[j] = *ncomp;
 					prv = i;
@@ -3849,56 +4052,21 @@ void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 				}
 			}
 			if (!found_succ) {  // no succ found, i is isolated
-				comp[start] = *ncomp;
-				break;
-			}
-
-		}
-	}
-	/* SBAGLIATO ?
-	for ( int start = 0; start < inst->nnodes; start++ )
-	{
-		if ( comp[start] >= 0 ) continue;  // node "start" has already been setted
-
-		// a new component is found
-		(*ncomp)++;
-		comp[start] = *ncomp;
-
-		int i = start;
-		//int done = 0;
-		while ( succ[i] == -1  )  // go and visit the current component
-		{
-			comp[i] = *ncomp;
-			// done = 1;
-			for ( int j = 0; j < inst->nnodes; j++ ) {
-				if (j == i) continue;
-
-				if ( inst->best_sol[xpos(i,j,inst)] > 0.5) {  // the edge [i,j] is selected in inst->best_sol and j was not visited before
-					// intern edge of the cycle
-					if (comp[j] == -1) {
-						succ[i] = j;
-						i = j;
-						break;
-					}
-					// last edge of the cycle
-					if (start == j) {
-						succ[i] = j;
-					}
+				if (prv == -1) {	// if no prv found either
+					comp[start] = *ncomp;
+					break;
+				} else {  // it's not a tour, i has no subsequent, but is connected to prv
+					print_error("inst->best_sol is not made of tours and isolated nodes");
 				}
 			}
-			if (succ[i] == -1) {
-				break;
-			}
-		}	// while
-	// go to the next component...
-}*/
+		}
+	}
 
 	// print succ, comp and ncomp
-	if (inst->verbose > 100)
-	{
-		printf("\ni:      "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", i);
-		printf("\nsucc:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", succ[i]);
-		printf("\ncomp:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
+	if (inst->verbose >= 100) {
+		printf("\ni:    "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", i);
+		printf("\nsucc: "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", succ[i]);
+		printf("\ncomp: "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
 		printf("\n");
 		fflush(stdout);
 	}
@@ -4015,7 +4183,7 @@ void build_sol_lazy_std(tspinstance* inst, const double* xstar, int* succ, int* 
 	// go to the next component...
 	}
 	*/
-	
+
 	// print succ, comp and ncomp
 	if (inst->verbose >= 2000)
 	{
@@ -4209,14 +4377,14 @@ double dist(int i, int j, tspinstance *inst) {
 			double tij = round(rij);
 			if (tij < rij)
 				return tij + 1.0;
-			else 
+			else
 				return tij;
 			break;
 		}
 		case 1: {
 			double dx = inst->xcoord[i] - inst->xcoord[j];
 			double dy = inst->ycoord[i] - inst->ycoord[j];
-			if (!inst->integer_costs) return sqrt(dx * dx + dy * dy);	
+			if (!inst->integer_costs) return sqrt(dx * dx + dy * dy);
 			return round(sqrt(dx * dx + dy * dy)); 			// nearest integer
 			break;
 		}
@@ -4225,7 +4393,7 @@ double dist(int i, int j, tspinstance *inst) {
 			double RRR = 6378.388;
 
 			double deg = (int)inst->xcoord[i] + 0.0;
-			double min = inst->xcoord[i] - deg;								// min è diviso per 100	
+			double min = inst->xcoord[i] - deg;								// min è diviso per 100
 			double latitude_i = PI * (deg + 5.0 * min / 3.0) / 180.0;		// PI * ( deg + min/60)/180
 			deg = (int)inst->ycoord[i] + 0.0;
 			min = inst->ycoord[i] - deg;
@@ -4237,7 +4405,7 @@ double dist(int i, int j, tspinstance *inst) {
 			deg = (int)inst->ycoord[j] + 0.0;
 			min = inst->ycoord[j] - deg;
 			double longitude_j = PI * (deg + 5.0 * min / 3.0) / 180.0;
-			
+
 			double q1 = cos(longitude_i - longitude_j);
 			double q2 = cos(latitude_i - latitude_j);
 			double q3 = cos(latitude_i + latitude_j);
@@ -4249,7 +4417,7 @@ double dist(int i, int j, tspinstance *inst) {
 			return -1;
 		break;
 	}
-	
+
 }
 
 
@@ -4528,7 +4696,7 @@ void plot_instance(tspinstance *inst) {
 void setup_style(FILE *gnuplot, tspinstance *inst) {
 
 	switch (inst->model_type) {
-	case 17:	
+	case 17:
 		case 0:			// Line
 			setup_linestyle2(gnuplot);
 			break;
@@ -4540,11 +4708,11 @@ void setup_style(FILE *gnuplot, tspinstance *inst) {
 		case 2:			// Arrow
 			setup_arrowstyle2(gnuplot);
 			break;
-		
+
 		case 3:			// Arrow
 			setup_arrowstyle2(gnuplot);
 			break;
-		
+
 		default:
 			fclose(gnuplot);
 			print_error(" Model type unknown!!\n");

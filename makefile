@@ -5,7 +5,7 @@ ARGS = -input data_heavy/ali535.tsp -setup_model 8 -v 1000 -nthread 4 -time_limi
 EXE = mainTSP
 OBJ = tsp.o chrono.o mainTSP.o
 MODELS = 12
-ALL_MODELS = 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
+ALL_MODELS = 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
 TEST_LIGHT = `ls data_light/*.tsp`
 TEST_AVERAGE = `ls data_average/*.tsp`
 TEST_SET = `ls Test_Set/*.tsp`
@@ -44,7 +44,7 @@ testall: $(EXE)
 fasttest: $(EXE)
 	for file in $(FAST_TEST); do \
 		for model in $(ALL_MODELS); do \
-			./$(EXE) -input $$file -setup_model $$model -randomseed 0 -v 1 -nthread 4 -time_limit 600; \
+			./$(EXE) -input $$file -setup_model $$model -randomseed 0 -v 1 -nthread 4 -time_limit 4; \
 		done \
 	done
 
