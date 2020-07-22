@@ -138,10 +138,10 @@ void init_population(tspinstance* inst, double** population, int nPop);
 void init_frequency_edges(tspinstance* inst, double** population, int* frequencyTable, int nPop);
 void shuffle_individuals(tspinstance* inst, double** population, int nPop);
 void swap(double* a, double* b);
-void EAX_Single(tspinstance* inst, double** population, double** kids, int pA, int pB, int nKids);
-void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, double** ABcycles, double* graph_AB);
+int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, int pB, int nKids);
+void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, double** ABcycles, double* graph_AB, int* idxCycle, int maxNcycles);
 void build_sol_ga(tspinstance* inst, const double* xstar, int* succ, int* prev);
-void evaluate_traced_ABcycle(tspinstance* inst, double* traced_AB, double** ABcycles);
+void evaluate_traced_ABcycle(tspinstance* inst, double* traced_AB, double** ABcycles, int* idxCycle, int* tourFound);
 void survival_selection(tspinstance* inst, double** population, int nPop, int* frequencyTable, int nKids, int pA, double** kids);
 
 void update_frequency_table(tspinstance* inst, int* frequencyTable, double* pA, double* kid);
