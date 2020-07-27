@@ -1,11 +1,134 @@
 \chapter{CPLEX implementation and performance}
 
 \section{CPLEX}
+IBM ILOG CPLEX Optimizer is a solver licensed software, part of the IBM ILOG Optimizer Studio, with high level of efficiency and robustness \cite{IBMILOGCPLEX}. It can resolve a wide variety of problems:
+\begin{itemize}
+	\item Linear Programming (LP)
+	\item Network Flow,
+	\item Quadratic Programming (QP),
+	\item Quadratically Constrained Programming (QCP),
+	\item Mixed Integer Programming (MIP).
+\end{itemize}
+The interest, for the course purposes, is the LP optimization used to solve the TSP problem. The library written in C language, allow to define and resolve LP models with different heuristics and exact algorithm. The challenge is to implement with a state of the art LP solver the models specified in the chapter \ref{chapter:TSPdescription}, comparing time performance. 
+
 \subsection{Callback}
 \subsubsection{Lazy callback}
 \subsubsection{Generic callback}
 
+\section{Test bed} \label{sec:testset}
+The TSPLIB is a library \cite{TSPLIB} that contain different instances of TSP problem and its best solution found. All the file described in this section are part of the TSPLIB. To test the developed algorithm three different set have been prepared, depending on the number of node ($=|V|$) in the graph: Data Light, Data Average and Data Heavy.\\
+These are all intended as STSP, however the same instance can be considered also for ATSP replacing each edge with two arches with opposite direction. This subdivision is justified by the different execution time of the algorithms: it is more interesting to compare the performance of different algorithms in similar instances.\\
+
+\textbf{Data Light:}
+\begin{multicols}{4}
+\begin{itemize}
+\item att48.tsp
+\item berlin52.tsp
+\item bier127.tsp
+\item burma14.tsp
+\item ch130.tsp
+\item ch150.tsp
+\item eil101.tsp
+\item eil51.tsp
+\item eil76.tsp
+\item gr137.tsp
+\item gr96.tsp
+\item kroA100.tsp
+\item kroA150.tsp
+\item kroB100.tsp
+\item kroB150.tsp
+\item kroC100.tsp
+\item kroD100.tsp
+\item kroE100.tsp
+\item lin105.tsp
+\item pr107.tsp
+\item pr124.tsp
+\item pr136.tsp
+\item pr144.tsp
+\item pr76.tsp
+\item rat99.tsp
+\item rd100.tsp
+\item st70.tsp
+\item ulysses16.tsp
+\item ulysses22.tsp
+\end{itemize}
+\end{multicols}
+
+
+\textbf{Data Average:}
+\begin{multicols}{4}
+	\begin{itemize}
+		\item a280.tsp
+		\item d198.tsp
+		\item gil262.tsp
+		\item gr202.tsp
+		\item gr229.tsp
+		\item kroA200.tsp
+		\item kroB200.tsp
+		\item pr152.tsp
+		\item pr226.tsp
+		\item pr264.tsp
+		\item pr299.tsp
+		\item rat195.tsp
+		\item rkoA200.tsp
+		\item ts225.tsp
+		\item tsp225.tsp
+		\item u159.tsp
+	\end{itemize}
+\end{multicols}
+
+
+\textbf{Data Heavy:}
+\begin{multicols}{4}
+\begin{itemize}
+	\item ali535.tsp
+	\item att532.tsp
+	\item brd14051.tsp
+	\item d1291.tsp
+	\item d1655.tsp
+	\item d18512.tsp
+	\item d2103.tsp
+	\item d493.tsp
+	\item d657.tsp
+	\item fl1400.tsp
+	\item fl1577.tsp
+	\item fl3795.tsp
+	\item fl417.tsp
+	\item fnl4461.tsp
+	\item gr431.tsp
+	\item gr666.tsp
+	\item nrw1379.tsp
+	\item p654.tsp
+	\item pcb1173.tsp
+	\item pcb3038.tsp
+	\item pcb442.tsp
+	\item pr1002.tsp
+	\item pr2392.tsp
+	\item pr439.tsp
+	\item rat575.tsp
+	\item rat783.tsp
+	\item rd400.tsp
+	\item rl11849.tsp
+	\item rl1304.tsp
+	\item rl1323.tsp
+	\item rl1889.tsp
+	\item rl5915.tsp
+	\item rl5934.tsp
+	\item u1060.tsp
+	\item u1432.tsp
+	\item u1817.tsp
+	\item u2152.tsp
+	\item u2319.tsp
+	\item u574.tsp
+	\item u724.tsp
+	\item usa13509.tsp
+	\item vm1084.tsp
+	\item vm1748.tsp
+\end{itemize}
+\end{multicols}
+
 \section{Subtour Elimination}\label{sec:subtour}
+
 
 \section{Miller Tucker Zemlin}
 
