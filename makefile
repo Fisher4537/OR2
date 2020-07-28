@@ -14,6 +14,15 @@ TRAINSET_FILES = `ls data_trainset/*.tsp`
 TRAINSET_HEAVY = data_heavy/att532.tsp data_heavy/fl417.tsp data_heavy/d657.tsp
 SEED = 0 123456 666 777 1995
 
+testexact: $(EXE)
+	for file in $(TEST_AVERAGE); do \
+		for model in $(MODEL_LIST); do \
+			for seed in $(SEED); do \
+				./$(EXE) -input $$file -setup_model $$model -randomseed $$seed -v 1 -nthread 4 -time_limit 600; \
+			done \
+		done \
+	done
+
 testlight: $(EXE)
 	for file in $(TEST_LIGHT); do \
 		for model in $(MODELS); do \

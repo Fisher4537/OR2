@@ -25,13 +25,9 @@
 			- Latex: how to use generic callback (if it's write good he can take the part for next year courses)
 			- User_cut di Concorde (difficile implementarle e non è possibile utilizzarle ogni volta bensì solo ogni tot..)		-> per la lode
 
-			- funzione della distanza corrette a seconda di EDGE_WEIGHT_TYPE. vedi tsplib/doc.ps
-
 			13/07/2020
 			- Aggiungere limite di tempo in tutti i metodi che lo richiedono (io lo metterei in tutti se il timelimit viene settato)
 			  e dobbiamo stare attenti, dovremmo tenere un remaining_time globale in modo che se utilizziamo modelli con più metodi scalino tutti dallo stesso remaining_time
-
-			- Hard fixing usa CPLEX? cioè ti serve il parametro useCplex a TRUE? ora è a TRUE (riga 134), se non ti serve che faccia il CPXSolution nel metodo TSPopt allora togli quella riga
 
 			- Tabu search: we can add variable length of list and add the check also for tabu solution
 */
@@ -137,7 +133,7 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->heuristic = 1;
 			inst->callback = 2;
 			inst->mip_opt = 2;
-			inst->useCplex = 1;												// USA CPLEX O NO?????????
+			inst->useCplex = 1;
 			return "hard_fixing";						// Hard-Fixing
 		case 9:
 			inst->model_type = 0;
@@ -2407,7 +2403,7 @@ int subtour_iter_opt(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status)
 					{
 						if (comp[j] == comp_i)
 						{
-							if ( (*status = CPXchgcoef(env, lp, lastrow, xpos(i,j, inst), 1.0)) ) // income vertex
+							if ( (*status = CPXchgcoef(env, lp, lastrow, xpos(i, j, inst), 1.0)) ) // income vertex
 								print_error(" wrong CPXchgcoef [degree]");
 						}
 					}
