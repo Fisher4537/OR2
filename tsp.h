@@ -34,6 +34,12 @@ typedef struct arches_tuple {
 	struct arches_tuple* next;
 } tabu_list;
 
+typedef struct tour {
+	tabu_list* entry;
+	struct tour* next;		//struct to store an array of Linked lists
+} tour_list;
+
+
 typedef struct {
 
 	//input data
@@ -139,16 +145,26 @@ void init_frequency_edges(tspinstance* inst, double** population, int* frequency
 void shuffle_individuals(tspinstance* inst, double** population, int nPop);
 void swap(double* a, double* b);
 int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, int pB, int nKids);
-void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, double** ABcycles, double* graph_AB, int* idxCycle, int maxNcycles);
-void build_sol_ga(tspinstance* inst, const double* xstar, int* succ, int* prev);
-void evaluate_traced_ABcycle(tspinstance* inst, double* traced_AB, double** ABcycles, int* idxCycle, int* tourFound);
-void survival_selection(tspinstance* inst, double** population, int nPop, int* frequencyTable, int nKids, int pA, double** kids);
+void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, double** ABcycles, double* graph_AB, int* idxCycle, int maxNcycles, int** edges_cycles_EA);
+int build_sol_ga(tspinstance* inst, const double* xstar, int* succ, int* prev, int* comp, int* ncomp);
+void evaluate_traced_ABcycle(tspinstance* inst, double* traced_AB, double** ABcycles, int* idxCycle, int* tourFound, int* edges_cycles_EA_current);
 
+tour_list* grapth_to_tree(tspinstance* inst, int* nodes_one, int* nodes_two, tour_list* tours, int* edges_cycles_EA_current);
+tour_list* Tree_recursive(tspinstance* inst, int current, int* nodes_one, int* nodes_two, int* found, tabu_list* pathlist, tabu_list* visited_nodes, tour_list* tours, int* edges_cycles_EA_current);
+void copy_in_i_j(tspinstance* inst, int* nodes_one, int* nodes_two, int* i, int* j);
+void push_list_on_list(tspinstance* inst, tour_list** head_ref, tour_list** pathlist, int pos, int* edges_cycles_EA_current);
+int print_list_of_list(tour_list* tours);
+tabu_list* copy(tabu_list* org);
+int patching_two_edges(tspinstance* inst, double* tour);
+
+void survival_selection(tspinstance* inst, double** population, int nPop, int* frequencyTable, int nKids, int pA, double** kids);
 void update_frequency_table(tspinstance* inst, int* frequencyTable, double* pA, double* kid);
 double calc_L(tspinstance* inst, double** population, int nPop);
 double calc_H(tspinstance* inst, int* frequencyTable, int nPop);
 
 void print_population(tspinstance* inst, double** population, int nPop);
+void plot_population(tspinstance* inst, double** population, int nPop);
+void plot_single(tspinstance* inst, double* individual);
 void print_frequency_table(tspinstance* inst, int* frequency_table);
 void free_ga(double** population, int* frequency_table, int nPop);
 
@@ -162,6 +178,7 @@ int contained_in_index(int* vector, int count_sol, int elem);
 
 void best_two_opt(tspinstance *inst);
 void random_two_opt(tspinstance* inst);
+void random_n_opt(tspinstance* inst, int n);
 
 void patching(tspinstance* inst);
 void single_patch(tspinstance* inst, int* succ, int* comp, int* ncomp);
