@@ -146,17 +146,18 @@ void shuffle_individuals(tspinstance* inst, double** population, int nPop);
 void swap(double* a, double* b);
 int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, int pB, int nKids);
 void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, double** ABcycles, double* graph_AB, int* idxCycle, int maxNcycles, int** edges_cycles_EA);
-void build_sol_ga(tspinstance* inst, const double* xstar, int* succ, int* prev);
+int build_sol_ga(tspinstance* inst, const double* xstar, int* succ, int* prev, int* comp, int* ncomp);
 void evaluate_traced_ABcycle(tspinstance* inst, double* traced_AB, double** ABcycles, int* idxCycle, int* tourFound, int* edges_cycles_EA_current);
 
-tour_list* grapth_to_tree(tspinstance* inst, int* nodes_one, int* nodes_two, tour_list* tours);
-tour_list* Tree_recursive(tspinstance* inst, int current, int* nodes_one, int* nodes_two, int found, tabu_list* pathlist, tabu_list* visited_nodes, tour_list* tours);
+tour_list* grapth_to_tree(tspinstance* inst, int* nodes_one, int* nodes_two, tour_list* tours, int* edges_cycles_EA_current);
+tour_list* Tree_recursive(tspinstance* inst, int current, int* nodes_one, int* nodes_two, int* found, tabu_list* pathlist, tabu_list* visited_nodes, tour_list* tours, int* edges_cycles_EA_current);
 void copy_in_i_j(tspinstance* inst, int* nodes_one, int* nodes_two, int* i, int* j);
-void push_list_on_list(struct tour_list** head_ref, tour_list** pathlist, int pos);
-void print_list_of_list(tour_list* tours);
+void push_list_on_list(tspinstance* inst, tour_list** head_ref, tour_list** pathlist, int pos, int* edges_cycles_EA_current);
+int print_list_of_list(tour_list* tours);
+tabu_list* copy(tabu_list* org);
+int patching_two_edges(tspinstance* inst, double* tour);
 
 void survival_selection(tspinstance* inst, double** population, int nPop, int* frequencyTable, int nKids, int pA, double** kids);
-
 void update_frequency_table(tspinstance* inst, int* frequencyTable, double* pA, double* kid);
 double calc_L(tspinstance* inst, double** population, int nPop);
 double calc_H(tspinstance* inst, int* frequencyTable, int nPop);
