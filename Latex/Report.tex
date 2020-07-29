@@ -13,6 +13,16 @@
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage{textcomp}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{multirow}
+\usepackage{multicol}
+\usepackage{colortbl}
+\usepackage{color}
+\usepackage[toc,page]{appendix}
+\usepackage{subcaption}
+
+\definecolor{Black}{rgb}{.0,.0,.0}
 
 \setcounter{secnumdepth}{3}
 \setcounter{tocdepth}{3}
@@ -79,8 +89,8 @@
 	\selectlanguage{english}
 
 	%% Adds the title page
-  \input{title.tex}
-  \input{abstract.tex}
+	\input{title.tex}
+	\input{abstract.tex}
 
 	% Adds a table of contents
 	\tableofcontents{}
@@ -99,6 +109,148 @@
 	\input{repair.tex}
 	\input{mip-heuristics.tex}
 	\input{conclusion.tex}
+	\clearpage
+	
+	\begin{appendices}
+		\chapter{Test bed} \label{sec:testset}
+		The TSPLIB \cite{TSPLIB} is a library that contain different instances of TSP problem and its best solution found. All the file described in this section are part of the TSPLIB. To test the developed algorithm three different set have been prepared, depending on the number of node ($=|V|$) in the graph: Data Light, Data Average and Data Heavy.\\
+		These are all intended as STSP, however the same instance can be considered also for ATSP replacing each edge with two arches with opposite direction. This subdivision is justified by the different execution time of the algorithms: it is more interesting to compare the performance of different algorithms in similar instances.\\
+		
+		\textbf{Data Light:}
+		\begin{multicols}{4}
+			\begin{itemize}
+				\item att48.tsp
+				\item berlin52.tsp
+				\item bier127.tsp
+				\item burma14.tsp
+				\item ch130.tsp
+				\item ch150.tsp
+				\item eil101.tsp
+				\item eil51.tsp
+				\item eil76.tsp
+				\item gr137.tsp
+				\item gr96.tsp
+				\item kroA100.tsp
+				\item kroA150.tsp
+				\item kroB100.tsp
+				\item kroB150.tsp
+				\item kroC100.tsp
+				\item kroD100.tsp
+				\item kroE100.tsp
+				\item lin105.tsp
+				\item pr107.tsp
+				\item pr124.tsp
+				\item pr136.tsp
+				\item pr144.tsp
+				\item pr76.tsp
+				\item rat99.tsp
+				\item rd100.tsp
+				\item st70.tsp
+				\item ulysses16.tsp
+				\item ulysses22.tsp
+			\end{itemize}
+		\end{multicols}
+		
+		
+		\textbf{Data Average:}
+		\begin{multicols}{4}
+			\begin{itemize}
+				\item a280.tsp
+				\item d198.tsp
+				\item gil262.tsp
+				\item gr202.tsp
+				\item gr229.tsp
+				\item kroA200.tsp
+				\item kroB200.tsp
+				\item pr152.tsp
+				\item pr226.tsp
+				\item pr264.tsp
+				\item pr299.tsp
+				\item rat195.tsp
+				\item rkoA200.tsp
+				\item ts225.tsp
+				\item tsp225.tsp
+				\item u159.tsp
+			\end{itemize}
+		\end{multicols}
+		
+		
+		\textbf{Data Heavy:}
+		\begin{multicols}{4}
+			\begin{itemize}
+				\item ali535.tsp
+				\item att532.tsp
+				\item brd14051.tsp
+				\item d1291.tsp
+				\item d1655.tsp
+				\item d18512.tsp
+				\item d2103.tsp
+				\item d493.tsp
+				\item d657.tsp
+				\item fl1400.tsp
+				\item fl1577.tsp
+				\item fl3795.tsp
+				\item fl417.tsp
+				\item fnl4461.tsp
+				\item gr431.tsp
+				\item gr666.tsp
+				\item nrw1379.tsp
+				\item p654.tsp
+				\item pcb1173.tsp
+				\item pcb3038.tsp
+				\item pcb442.tsp
+				\item pr1002.tsp
+				\item pr2392.tsp
+				\item pr439.tsp
+				\item rat575.tsp
+				\item rat783.tsp
+				\item rd400.tsp
+				\item rl11849.tsp
+				\item rl1304.tsp
+				\item rl1323.tsp
+				\item rl1889.tsp
+				\item rl5915.tsp
+				\item rl5934.tsp
+				\item u1060.tsp
+				\item u1432.tsp
+				\item u1817.tsp
+				\item u2152.tsp
+				\item u2319.tsp
+				\item u574.tsp
+				\item u724.tsp
+				\item usa13509.tsp
+				\item vm1084.tsp
+				\item vm1748.tsp
+			\end{itemize}
+		\end{multicols}
+		
+		\chapter{Performance measure}
+			In this chapter is discussed how the different deveeloped algorithms have been compared between each other.\\
+			\textbf{Performance profile.} Exact algorithm (e.g. Subtour, MTZ and FC) guarantee to return the least expensive tour if would run for enough time, therefore a metric of interest is the total execution time that an exact algorithm need to find the optimum. 
+			Due to practical limitation, a time limit must be imposed. The performance profile compare for each tested instance ($ i $), the ratio ($ r^A(i) = \frac{t_{exec}^A(i)}{t_{exec}^*(i)} $) of the execution time of the algorithm A ($ t_{exec}^A(i) $) divided by the execution time of the faster algorithm ($ t_{exec}^*(i) $).
+			After that for each $ k = 1, 2, .., K $ calculate for how many instances the algorithm A has $ r^A(i) \le k $ and the resultant function is the performance profile.
+			The algorithm with the higher curve is the one who have been for more instances near of the best.\\
+			A problem of the performance profile is that some instances require fractions of second to be executed, and little overhead would significantly influence the performance profile however the purpose of this report is to measure the computability of the instance. For example if the faster algorithm run in 0.1s and A in 1s, $ r^A(i_1) = 10 $ and this in accord to the defined metric would be comparable to another instance where $ t_{exec}^*(i_2) = 100 $s and $ t_{exec}^A(i_2) = 1000 $s. To enhance the weight of the second cases, the calculated ratio is modified as follow: $ r^A(i) = \frac{t_{exec}^A(i)+T_{min}}{t_{exec}^*(i)+T_{min}} $, in this way the $ r^A(i_1) = \frac{11.0}{10.1} = 1.08 $ and $ r^A(i_2) = \frac{1010.0}{110.} = 9.18 $.\\
+			The second problem is for the instance that require a time near the time limit ($ T_{max} $). As an example, with $ T_{max} = 600 $s, if $ t_{exec}^*(i_1) = 590$s, two algorithm A and B without time limit would run for resp $ t_{exec}^A(i_1) = 601$s and $ t_{exec}^B(i_1) = 1200$s they would be comparable. Due to it is not possible to know how many time an algorithm would exceed the time limit, and in the same time it would be nice to "reward" the best algorithm, when $ t_{exec}^*(i) < T_{max} $ and $ t_{exec}^A(i) >= T_{max} $ the ratio is modified as:  $ r^A(i) = \frac{t_{exec}^A(i)R}{t_{exec}^*(i)} $ where $ R = $ "random value between $ \{1,..,k\} $". In this case, for a large number of case discussed above, the performance profile would not be modified. However it is known that for little number of instances, the performance profile is randomized therefore the result is useless and a warning message should be shown to avoid false considerations.
+			
+			\textbf{Random seed.} Due to some randomization is part of the proposed algorithm, it is possible to set the random seed generator. This is very useful either for reproduce a results or to avoid the \textit{performance variability} (PV). PV is intended here as an unwanted effect such that for infinitesimal change in the input (such as the random seed, the node order, etc.), there is a measurable change in the output. To avoid PV effect, as proposed in the course lesson, each algorithms is executed for each random seeds in a fixed set and the mean of the execution times is reported. Note that to calculate the execution times a random seed set of five integer has been used.
+			
+			\textbf{The number of threads.} The number of threads used is reported when necessary, otherwise the default value is used (4).
+			
+			\textbf{Machine architecture.} The machine used to run the algorithm and test the performance are two with two different OS and specific details are reported in tab \ref{tab:machines}.
+			\begin{table}[h]
+				\begin{center}
+					\caption{Description of the machine used to run the algorithm and calculate the performance.}
+					\label{tab:machines}
+					\begin{tabular}{ccc}
+						Machine ID  & OS 				&	 Proc 			\\ \hline \\
+						L 			& Ubuntu 18.04LTS 	& Intel i7 8th Gen 	\\
+						M 			& Windows 10 		& 					\\
+					\end{tabular}
+				\end{center}
+			\end{table}
+	\end{appendices}
+	
 
 	% Adding a bibliography if citations are used in the report
 	\bibliographystyle{plain}
@@ -106,4 +258,4 @@
 	% Adds reference to the Bibliography in the ToC
 	\addcontentsline{toc}{chapter}{\bibname}
 
-	\end{document}
+\end{document}
