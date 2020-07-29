@@ -2364,6 +2364,7 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 
 	*/
 	double global_best_lb = CPX_INFBOUND;
+	double remaining_time = inst->timelimit;
 
 	int nPop = 10, nKids = 30;			// GA-EAX/Stage1 & Parallel GA-EAX/Stage1
 	int sChunk = 10, nChunk = 30;		// Only for Parallel GA-EAX/Stage1
@@ -2380,7 +2381,9 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 	init_frequency_edges(inst, population, frequencyTable, nPop);
 	print_frequency_table(inst, frequencyTable);
 
-	for (int g = 0; ; g++) {
+	for (int g = 0; remaining_time > 0.0; g++) {
+
+		double ini = second();
 
 		shuffle_individuals(inst, population, nPop);
 		print_population(inst, population, nPop);
@@ -2422,6 +2425,7 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 				global_best_lb = cost;
 		}
 		printf("\n");
+		remaining_time -= second() - ini;
 	}
 	free_ga(population, frequencyTable, nPop);
 
