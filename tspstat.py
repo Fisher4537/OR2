@@ -4,6 +4,7 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 def get_testset(file_path, v_shift=20., time_limit=300.):
     test_set = {}
     with open(file_path, mode='r') as in_csv:
@@ -111,30 +112,33 @@ def performance_profile(file_path, v_shift=20., time_limit=300.):
         print('{}: {}'.format(model, models_best_lb_ratio[model]))
 
     # show performance profile
+    plot_pp(models_ratio, domain='time')
+    plot_pp(models_best_lb_ratio, domain='lb')
+
+
+def plot_pp(models_ratio, domain='time', name='res'):
     colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k']
     style = ['-', '--', '-.', 'o', '*', '+', 'x']
 
-    fig, ax = plt.subplots(2)
+    fig, ax = plt.subplots(1)
+    
     x_ax = np.arange(0, 4, 0.2)**2 + 0.96
     # print(x_ax)
     for i, model in enumerate(models_ratio):
         y_model = [sum(map(lambda ratio: ratio <= x, models_ratio[model]))/len(models_ratio[model]) for x in x_ax]
         y_ax = np.array(y_model)
-        ax[0].plot(x_ax, y_ax, colors[i % len(colors)]+style[i % len(style)], label=model)
+        ax.plot(x_ax, y_ax, colors[i % len(colors)]+style[i % len(style)], label=model)
 
-    ax[0].legend(loc='upper center', shadow=True, fontsize='x-large')
-    ax[0].set_title('Time domain')
-    ax[0].label_outer()
+    if domain == 'time':
+        ax.legend(loc='lower right', shadow=True, fontsize='x-large')
+        ax.set_title('Time measure performance profile')
+    elif domain == 'lb':
+        ax.legend(loc='lower right', shadow=True, fontsize='x-large')
+        ax.set_title('Best_lb measure performance profile')
 
-    # print(x_ax)
-    for i, model in enumerate(models_best_lb_ratio):
-        y_model = [sum(map(lambda ratio: ratio <= x, models_best_lb_ratio[model]))/len(models_best_lb_ratio[model]) for x in x_ax]
-        y_ax = np.array(y_model)
-        ax[1].plot(x_ax, y_ax, colors[i % len(colors)]+style[i % len(style)], label=model)
-
-    ax[1].legend(loc='upper center', shadow=True, fontsize='x-large')
-    ax[1].set_title('Best_lb domain')
-
+    plt.xlabel('$ k $')
+    plt.ylabel('$ r(k) $')
+    plt.savefig(name + '_' + domain + '.png')
     plt.show()
 
 
