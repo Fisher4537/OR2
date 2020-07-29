@@ -9,6 +9,7 @@
 #include <math.h>
 #include <float.h>
 
+#include <omp.h>
 
 #ifdef _WIN32
 	#define DIR_DELIM '\\'
@@ -30,6 +31,12 @@
 			  e dobbiamo stare attenti, dovremmo tenere un remaining_time globale in modo che se utilizziamo modelli con più metodi scalino tutti dallo stesso remaining_time
 
 			- Tabu search: we can add variable length of list and add the check also for tabu solution
+
+			- Remember to add: srand(time(NULL));  where and if needed	(during debug i don't use it)
+
+			- Errore nei modelli 19-20-21-22 da sistemare! RIGA : 883 => CPXaddmipstarts genera l'errore... l'euristica ritorna un tour unico, dopo aver fatto CPXaddmipstarts il tour viene diviso
+			  in più tour.. già provato a cambiare i parametri del metodo
+
 */
 
 char * model_name(int i) {
@@ -58,7 +65,7 @@ char * model_name(int i) {
 		case 21: return "heuristic_grasp_cplex";			// GRASP (Warm Start for CPLEX)
 		case 22: return "heuristic_insertion_cplex";		// Heuristic Insertion (Warm Start for CPLEX)
 		case 23: return "simulating_annealing";				// GRASP + Simulating Annealing
-		case 24: return "genetic_algorithm";
+		case 24: return "genetic_algorithm";				// Genetic Algorithm
 		default: return "not_supported";
 	}
 }
@@ -170,12 +177,12 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->model_type = 0;
 			inst->warm_start = 0;
 			inst->heuristic = 4;
-			return "patching";				// patching, no warm_start, no CPLEX.
+			return "patching";							// patching, no warm_start, no CPLEX.
 		case 16:
 			inst->model_type = 0;
 			inst->warm_start = 3;
 			inst->heuristic = 5;
-			return "vns";	 			// vns: GRASP + 2opt and random5opt
+			return "vns";	 							// VSN: GRASP + 2opt and random5opt
 		case 17:
 			inst->model_type = 0;
 			inst->warm_start = 1;
@@ -217,7 +224,6 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			return "simulating_annealing";				// GRASP + Simulating Annealing
 		case 24:
 			inst->model_type = 0;
-			inst->warm_start = 3;
 			inst->heuristic = 9;
 			return "genetic_algorithm";					// Genetic Algorithm
 		default: return "not_supported";
@@ -288,6 +294,24 @@ int xpos(int i, int j, tspinstance *inst) {
 	if ( i == j ) print_error(" i == j in xpos" );
 	if ( i > j ) return xpos(j,i,inst);								// simplify returned formula
 	return i*inst->nnodes + j - ((i + 1)*(i + 2))/2; 				// default case
+}
+
+int* invers_xpos(int pos, tspinstance* inst) {
+	if (pos < 0) print_error(" position cannot be negative");
+	if (pos > (inst->nnodes * inst->nnodes - inst->nnodes - 2) / 2) print_error(" position exceeds max value");
+
+	int* ij = (int*)calloc(2, sizeof(int));
+	int temp_pos = 0;
+	for (int i = 0; i < inst->nnodes - 1; i++){
+		for (int j = i + 1; j < inst->nnodes; j++) {
+			if (temp_pos == pos) {
+				ij[0] = i;
+				ij[1] = j;
+				return ij;
+			}
+			temp_pos++;
+		}
+	}
 }
 
 int asym_xpos(int i, int j, tspinstance *inst) {
@@ -1161,6 +1185,7 @@ int* heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
 	for (int k = 0; k < inst->nnodes; k++)
 		best_sol[k] = -1;
+	inst->best_lb = 0.0;
 
 	srand(inst->randomseed);
 
@@ -1201,6 +1226,7 @@ int* heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 	// Copy and convert to double sol in best_sol
 	for (int i = 0; i < inst->nnodes; i++) {
 		inst->best_sol[best_sol[i]] = 1.0;
+		inst->best_lb += dist(invers_xpos(best_sol[i], inst)[0], invers_xpos(best_sol[i], inst)[1], inst);
 	}
 
 	if(inst->useCplex)
@@ -1927,7 +1953,7 @@ int contained_in_posix(tabu_list** head, int arc) {
 void print_list(tabu_list* head) {
 	tabu_list* current = head;
 	int printval;
-	printf("--- Tabu list elements: ---\n");
+	//printf("--- Tabu list elements: ---\n");
 	while (current != NULL) {
 		printval = current->arc;
 		printf("Arc:\t%d\n", printval);
@@ -2323,6 +2349,1786 @@ int max_dist_couple_nodes(tspinstance* inst) {
 
 int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 
+	/*	popolazione di taglia fissa di individui inizializzati random
+		repair = salta nodi doppi e fai una costruzione per espansione per i nodi non visitati
+
+	#pragma omp parallel
+		{
+			printf("\nHello from process : % d\n\n", omp_get_thread_num());
+		}
+		printf("\nHello from process : % d\n\n", omp_get_thread_num()); 
+
+	*/
+	double global_best_lb = CPX_INFBOUND;
+	double remaining_time = inst->timelimit;
+
+	int nPop = 10, nKids = 30;			// GA-EAX/Stage1 & Parallel GA-EAX/Stage1
+	int sChunk = 10, nChunk = 30;		// Only for Parallel GA-EAX/Stage1
+	int nStag;							// Termination Criterion of GA-EAX/Stage1
+
+	double** population = (double**)calloc(nPop, sizeof(double*));
+
+	int* frequencyTable = (int*)calloc(inst->nedges, sizeof(int));
+
+	int pA, pB;	// Indexes of parents: pA as acceptor and pB as donor
+
+	init_population(inst, population, nPop);
+	print_population(inst, population, nPop);
+	init_frequency_edges(inst, population, frequencyTable, nPop);
+	print_frequency_table(inst, frequencyTable);
+
+	for (int g = 0; remaining_time > 0.0; g++) {
+
+		double ini = second();
+
+		shuffle_individuals(inst, population, nPop);
+		print_population(inst, population, nPop);
+
+		for (int i = 0; i < nPop; i++) {
+			pA = i;
+			pB = (i == nPop - 1) ? 0 : i + 1;
+
+
+			double** kids = (double**)calloc(nKids, sizeof(double*));
+
+			int real_nKids = EAX_Single(inst, population, kids, pA, pB, nKids);						// Generate nKids offspring solutions from pA, pB using differents AB-Cycles
+			if(real_nKids != 0)
+				survival_selection(inst, population, nPop, frequencyTable, real_nKids, pA, kids);
+			
+			// free kids matrix
+			for (int j = 0; j < nKids; j++)
+				free(kids[j]);
+			free(kids);
+
+			print_population(inst, population, nPop);
+			//print_frequency_table(inst, frequencyTable);
+		}
+		print_population(inst, population, nPop);
+		//plot_population(inst, population, nPop);
+		printf("\n*********** FINISH GENERATION %d ***********\n\n", g);
+		printf("\nEvaluate LBs:");
+		for (int i = 0; i < nPop; i++) {
+			double cost = 0.0;
+			for (int j = 0; j < inst->nedges; j++) {
+				if (population[i][j] != 0.0) {
+					int* ij = invers_xpos(j, inst);
+					cost += dist(ij[0], ij[1], inst);
+					free(ij);
+				}
+			}
+			printf("\nIndividual %d: %0.f\n", i, cost);
+			if (cost <= global_best_lb)
+				global_best_lb = cost;
+		}
+		printf("\n");
+		remaining_time -= second() - ini;
+	}
+	free_ga(population, frequencyTable, nPop);
+
+	
+
+}
+void init_population(tspinstance* inst, double** population, int nPop) {
+
+	for (int i = 0; i < nPop; i++) {
+		heur_grasp(inst, 1);
+		best_two_opt(inst);
+		population[i] = (double*)calloc(inst->nedges, sizeof(double));
+		for (int j = 0; j < inst->nedges; j++) {
+			population[i][j] = inst->best_sol[j];
+		}
+		clear_sol(inst);
+	}
+}
+void init_frequency_edges(tspinstance* inst, double** population, int* frequencyTable, int nPop) {
+	for (int i = 0; i < nPop; i++) {
+		for (int j = 0; j < inst->nedges; j++) {
+			if (population[i][j] == 1.0)
+				frequencyTable[j]++;
+		}
+	}
+}
+void shuffle_individuals(tspinstance* inst, double** population, int nPop) {
+	for (int i = nPop - 1; i > 0; i--)
+	{
+		// Pick a random index from 0 to i 
+		int j = rand() % (i + 1);
+
+		// Swap arr[i] with the element at random index 
+		swap(&population[i], &population[j]);
+	}
+}
+void swap(double* a, double* b)
+{
+	double temp = *a;
+	*a = *b;
+	*b = temp;
+}
+int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, int pB, int nKids) {
+	/*
+		- Generate an undirected multigraph defined as GAB = (V; EA U EB).
+		- Extract AB-cycles from GAB by repeating a procedure of traversing edges of EA and ones of EB alternatively in
+		GAB until an AB-cycle is obtained. Here, an AB-cycle is defined as a cycle in GAB, such that edges of EA and ones of EB are alternately linked.
+		- Copy parent pA to intermediate solution y.
+		- Choose an AB-cycle from the set of AB-cycles randomly.
+		- Generate an intermediate solution by removing the edges of EA in the chosen AB-cycle from the intermediate
+		solution y and adding those of EB in the AB-cycle to y.
+		- Connect all the subtours in the intermediate solution y to generate an offspring solution y(a single tour) by using a local search heuristic.
+	*/
+
+	double** ABcycles = (double**)calloc(nKids * 3.0, sizeof(double*));			// 3 * nKids set as maximum number of AB-cycles (theoretically not need more)
+	for (int i = 0; i < nKids * 3; i++) {
+		ABcycles[i] = (double*)calloc(inst->nedges, sizeof(double));
+	}
+
+	double* graph_AB = (double*)calloc(inst->nedges, sizeof(double));
+	for (int i = 0; i < inst->nedges; i++) {
+		if (population[pA][i] == 1.0)
+			graph_AB[i]++;
+		if (population[pB][i] == 1.0)
+			graph_AB[i]++;
+		if (inst->verbose >= 100)
+			printf("%.0f %.0f %.0f - ", graph_AB[i], population[pA][i], population[pB][i]);
+	}
+	if (inst->verbose >= 100) printf("\n");
+
+	// NOOO!! <= nnodes * 2 : perchè potrei fare tutto il giro dei nodi tranne l'ultimo edge che chiude il ciclo e invece tornare indietro per gli stessi e chiuderlo a ritroso
+	int** edges_cycles_EA = (int**)calloc(nKids * 3.0, sizeof(int*));		// Edges di EA che appartengono ai ABcycles
+	for (int i = 0; i < nKids * 3.0; i++) {
+		edges_cycles_EA[i] = (int*)calloc(inst->nnodes, sizeof(int));
+		for (int j = 0; j < inst->nnodes; j++)
+			edges_cycles_EA[i][j] = -1;
+	}
+
+	int countCycle = 0;
+	extract_ABcycles(inst, population, pA, pB, ABcycles, graph_AB, &countCycle, nKids * 3, edges_cycles_EA);
+	print_population(inst, ABcycles, countCycle);
+	printf("\n**** EDGES CYCLES EA ****");
+	for (int i = 0; i < countCycle; i++) {
+		printf("\nIndividual %d: ", i);
+		for (int j = 0; j < inst->nnodes; j++) {
+			if (edges_cycles_EA[i][j] != -1)
+				printf("%d ", edges_cycles_EA[i][j]);
+		}
+	}
+	printf("\n");
+	//plot_population(inst, ABcycles, countCycle);
+	//plot_population(inst, population, pB+1);
+
+	int real_nKids = nKids > countCycle ? countCycle : nKids;
+
+	/*
+		- We define the size of an AB-cycle as the number of edges of EA (or EB) included in it.
+		Note that some of the AB-cycles might consist of two overlapping edges, one from EA and one from EB.
+		We call such an ABcycle “ineffective” because the inclusion of ineffective AB-cycles in an E-set does not affect the resulting intermediate solution.
+		We call an AB-cycle consisting of more than four edges “effective”
+		In Step 3, we select only effective AB-cycles for constructing E-sets unless stated otherwise. We define the size of an E-set as the number of edges of EA (or EB) included in it.
+		- According to the definition of an E-set and the procedure in Step 4, EAX generates an intermediate solution
+		from EA by replacing edges with the same number of edges selected from EB, under the condition that every vertex is linked by just two edges.
+		- An intermediate solution therefore consists of one or more subtours.
+
+		Ec = (Ea \ (E-set intersected EA)) united (E-set intersected Eb)
+	*/
+
+	int* idx_effective = (int*)calloc(real_nKids, sizeof(int));
+	int i_eff = 0;
+	for (int i = 0; i < real_nKids; i++) {
+
+		int* countN = (int*)calloc(inst->nnodes, sizeof(int));
+		for (int k = 0; k < inst->nedges; k++) {
+			if (ABcycles[i][k] >= 1.0) {
+				countN[invers_xpos(k, inst)[0]]++;
+				countN[invers_xpos(k, inst)[1]]++;
+			}
+		}
+		int effective = 0;
+		for (int k = 0; k < inst->nnodes; k++) {
+			if (countN[k] >= 1) {
+				effective++;
+			}
+		}
+
+		free(countN);
+
+		if (effective > 3) {
+			idx_effective[i_eff] = i;
+			i_eff++;
+		}
+
+	}
+
+	int avoid = 0;
+	for (int i = 0, temp_i = 0; i < i_eff; i++, temp_i++) {
+
+		double* y = (double*)calloc(inst->nedges, sizeof(double));
+
+		printf("Edges of y (EA):\n");
+		for (int j = 0; j < inst->nedges; j++) {
+			y[j] = population[pA][j];
+			if (y[j] == 1.0)
+				printf("%d ", j);
+		}
+		printf("\n");
+		if (inst->verbose >= 20000)
+			plot_single(inst, y);
+
+		printf("Edges of EB:\n");
+		for (int j = 0; j < inst->nedges; j++) {
+			if (population[pB][j] == 1.0)
+				printf("%d ", j);
+		}
+		printf("\n");
+		if (inst->verbose >= 20000)
+			plot_single(inst, population[pB]);
+
+		printf("Edges of EA removed from y :\n");
+		for (int j = 0; j < inst->nedges; j++) {
+			if (population[pA][j] == 1.0) {
+				for (int w = 0; w < inst->nnodes; w++) {
+					if (edges_cycles_EA[idx_effective[i]][w] == j) {
+						printf("%d ", j);
+						y[j]--;
+					}
+				}
+			}
+		}
+		printf("\n");
+		printf("Edges of y After Removing:\n");
+		for (int j = 0; j < inst->nedges; j++) {
+			if (y[j] == 1.0)
+				printf("%d ", j);
+		}
+		printf("\n");
+		if (inst->verbose >= 20000)
+			plot_single(inst, y);
+
+		printf("Edges from EB added to y :\n");
+		for (int j = 0; j < inst->nedges; j++) {
+			if (population[pB][j] == 1.0 && ABcycles[idx_effective[i]][j] >= 1.0) {
+				int found = 0;															// trovato tra gli edges di EA e l'arco non è doppio
+				for (int w = 0; w < inst->nnodes; w++) {
+					if (edges_cycles_EA[idx_effective[i]][w] == j && ABcycles[idx_effective[i]][j] <= 1.0) {
+						found = 1;
+						printf("%d(NO) ", j);
+					}
+				}
+				if (!found) {
+					y[j]++;
+					printf("%d ", j);
+				}
+			}
+		}
+		printf("\n");
+		printf("Edges of y After Adding:\n");
+		for (int j = 0; j < inst->nedges; j++) {
+			if (y[j] == 1.0)
+				printf("%d ", j);
+			else if (y[j] == 2.0)
+				printf("%d(2) ", j);
+		}
+		printf("\n");
+		if (inst->verbose >= 20000)
+			plot_single(inst, y);
+
+
+
+		// Patching
+		for (int j = 0; j < inst->nedges; j++) {
+			if (y[j] != 0.0 && inst->verbose >= 1000)
+				printf("%d <- %d, %d\n", j, invers_xpos(j, inst)[0], invers_xpos(j, inst)[1]);
+			inst->best_sol[j] = y[j];
+		}
+
+		int res = patching_two_edges(inst, y);
+		if (res) {
+			temp_i--;
+			avoid++;
+			printf("\nAvoid wrong tours patching!\n");
+		}
+		else {
+
+			kids[temp_i] = (double*)calloc(inst->nedges, sizeof(double));
+
+			for (int j = 0; j < inst->nedges; j++) {
+				if (inst->best_sol[j] != 0.0 && inst->verbose >= 1000)
+					printf("%d <- %d, %d\n", j, invers_xpos(j, inst)[0], invers_xpos(j, inst)[1]);
+				if (inst->best_sol[j] == 2.0)
+					kids[temp_i][j] = 1.0;
+				else
+					kids[temp_i][j] = inst->best_sol[j];
+			}
+
+			//plot_single(inst, kids[i]);
+		}
+
+
+		free(y);
+	}
+
+	print_population(inst, kids, i_eff - avoid);
+
+	for (int i = 0; i < nKids; i++)
+		free(ABcycles[i]);
+	free(ABcycles);
+	free(graph_AB);
+
+	return i_eff - avoid;
+}
+
+void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, double** ABcycles, double* graph_AB, int* idxCycle, int maxNcycles, int** edges_cycles_EA) {
+	/*
+		- The procedure is started by randomly selecting a vertex.
+		- Starting from the selected vertex, trace the edges of EA and EB in GAB in turn until an AB-cycle is found in the traced path,
+		where the edge to be traced next is randomly selected (if two candidates exist) and the traced edges are immediately removed from GAB.
+		- If an AB-cycle is found in the traced path (a portion of the traced path including the end may form an ABcycle),
+		store it and remove the edges constituting it from the traced path.
+		- If the current traced path is not empty, start the tracing process again from the end of the current traced path.
+		Otherwise, start the tracing process by randomly selecting a vertex from among those linked by at least one edge in GAB.
+		- If there is no edge in GAB, iterations of the tracing process are terminated.
+	
+
+	int* succA = (int*)calloc(inst->nnodes, sizeof(int));
+	int* prevA = (int*)calloc(inst->nnodes, sizeof(int));
+	build_sol_ga(inst, population[pA], succA, prevA);
+
+	int* succB = (int*)calloc(inst->nnodes, sizeof(int));
+	int* prevB = (int*)calloc(inst->nnodes, sizeof(int));
+	build_sol_ga(inst, population[pB], succB, prevB);
+
+	int init_rand_vertex = -1;
+	double* traced_AB = (double*)calloc(inst->nedges, sizeof(double));
+
+	int A_or_B = 1;
+	int nextRight = -1, nextLeft = -1, nextEdgeR = -1, nextEdgeL = -1;
+	int tourFound = 0;
+	int EdgeInGAB = 1;
+	while (EdgeInGAB) {
+
+		if (init_rand_vertex == -1) {
+			init_rand_vertex = rand() % inst->nnodes;
+		}
+
+		// Find next vertex parentA or parentB and so find EA or EB. Remove it from GAB, add it to traced_GAB
+		if (A_or_B) {
+
+			nextLeft = prevA[init_rand_vertex];
+			nextEdgeL = xpos(nextLeft, init_rand_vertex, inst);
+
+			nextRight = succA[init_rand_vertex];
+			nextEdgeR = xpos(init_rand_vertex, nextRight, inst);
+
+			if (graph_AB[nextEdgeL] == 0.0 && graph_AB[nextEdgeR] == 0.0) {
+				init_rand_vertex = -1;
+			}
+			else if (graph_AB[nextEdgeL] == 1.0 && graph_AB[nextEdgeR] == 1.0) {
+				if (rand() % 2 == 0) {
+					graph_AB[nextEdgeL] = 0.0;
+					traced_AB[nextEdgeL] = 1.0;
+					init_rand_vertex = nextLeft;
+				}
+				else {
+					graph_AB[nextEdgeR] = 0.0;
+					traced_AB[nextEdgeR] = 1.0;
+					init_rand_vertex = nextRight;
+				}
+			}
+			else if (graph_AB[nextEdgeL] == 1.0) {
+				graph_AB[nextEdgeL] = 0.0;
+				traced_AB[nextEdgeL] = 1.0;
+				init_rand_vertex = nextLeft;
+			}
+			else {
+				graph_AB[nextEdgeR] = 0.0;
+				traced_AB[nextEdgeR] = 1.0;
+				init_rand_vertex = nextRight;
+			}
+
+			A_or_B = 0;
+		}
+		else {
+
+			nextLeft = prevB[init_rand_vertex];
+			nextEdgeL = xpos(nextLeft, init_rand_vertex, inst);
+
+			nextRight = succB[init_rand_vertex];
+			nextEdgeR = xpos(init_rand_vertex, nextRight, inst);
+
+			if (graph_AB[nextEdgeL] == 0.0 && graph_AB[nextEdgeR] == 0.0) {
+				init_rand_vertex = -1;
+			}
+			else if (graph_AB[nextEdgeL] == 1.0 && graph_AB[nextEdgeR] == 1.0) {
+				if (rand() % 2 == 0) {
+					graph_AB[nextEdgeL] = 0.0;
+					traced_AB[nextEdgeL] = 1.0;
+					init_rand_vertex = nextLeft;
+				}
+				else {
+					graph_AB[nextEdgeR] = 0.0;
+					traced_AB[nextEdgeR] = 1.0;
+					init_rand_vertex = nextRight;
+				}
+			}
+			else if (graph_AB[nextEdgeL] == 1.0) {
+				graph_AB[nextEdgeL] = 0.0;
+				traced_AB[nextEdgeL] = 1.0;
+				init_rand_vertex = nextLeft;
+			}
+			else {
+				graph_AB[nextEdgeR] = 0.0;
+				traced_AB[nextEdgeR] = 1.0;
+				init_rand_vertex = nextRight;
+			}
+
+			A_or_B = 1;
+		}
+
+		if (init_rand_vertex != -1) {
+			evaluate_traced_ABcycle(inst, traced_AB, ABcycles, idxCycle, &tourFound);
+			if (tourFound) {
+				int* countN = (int*)calloc(inst->nnodes, sizeof(int));
+				for (int k = 0; k < inst->nedges; k++) {
+					if (traced_AB[k] == 1.0) {
+						countN[invers_xpos(k, inst)[0]]++;
+						countN[invers_xpos(k, inst)[1]]++;
+					}
+				}
+
+				if (inst->verbose >= 1000) {
+					printf("\ni:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", w);
+					printf("\nc:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", countN[w]);
+					printf("\n");
+				}
+
+				printf("Node with 1 edge remained in traced path\n");
+				int* nodes = (int*)calloc(inst->nnodes, sizeof(int));
+				int idx_nodes = 0;
+				for (int k = 0; k < inst->nnodes; k++) {
+					if (countN[k] == 1) {
+						nodes[idx_nodes] = k;
+						printf("%d ", nodes[idx_nodes]);
+						idx_nodes++;
+					}
+				}
+				printf("\n");
+
+				if (idx_nodes > 0) {
+					//init_rand_vertex = nodes[idx_nodes-1];
+					init_rand_vertex = rand() % (idx_nodes-1);
+					printf("Node choosen: %d\n", init_rand_vertex);
+				}else {
+					init_rand_vertex = -1;
+				}
+
+				free(countN);
+				free(nodes);
+			}
+		}
+
+		printf("\nEdges graph_AB:   "); 
+		for (int w = 0; w < inst->nedges; w++)
+			if (graph_AB[w] == 1.0)
+				printf("%2d ", w);
+		printf("\n");
+
+		// Termination criterion
+		EdgeInGAB = 0;
+		for (int w = 0; w < inst->nedges; w++) {
+			if (graph_AB[w] == 1.0) {
+				EdgeInGAB = 1;
+				break;
+			}
+		}
+		if(idxCycle == maxNcycles - 1)
+			EdgeInGAB = 1;
+	}
+	printf("Graph_AB doesn't have any edge or max number [%d] of cycles reatched! ***\n", maxNcycles);
+	free(succA);
+	free(prevA);
+	free(succB);
+	free(prevB);
+	free(traced_AB);
+
+	*/
+
+	int* succA = (int*)calloc(inst->nnodes, sizeof(int));
+	int* prevA = (int*)calloc(inst->nnodes, sizeof(int));
+	build_sol_ga(inst, population[pA], succA, prevA, NULL, NULL);
+	double* copy_EA = (double*)calloc(inst->nedges, sizeof(double));
+
+	int* succB = (int*)calloc(inst->nnodes, sizeof(int));
+	int* prevB = (int*)calloc(inst->nnodes, sizeof(int));
+	build_sol_ga(inst, population[pB], succB, prevB, NULL, NULL);
+	double* copy_EB = (double*)calloc(inst->nedges, sizeof(double));
+
+	for (int i = 0; i < inst->nedges; i++) {
+		copy_EA[i] = population[pA][i];
+		copy_EB[i] = population[pB][i];
+	}
+
+	int init_rand_vertex = -1;
+	double* traced_AB = (double*)calloc(inst->nedges, sizeof(double));
+
+	int A_or_B = 1;
+	int nextRight = -1, nextLeft = -1, nextEdgeR = -1, nextEdgeL = -1;
+	int tourFound = 0;
+	int EdgeInGAB = 1;
+	int countEdges = 0;
+	int countLoop = 0;
+
+	while (EdgeInGAB) {
+
+		if (init_rand_vertex == -1) {
+			init_rand_vertex = rand() % inst->nnodes;
+		}
+
+		// Find next vertex parentA or parentB and so find EA or EB. Remove it from GAB, add it to traced_GAB
+		if (A_or_B) {
+
+			nextLeft = prevA[init_rand_vertex];
+			nextEdgeL = xpos(nextLeft, init_rand_vertex, inst);
+
+			nextRight = succA[init_rand_vertex];
+			nextEdgeR = xpos(init_rand_vertex, nextRight, inst);
+
+			if (graph_AB[nextEdgeL] == 0.0 && graph_AB[nextEdgeR] == 0.0) {
+				init_rand_vertex = -1;
+			}
+			else if (graph_AB[nextEdgeL] == 2.0 && graph_AB[nextEdgeR] == 2.0) {
+				if (rand() % 2 == 0) {
+					graph_AB[nextEdgeL]--;
+					traced_AB[nextEdgeL]++;
+					edges_cycles_EA[*idxCycle][countEdges] = nextEdgeL;
+					countEdges++;
+					init_rand_vertex = nextLeft;
+					A_or_B = 0;
+					copy_EA[nextEdgeL]--;
+				}
+				else {
+					graph_AB[nextEdgeR]--;
+					traced_AB[nextEdgeR]++;
+					edges_cycles_EA[*idxCycle][countEdges] = nextEdgeR;
+					countEdges++;
+					init_rand_vertex = nextRight;
+					A_or_B = 0;
+					copy_EA[nextEdgeR]--;
+				}
+			}
+			else if (graph_AB[nextEdgeL] == 2.0) {
+				graph_AB[nextEdgeL]--;
+				traced_AB[nextEdgeL]++;
+				edges_cycles_EA[*idxCycle][countEdges] = nextEdgeL;
+				countEdges++;
+				init_rand_vertex = nextLeft;
+				A_or_B = 0;
+				copy_EA[nextEdgeL]--;
+			}
+			else if (graph_AB[nextEdgeR] == 2.0) {
+				graph_AB[nextEdgeR]--;
+				traced_AB[nextEdgeR]++;
+				edges_cycles_EA[*idxCycle][countEdges] = nextEdgeR;
+				countEdges++;
+				init_rand_vertex = nextRight;
+				A_or_B = 0;
+				copy_EA[nextEdgeR]--;
+			}
+			else if (graph_AB[nextEdgeL] == 1.0 && copy_EA[nextEdgeL] != 0.0){
+				graph_AB[nextEdgeL]--;
+				traced_AB[nextEdgeL]++;
+				edges_cycles_EA[*idxCycle][countEdges] = nextEdgeL;
+				countEdges++;
+				init_rand_vertex = nextLeft;
+				A_or_B = 0;
+				copy_EA[nextEdgeL]--;
+			}
+			else if (graph_AB[nextEdgeR] == 1.0 && copy_EA[nextEdgeR] != 0.0){
+				graph_AB[nextEdgeR]--;
+				traced_AB[nextEdgeR]++;
+				edges_cycles_EA[*idxCycle][countEdges] = nextEdgeR;
+				countEdges++;
+				init_rand_vertex = nextRight;
+				A_or_B = 0;
+				copy_EA[nextEdgeR]--;
+			}
+			else {
+				init_rand_vertex = -1;
+			}
+		}
+		else {
+
+			nextLeft = prevB[init_rand_vertex];
+			nextEdgeL = xpos(nextLeft, init_rand_vertex, inst);
+
+			nextRight = succB[init_rand_vertex];
+			nextEdgeR = xpos(init_rand_vertex, nextRight, inst);
+			
+			if (graph_AB[nextEdgeL] == 0.0 && graph_AB[nextEdgeR] == 0.0) {
+				init_rand_vertex = -1;
+			}
+			else if (graph_AB[nextEdgeL] == 2.0 && graph_AB[nextEdgeR] == 2.0) {
+				if (rand() % 2 == 0) {
+					graph_AB[nextEdgeL]--;
+					traced_AB[nextEdgeL]++;
+					init_rand_vertex = nextLeft;
+					A_or_B = 1;
+					copy_EB[nextEdgeL]--;
+				}
+				else {
+					graph_AB[nextEdgeR]--;
+					traced_AB[nextEdgeR]++;
+					init_rand_vertex = nextRight;
+					A_or_B = 1;
+					copy_EB[nextEdgeR]--;
+				}
+			}
+			else if (graph_AB[nextEdgeL] == 2.0) {
+				graph_AB[nextEdgeL]--;
+				traced_AB[nextEdgeL]++;
+				init_rand_vertex = nextLeft;
+				A_or_B = 1;
+				copy_EB[nextEdgeL]--;
+			}
+			else if (graph_AB[nextEdgeR] == 2.0) {
+				graph_AB[nextEdgeR]--;
+				traced_AB[nextEdgeR]++;
+				init_rand_vertex = nextRight;
+				A_or_B = 1;
+				copy_EB[nextEdgeR]--;
+			}
+			else if (graph_AB[nextEdgeL] == 1.0 && copy_EB[nextEdgeL] != 0.0) {
+				graph_AB[nextEdgeL]--;
+				traced_AB[nextEdgeL]++;
+				init_rand_vertex = nextLeft;
+				A_or_B = 1;
+				copy_EB[nextEdgeL]--;
+			}
+			else if (graph_AB[nextEdgeR] == 1.0 && copy_EB[nextEdgeR] != 0.0) {
+				graph_AB[nextEdgeR]--;
+				traced_AB[nextEdgeR]++;
+				init_rand_vertex = nextRight;
+				A_or_B = 1;
+				copy_EB[nextEdgeR]--;
+			}
+			else {
+				init_rand_vertex = -1;
+			}
+		}
+
+		if (init_rand_vertex != -1) {
+			evaluate_traced_ABcycle(inst, traced_AB, ABcycles, idxCycle, &tourFound, edges_cycles_EA[*idxCycle]);
+			if (tourFound) {
+				countLoop = 0;
+				tourFound = 0;
+
+				int* countN = (int*)calloc(inst->nnodes, sizeof(int));
+				for (int k = 0; k < inst->nedges; k++) {
+					if (traced_AB[k] == 1.0) {
+						countN[invers_xpos(k, inst)[0]]++;
+						countN[invers_xpos(k, inst)[1]]++;
+					}else if (traced_AB[k] == 2.0) {
+						countN[invers_xpos(k, inst)[0]] += 2;
+						countN[invers_xpos(k, inst)[1]] += 2;
+					}
+				}
+
+				if (inst->verbose >= 10000) {
+					printf("\ni:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", w);
+					printf("\nc:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", countN[w]);
+					printf("\n");
+				}
+
+				printf("Node with at least 1 edge remained in traced path\n");
+				int* nodes = (int*)calloc(inst->nnodes, sizeof(int));
+				int idx_nodes = 0;
+				for (int k = 0; k < inst->nnodes; k++) {
+					if (countN[k] >= 1) {
+						nodes[idx_nodes] = k;
+						printf("%d ", nodes[idx_nodes]);
+						idx_nodes++;
+					}
+				}
+				printf("\n");
+
+				if (idx_nodes > 0) {
+					//init_rand_vertex = nodes[idx_nodes-1];
+					init_rand_vertex = idx_nodes - 1 == 0? 0 : nodes[rand() % (idx_nodes - 1)];
+					printf("Node choosen: %d\n", init_rand_vertex);
+				}
+				else {
+					init_rand_vertex = -1;
+				}
+
+				free(countN);
+				free(nodes);
+
+				printf("\nABcycles: %d\n", (*idxCycle) - 1);
+				for (int w = 0; w < inst->nedges; w++) {
+					if(ABcycles[*idxCycle - 1][w] != 0.0)
+						printf("%d ", w);
+				}
+				printf("\n");
+				printf("\nedges_cycles_EA: %d\n", (*idxCycle) - 1);
+				for (int w = 0; w < inst->nnodes; w++) {
+						printf("%d ", edges_cycles_EA[*idxCycle - 1][w]);
+				}
+				printf("\n");
+
+				// remove edges of EA from edges_cycles_EA that do not belong to the corresponding tour of ABcycles
+				int temp = -1;
+				countEdges = 0;
+				for (int w = 0; w < inst->nnodes; w++) {
+					if (ABcycles[*idxCycle - 1][edges_cycles_EA[*idxCycle - 1][w]] == 0.0) {
+						edges_cycles_EA[*idxCycle][countEdges] = edges_cycles_EA[*idxCycle - 1][w];
+						edges_cycles_EA[*idxCycle - 1][w] = -1;
+						countEdges++;
+					}
+				}
+
+				printf("\nABcycles: %d\n", (*idxCycle) - 1);
+				for (int w = 0; w < inst->nedges; w++) {
+					if (ABcycles[*idxCycle - 1][w] != 0.0)
+						printf("%d ", w);
+				}
+				printf("\nedges_cycles_EA: %d\n", (*idxCycle) - 1);
+				for (int w = 0; w < inst->nnodes; w++) {
+					if (edges_cycles_EA[*idxCycle - 1][w] != -1)
+						printf("%d ", edges_cycles_EA[*idxCycle - 1][w]);
+				}
+				printf("\nedges_cycles_EA: %d\n", (*idxCycle));
+				for (int w = 0; w < inst->nnodes; w++) {
+					if (edges_cycles_EA[*idxCycle][w] != -1)
+						printf("%d ", edges_cycles_EA[*idxCycle][w]);
+				}
+				printf("\n");
+			}
+		}
+
+		printf("\nEdges graph_AB:   ");
+		for (int w = 0; w < inst->nedges; w++) {
+			if (graph_AB[w] == 1.0)
+				printf("%2d ", w);
+			else if (graph_AB[w] == 2.0)
+				printf("%2d(%.0f) ", w, graph_AB[w]);
+		}
+		printf("\nEdges_EA:   ");
+		for (int w = 0; w < inst->nedges; w++) {
+			if (copy_EA[w] == 1.0)
+				printf("%2d ", w);
+		}
+		printf("\nEdges_EB:   ");
+		for (int w = 0; w < inst->nedges; w++) {
+			if (copy_EB[w] == 1.0)
+				printf("%2d ", w);
+		}
+		printf("\n********************************* END TOUR FOUND *********************************\n");
+
+		// Termination criterion
+		EdgeInGAB = 0;
+		for (int w = 0; w < inst->nedges; w++) {
+			if (graph_AB[w] >= 1.0) {
+				EdgeInGAB = 1;
+				if (countLoop > 2e5) {
+					printf("\nSomething goes wrong! Break this search!\n");
+					free(succA);
+					free(prevA);
+					free(succB);
+					free(prevB);
+					free(traced_AB);
+					free(copy_EA);
+					free(copy_EB);
+					return;
+				}
+				break;
+			}
+		}
+		if (*idxCycle == maxNcycles)
+			EdgeInGAB = 0;
+
+		countLoop++;
+	}
+	printf("Graph_AB doesn't have any edge or max number [%d] of cycles reatched! Actual: %d ***\n", maxNcycles, *idxCycle);
+	free(succA);
+	free(prevA);
+	free(succB);
+	free(prevB);
+	free(traced_AB);
+	free(copy_EA);
+	free(copy_EB);
+}
+int build_sol_ga(tspinstance* inst, const double* sol, int* succ, int* prev, int* comp, int* ncomp) {
+
+	if (comp != NULL && ncomp != NULL) {
+		// initialization of succ, comp and ncomp
+		*ncomp = 0;
+		for (int i = 0; i < inst->nnodes; i++) {
+			succ[i] = -1;
+			comp[i] = -1;
+		}
+
+		// tour
+		for (int start = 0; start < inst->nnodes; start++) {
+			if (comp[start] >= 0)
+				continue;
+
+			(*ncomp)++;						// the tour id number
+			int prv = -1;					// previous node of i in the tour, used to keep j != i
+			int i = start;				// iterate over nodes to complete the tour
+			int found_succ = 0;		// 1 when found a succ of i
+			while (comp[start] == -1) {
+				found_succ = 0;
+				for (int j = 0; j < inst->nnodes; j++) {	// j iterate to be the subsequent node of i in the tour
+					if (i != j && sol[xpos(i, j, inst)] == 2.0) {  // found subsequent of i (j)
+						succ[i] = j;
+						comp[j] = *ncomp;
+						prv = i;
+						i = j;
+						found_succ = 1;
+						break;
+					}
+					else if (i != j && sol[xpos(i, j, inst)] > 0.5 && j != prv) {  // found subsequent of i (j)
+						succ[i] = j;
+						comp[j] = *ncomp;
+						prv = i;
+						i = j;
+						found_succ = 1;
+						break;
+					}
+				}
+				if (!found_succ) {  // no succ found, i is isolated
+					if (prv == -1) {	// if no prv found either
+						comp[start] = *ncomp;
+						break;
+					}
+					else {  // it's not a tour, i has no subsequent, but is connected to prv
+						return 1;
+					}
+				}
+			}
+		}
+
+		// print succ and comp
+		if (inst->verbose >= 10000) {
+			printf("\ni:      "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", i);
+			printf("\nsucc:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", succ[i]);
+			printf("\ncomp:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
+			printf("\n");
+		}
+	}
+	else if (prev != NULL) {
+
+		// initialization of succ and prev
+		for (int k = 0; k < inst->nnodes; k++) {
+			succ[k] = -1;
+			prev[k] = -1;
+		}
+
+		int* i = (int*)calloc(inst->nnodes, sizeof(int));
+		int* j = (int*)calloc(inst->nnodes, sizeof(int));
+		int t = 0;
+
+		for (int e = 0; e < inst->nedges; e++) {
+
+			if (sol[e] == 1.0) {
+				i[t] = invers_xpos(e, inst)[0];
+				j[t] = invers_xpos(e, inst)[1];
+				if (inst->verbose >= 100)
+					printf("%d <- [%d, %d]\n", e, i[t], j[t]);
+				t++;
+
+			}
+		}
+
+		if (inst->verbose >= 10000) {
+			printf("\i:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", i[w]);
+			printf("\nj:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", j[w]);
+			printf("\n");
+		}
+
+		int current = i[0];
+		succ[current] = j[0];
+		prev[succ[current]] = current;
+		i[0] = -1;
+		j[0] = -1;
+		if (inst->verbose >= 10000)
+			printf(" prev -> current -> succ: [ %d -> %d -> %d ]\n", prev[current], current, succ[current]);
+
+		for (int count = 0; count < inst->nnodes; count++) {
+
+			current = succ[current];
+			for (int n = 0; n < inst->nnodes; n++) {
+				if (i[n] == current) {
+					succ[current] = j[n];
+					prev[succ[current]] = current;
+					i[n] = -1;
+					j[n] = -1;
+					break;
+				}
+				if (j[n] == current) {
+					succ[current] = i[n];
+					prev[succ[current]] = current;
+					i[n] = -1;
+					j[n] = -1;
+					break;
+				}
+			}
+			if (inst->verbose >= 10000) {
+				printf("\i:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", i[w]);
+				printf("\nj:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", j[w]);
+				printf("\n");
+				printf(" prev -> current -> succ: [ %d -> %d -> %d ]\n", prev[current], current, succ[current]);
+			}
+		}
+
+		// print succ and prev
+		if (inst->verbose >= 10000) {
+			printf("\ni:      "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", i);
+			printf("\nsucc:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", succ[i]);
+			printf("\nprev:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", prev[i]);
+			printf("\n");
+		}
+
+		free(i);
+		free(j);
+	}
+}
+void evaluate_traced_ABcycle(tspinstance* inst, double* traced_AB, double** ABcycles, int* idxCycle, int* tourFound, int* edges_cycles_EA_current) {
+
+	/*	Thiella's idea:
+	
+		- For each edge in traced path, find relative index i-j
+		- Count number of edges for each node
+		- Delete all edges that have at least one node with one single edge attached
+		- Recursively eliminate all the edges that are conditioned by this
+		- If there are remaining arches they will form a cycle. Save and then delete this cycle.
+
+		- By using this sequence of operations, possible errors are avoided (e.g. double cycles)
+
+		=> not works if the condition is to have alternate edges EA and EB :(
+	
+
+	int* i = (int*)calloc(inst->nnodes, sizeof(int));
+	int* j = (int*)calloc(inst->nnodes, sizeof(int));
+	int* tour = (int*)calloc(inst->nnodes, sizeof(int));
+	for (int k = 0; k < inst->nnodes; k++) {
+		i[k] = -1;
+		j[k] = -1;
+		tour[k] = -1;
+	}
+	
+
+	for (int e = 0, t = 0; e < inst->nedges; e++) {
+
+		if (traced_AB[e] == 1.0) {
+			i[t] = invers_xpos(e, inst)[0];
+			j[t] = invers_xpos(e, inst)[1];
+			if (inst->verbose >= 100)
+				printf("%d <- [%d, %d]\n", e, i[t], j[t]);
+			t++;
+
+		}else if (traced_AB[e] == 2.0) {
+			i[t] = invers_xpos(e, inst)[0];
+			j[t] = invers_xpos(e, inst)[1];
+			if (inst->verbose >= 100)
+				printf("%d <- [%d, %d]\n", e, i[t], j[t]);
+			t++;
+			i[t] = invers_xpos(e, inst)[0];
+			j[t] = invers_xpos(e, inst)[1];
+			if (inst->verbose >= 100)
+				printf("%d <- [%d, %d]\n", e, i[t], j[t]);
+			t++;
+
+		}
+	}
+
+	if (inst->verbose >= 100) {
+		printf("i:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", i[w]);
+		printf("\nj:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", j[w]);
+		printf("\n");
+	}
+
+
+	int repeat = 0;
+	do{
+		repeat = 0;
+		int* countN = (int*)calloc(inst->nnodes, sizeof(int));
+		for (int k = 0; k < inst->nnodes; k++) {
+			if (i[k] != -1)
+				countN[i[k]]++;
+			if (j[k] != -1)
+				countN[j[k]]++;
+		}
+
+		for (int k = 0; k < inst->nnodes; k++) {
+			if (countN[k] == 1) {
+				for (int h = 0; h < inst->nnodes; h++) {
+					if (i[h] == k) {
+						i[h] = -1;
+						j[h] = -1;
+						repeat = 1;
+						break;
+					}
+					if (j[h] == k) {
+						i[h] = -1;
+						j[h] = -1;
+						repeat = 1;
+						break;
+					}
+				}
+			}
+		}
+		if (inst->verbose >= 1000) {
+			printf("\ni:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", w);
+			printf("\nc:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", countN[w]);
+			printf("\n");
+		}
+	} while (repeat);
+
+	// check in i-j if a tour is remained!
+	int start = -1;
+	int current = -1;
+	int next = -1;
+	int idx = 0;
+	for (int k = 0; k < inst->nnodes; k++) {
+		if (i[k] != -1) {
+			current = i[k];
+			start = current;
+			next = j[k];
+			i[k] = -1;
+			j[k] = -1;
+			tour[idx] = current;
+			idx++;
+			printf("current, next -> [%d, %d]\n", current, next);
+			break;
+		}
+		else if (j[k] != -1) {
+			current = j[k];
+			start = current;
+			next = i[k];
+			i[k] = -1;
+			j[k] = -1;
+			tour[idx] = current;
+			idx++;
+			printf("current, next -> [%d, %d]\n", current, next);
+			break;
+		}
+	}
+
+	if (inst->verbose >= 1000) {
+		printf("\ni:    "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", i[w]);
+		printf("\nj:    "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", j[w]);
+		printf("\n");
+	}
+
+	*tourFound = 0;
+	if (current != -1) {
+		do {
+			current = next;
+			tour[idx] = current;
+			idx++;
+			for (int k = 0; k < inst->nnodes; k++) {
+				if (i[k] == current) {
+					next = j[k];
+					i[k] = -1;
+					j[k] = -1;
+					printf("current, next -> [%d, %d]\n", current, next);
+					break;
+				}
+				else if (j[k] == current) {
+					next = i[k];
+					i[k] = -1;
+					j[k] = -1;
+					printf("current, next -> [%d, %d]\n", current, next);
+					break;
+				}
+			}
+			if (inst->verbose >= 1000) {
+				printf("\ni:    "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", i[w]);
+				printf("\nj:    "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", j[w]);
+				printf("\ntour: "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", tour[w]);
+				printf("\n");
+			}
+			if (next == start) {
+				*tourFound = 1;
+				break;
+			}
+		} while (current != -1);
+	}
+
+	if (inst->verbose >= 100) {
+		printf("\ni:    "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", i[w]);
+		printf("\nj:    "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", j[w]);
+		printf("\ntour: "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", tour[w]);
+		printf("\n");
+	}
+
+	if (*tourFound) {
+		for (int k = 0; k < inst->nnodes; k++) {
+			if (tour[k] == -1) {
+				break;
+			}else{
+				int edge = xpos(tour[k], tour[k + 1] == -1 ? tour[0] : tour[k + 1], inst);
+				ABcycles[*idxCycle][edge]++;
+				traced_AB[edge]--;
+			}
+		}
+	}
+
+	if (inst->verbose >= 99) {
+		printf("\nABcycles:   "); 
+		for (int w = 0; w < inst->nedges; w++) {
+			if(ABcycles[*idxCycle][w] == 1.0)
+				printf("%2d ", w);
+			else if (ABcycles[*idxCycle][w] == 2.0)
+				printf("%2d(%.0f) ", w, ABcycles[*idxCycle][w]);
+		}
+		printf("\ntraced_AB:  "); 
+		for (int w = 0; w < inst->nedges; w++) {
+			if(traced_AB[w] == 1.0)
+				printf("%2d ", w);
+			else if (traced_AB[w] == 2.0)
+				printf("%2d(%.0f) ", w, traced_AB[w]);
+		}
+		printf("\n");
+	}
+	if (tour[0] != -1)
+		(*idxCycle)++;
+
+	free(i);
+	free(j);
+	free(tour);
+	*/
+	
+	int* i = (int*)calloc(inst->nnodes * 2.0, sizeof(int));
+	int* j = (int*)calloc(inst->nnodes * 2.0, sizeof(int));
+	int* tour = (int*)calloc(inst->nnodes * 2.0, sizeof(int));
+	for (int k = 0; k < inst->nnodes * 2; k++) {
+		i[k] = -1;
+		j[k] = -1;
+		tour[k] = -1;
+	}
+
+	for (int e = 0, t = 0; e < inst->nedges; e++) {
+
+		if (traced_AB[e] == 1.0) {
+			i[t] = invers_xpos(e, inst)[0];
+			j[t] = invers_xpos(e, inst)[1];
+			if (inst->verbose >= 100)
+				printf("%d <- [%d, %d]\n", e, i[t], j[t]);
+			t++;
+
+		}
+		else if (traced_AB[e] == 2.0) {
+			i[t] = invers_xpos(e, inst)[0];
+			j[t] = invers_xpos(e, inst)[1];
+			if (inst->verbose >= 100)
+				printf("%d <- [%d, %d]\n", e, i[t], j[t]);
+			t++;
+			i[t] = invers_xpos(e, inst)[0];
+			j[t] = invers_xpos(e, inst)[1];
+			if (inst->verbose >= 100)
+				printf("%d <- [%d, %d]\n", e, i[t], j[t]);
+			t++;
+
+		}
+	}
+
+	if (inst->verbose >= 100) {
+		printf("\ni:   "); for (int w = 0; w < inst->nnodes * 2; w++) printf("%2d ", i[w]);
+		printf("\nj:   "); for (int w = 0; w < inst->nnodes * 2; w++) printf("%2d ", j[w]);
+		printf("\n");
+	}
+
+	tour_list* tours = NULL;
+
+	tours = grapth_to_tree(inst, i, j, tours, edges_cycles_EA_current);
+
+	if (tours != NULL) {
+		*tourFound = 1;
+
+		int size_tours = print_list_of_list(tours);
+		int rand_tour = rand() % size_tours;
+
+		int idx_k = 0;
+		while (tours != NULL) {
+
+			if (idx_k == rand_tour) {
+				tabu_list* current = tours->entry, * del = tours->entry;
+				int idx_t = 0;
+				while (current != NULL) {
+					tour[idx_t] = current->arc;
+					current = current->next;
+					idx_t++;
+				}
+				delete_list(del, &del);
+				break;
+			}
+
+			tours = tours->next;
+			idx_k++;
+		}
+
+		delete_list(tours, &tours);
+
+
+		printf("\nVector Tour:\n");
+		for (int k = 0; k < inst->nnodes * 2; k++) {
+			printf("%2d ", tour[k]);
+		}
+		printf("\n");
+
+		for (int k = 0; k < inst->nnodes; k++) {
+			if (tour[k] == -1) {
+				break;
+			}
+			else {
+				ABcycles[*idxCycle][tour[k]]++;
+				traced_AB[tour[k]]--;
+			}
+		}
+
+		if (inst->verbose >= 99) {
+			printf("\nABcycles:   ");
+			for (int w = 0; w < inst->nedges; w++) {
+				if (ABcycles[*idxCycle][w] == 1.0)
+					printf("%2d ", w);
+				else if (ABcycles[*idxCycle][w] == 2.0)
+					printf("%2d(%.0f) ", w, ABcycles[*idxCycle][w]);
+			}
+			printf("\ntraced_AB:  ");
+			for (int w = 0; w < inst->nedges; w++) {
+				if (traced_AB[w] == 1.0)
+					printf("%2d ", w);
+				else if (traced_AB[w] == 2.0)
+					printf("%2d(%.0f) ", w, traced_AB[w]);
+			}
+			printf("\n");
+		}
+		if (tour[0] != -1)
+			(*idxCycle)++;
+	}
+
+	free(i);
+	free(j);
+	free(tour);
+
+
+}
+
+tour_list* grapth_to_tree(tspinstance* inst, int* nodes_one, int* nodes_two, tour_list* tours, int* edges_cycles_EA_current) {
+
+	/*
+	int root = -1;
+	for (int k = 0; k < inst->nnodes * 2; k++) {
+		if (nodes_one[k] == -1)
+			break;
+		else {
+			root = rand() % 2 == 0 ? nodes_one[k] : nodes_two[k];
+			break;
+		}
+	}
+	if (root != -1) {													// ERROR!! MUST CHECK ALL OF NODES IN CASE WE HAVE MULTI-SUBTOURS!!!!
+	*/
+	
+	int found = 0;
+	for(int start_node = 0; start_node < inst->nnodes; start_node++){
+
+		if (!found) {
+			int pred = -1;
+			for (int k = 0; k < inst->nnodes * 2; k++) {
+				if (!found) {
+					if (nodes_one[k] == start_node && nodes_two[k] != pred) {
+						int* i = (int*)calloc(inst->nnodes * 2.0, sizeof(int));
+						int* j = (int*)calloc(inst->nnodes * 2.0, sizeof(int));
+						copy_in_i_j(inst, nodes_one, nodes_two, i, j);
+
+						int current = j[k];
+						pred = current;									// if there is, let the other edge from the same nodes free to be able to use it later
+						i[k] = -1;
+						j[k] = -1;
+
+						if (inst->verbose >= 10000) {
+							printf("\ni:   "); for (int w = 0; w < inst->nnodes * 2; w++) printf("%2d ", i[w]);
+							printf("\nj:   "); for (int w = 0; w < inst->nnodes * 2; w++) printf("%2d ", j[w]);
+							printf("\n");
+						}
+
+						tabu_list* pathlist = NULL;
+						tabu_list* visited_nodes = NULL;
+
+						push(&pathlist, xpos(start_node, current, inst), 1);
+						push(&visited_nodes, start_node, 1);
+
+						if (inst->verbose >= 10000) {
+							printf("\n**** Path List *****\n");
+							print_list(pathlist);
+							printf("**** Visited Node List *****\n");
+							print_list(visited_nodes);
+							printf("\n");
+						}
+
+						tours = Tree_recursive(inst, current, i, j, &found, pathlist, visited_nodes, tours, edges_cycles_EA_current);
+
+						free(i);
+						free(j);
+						delete_list(pathlist, &pathlist);
+						delete_list(visited_nodes, &visited_nodes);
+
+					}
+					else if (nodes_two[k] == start_node && nodes_one[k] != pred) {
+						int* i = (int*)calloc(inst->nnodes * 2.0, sizeof(int));
+						int* j = (int*)calloc(inst->nnodes * 2.0, sizeof(int));
+						copy_in_i_j(inst, nodes_one, nodes_two, i, j);
+
+						int current = i[k];
+						pred = current;									// if there is, let the other edge from the same nodes free to be able to use it later
+						i[k] = -1;
+						j[k] = -1;
+
+						if (inst->verbose >= 10000) {
+							printf("\ni:   "); for (int w = 0; w < inst->nnodes * 2; w++) printf("%2d ", i[w]);
+							printf("\nj:   "); for (int w = 0; w < inst->nnodes * 2; w++) printf("%2d ", j[w]);
+							printf("\n");
+						}
+
+						tabu_list* pathlist = NULL;
+						tabu_list* visited_nodes = NULL;
+
+						push(&pathlist, xpos(start_node, current, inst), 1);
+						push(&visited_nodes, start_node, 1);
+
+						if (inst->verbose >= 10000) {
+							printf("\n**** Path List *****\n");
+							print_list(pathlist);
+							printf("**** Visited Node List *****\n");
+							print_list(visited_nodes);
+							printf("\n");
+						}
+
+						tours = Tree_recursive(inst, current, i, j, &found, pathlist, visited_nodes, tours, edges_cycles_EA_current);
+
+						free(i);
+						free(j);
+						delete_list(pathlist, &pathlist);
+						delete_list(visited_nodes, &visited_nodes);
+
+					}
+					else if (nodes_one[k] == -1) {
+						break;
+					}
+				}
+			}
+		}
+	}
+	return tours;
+}
+tour_list* Tree_recursive(tspinstance* inst, int current, int* nodes_one, int* nodes_two, int* found, tabu_list* pathlist, tabu_list* visited_nodes, tour_list* tours, int* edges_cycles_EA_current) {
+
+
+	int pos = contained_in_posix(&visited_nodes, current);
+	if (pos == -1) {
+
+		int pred = -1;
+		for (int k = 0; k < inst->nnodes * 2; k++) {
+			if (!(*found)) {
+				if (nodes_one[k] == current && nodes_two[k] != pred) {
+					int* i = (int*)calloc(inst->nnodes * 2.0, sizeof(int));
+					int* j = (int*)calloc(inst->nnodes * 2.0, sizeof(int));
+					copy_in_i_j(inst, nodes_one, nodes_two, i, j);
+
+					int next = j[k];
+					pred = current;
+					i[k] = -1;
+					j[k] = -1;
+
+					if (inst->verbose >= 10000) {
+						printf("\ni:   "); for (int w = 0; w < inst->nnodes * 2; w++) printf("%2d ", i[w]);
+						printf("\nj:   "); for (int w = 0; w < inst->nnodes * 2; w++) printf("%2d ", j[w]);
+						printf("\n");
+					}
+
+					tabu_list* copy_pathlist = NULL;
+					tabu_list* copy_visited_nodes = NULL;
+
+					copy_pathlist = copy(pathlist);
+					copy_visited_nodes = copy(visited_nodes);
+
+					push(&copy_pathlist, xpos(current, next, inst), 1);
+					push(&copy_visited_nodes, current, 1);
+
+					if (inst->verbose >= 10000) {
+						printf("\n**** Path List *****\n");
+						print_list(copy_pathlist);
+						printf("**** Visited Node List *****\n");
+						print_list(copy_visited_nodes);
+						printf("\n");
+					}
+
+					tours = Tree_recursive(inst, next, i, j, found, copy_pathlist, copy_visited_nodes, tours, edges_cycles_EA_current);
+
+					free(i);
+					free(j);
+					delete_list(copy_pathlist, &copy_pathlist);
+					delete_list(copy_visited_nodes, &copy_visited_nodes);
+
+				}
+				else if (nodes_two[k] == current && nodes_one[k] != pred) {
+					int* i = (int*)calloc(inst->nnodes * 2.0, sizeof(int));
+					int* j = (int*)calloc(inst->nnodes * 2.0, sizeof(int));
+					copy_in_i_j(inst, nodes_one, nodes_two, i, j);
+
+					int next = i[k];
+					i[k] = -1;
+					j[k] = -1;
+
+					if (inst->verbose >= 10000) {
+						printf("\ni:   "); for (int w = 0; w < inst->nnodes * 2; w++) printf("%2d ", i[w]);
+						printf("\nj:   "); for (int w = 0; w < inst->nnodes * 2; w++) printf("%2d ", j[w]);
+						printf("\n");
+					}
+
+					tabu_list* copy_pathlist = NULL;
+					tabu_list* copy_visited_nodes = NULL;
+
+					copy_pathlist = copy(pathlist);
+					copy_visited_nodes = copy(visited_nodes);
+
+					push(&copy_pathlist, xpos(current, next, inst), 1);
+					push(&copy_visited_nodes, current, 1);
+
+					if (inst->verbose >= 10000) {
+						printf("\n**** Path List *****\n");
+						print_list(copy_pathlist);
+						printf("**** Visited Node List *****\n");
+						print_list(copy_visited_nodes);
+						printf("\n");
+					}
+
+					tours = Tree_recursive(inst, next, i, j, found, copy_pathlist, copy_visited_nodes, tours, edges_cycles_EA_current);
+
+					free(i);
+					free(j);
+					delete_list(copy_pathlist, &copy_pathlist);
+					delete_list(copy_visited_nodes, &copy_visited_nodes);
+				}
+			}
+		}
+		if (tours == NULL) {
+			return NULL;
+		}else {
+			return tours;
+		}
+	}
+	else {
+
+		push_list_on_list(inst, &tours, &pathlist, pos, edges_cycles_EA_current);
+
+		if (tours != NULL) {
+			(*found) = 1;
+		}else
+			(*found) = 0;
+
+		return tours;
+	}
+}
+void copy_in_i_j(tspinstance* inst, int* nodes_one, int* nodes_two, int* i, int* j) {
+	for (int k = 0; k < inst->nnodes * 2; k++) {
+		i[k] = nodes_one[k];
+		j[k] = nodes_two[k];
+	}
+}
+void push_list_on_list(tspinstance* inst, tour_list** head_ref, tour_list** pathlist, int pos, int* edges_cycles_EA_current) {
+
+	tabu_list* current_path = *pathlist;
+	tabu_list* test_path = *pathlist;
+
+	int* copy_edges_cycles_EA_current = (int*)calloc(inst->nnodes, sizeof(int));
+
+	if(inst->verbose >= 2000)
+		printf("\nedges_cycles_EA:\n");
+	for (int w = 0; w < inst->nnodes; w++) {
+		copy_edges_cycles_EA_current[w] = edges_cycles_EA_current[w];
+		if (inst->verbose >= 2000)
+			printf("%d ", copy_edges_cycles_EA_current[w]);
+	}
+	if (inst->verbose >= 2000)
+	printf("\n");
+
+	printf("\nTOUR to be considered:\n");
+	int i = 0, count = 0, pos_EA = 0, alternate = -1, notAlternate = 0;
+	while (test_path != NULL) {
+
+		if (i <= pos) {
+			count++;
+
+			printf("%d ", test_path->arc);
+
+			if (alternate == -1) {
+				pos_EA = contained_in_posix_array(inst->nnodes, copy_edges_cycles_EA_current, test_path->arc);
+				if (pos_EA != -1) {
+					alternate = 1;		// contained
+					copy_edges_cycles_EA_current[pos_EA] = -1;
+				}
+				else
+					alternate = 0;		// not contained
+			}else {
+				if (alternate) {
+					pos_EA = contained_in_posix_array(inst->nnodes, copy_edges_cycles_EA_current, test_path->arc);
+					if (pos_EA != -1) {
+						notAlternate = 1;
+						break;
+					}else {
+						alternate = 0;
+					}
+				}
+				else {
+					pos_EA = contained_in_posix_array(inst->nnodes, copy_edges_cycles_EA_current, test_path->arc);
+					if (pos_EA != -1) {
+						alternate = 1;
+						copy_edges_cycles_EA_current[pos_EA] = -1;
+					}else {
+						notAlternate = 1;
+						break;
+					}
+				}
+			}
+		}
+		test_path = test_path->next;
+		i++;
+	}
+	printf("\n");
+
+	if (count % 2 != 0 || notAlternate) {							// Odd number of edges certainly not respected the alternating conditions between EA and EB 
+		printf("Tour doesn't respect the alternation. Skipped!\n");
+		free(copy_edges_cycles_EA_current);
+		return;
+	}
+	printf("\nCYCLE FOUND in current list from pos %d to the last!\n", pos);
+
+	tabu_list* new_tour = NULL;
+	tour_list* tours = (tour_list*)malloc(sizeof(tour_list));
+
+	i = 0;
+	while (current_path != NULL) {
+		if (i <= pos) {
+			push(&new_tour, current_path->arc, 1);
+		}
+		current_path = current_path->next;
+		i++;
+	}
+
+	tours->entry = new_tour;
+
+	tours->next = *head_ref;
+	(*head_ref) = tours;
+
+	printf("\nTour Added:\n");
+	print_list(new_tour);
+	free(copy_edges_cycles_EA_current);
+}
+int print_list_of_list(tour_list* tours) {
+	tour_list* print_tours = tours;
+	int idx_k = 0;
+	while (print_tours != NULL) {
+
+		tabu_list* current = print_tours->entry;
+		int printval;
+		printf("\n--- TOUR: %d ---\n", idx_k);
+		while (current != NULL) {
+			printval = current->arc;
+			printf("%d ", printval);
+			current = current->next;
+		}
+
+		print_tours = print_tours->next;
+		idx_k++;
+	}
+	return idx_k;
+}
+tabu_list* copy(tabu_list* org) {
+
+	tabu_list* new = NULL, ** tail = &new;
+
+	for (; org; org = org->next) {
+		*tail = malloc(sizeof * *tail);
+		(*tail)->arc = org->arc;
+		(*tail)->next = NULL;
+		tail = &(*tail)->next;
+	}
+	return new;
+}
+int patching_two_edges(tspinstance* inst, double* tour) {
+
+	// check if current solution has only one tour
+	int* succ = (int*)calloc(inst->nnodes, sizeof(int));
+	int* comp = (int*)calloc(inst->nnodes, sizeof(int));
+	int* ncomp = (int*)calloc(1, sizeof(int));
+	int res = build_sol_ga(inst, tour, succ, NULL, comp, ncomp);
+	if (res == 1)
+		return 1;
+	if (*ncomp == 1) {
+		printf("WARNING: solution already has 1 tour, patching has no effect.\n");
+		free(succ);
+		free(comp);
+		free(ncomp);
+		return 0;
+	}
+
+	while (*ncomp > 1) {
+		single_patch(inst, succ, comp, ncomp);
+		if (inst->verbose >= 10000) {
+			print_succ(succ, inst);
+			printf("comp:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
+			printf("\n");
+			plot_instance(inst);
+		}
+		
+	}
+	free(succ);
+	free(comp);
+	free(ncomp);
+	return 0;
+}
+
+void survival_selection(tspinstance* inst, double** population, int nPop, int* frequencyTable, int nKids, int pA, double** kids) {
+
+	double L_parents = calc_L(inst, population, nPop);					// Average Tour Length of Population
+	double H_parents = calc_H(inst, frequencyTable, nPop);				// Edge Entropy of Population H = - Σ(e in E) [ F(e) / Npop (log(F(e) / Npop)) ]
+	int y = -1;															// index of best kid
+	double best_eval = MININT;
+	double epsilon = 0.1;												// TODO: best value?
+
+	for (int i = 0; i < nKids; i++) {
+		double** new_population = (double**)calloc(nPop, sizeof(double*));
+		int* new_frequencyTable = (int*)calloc(inst->nedges, sizeof(int));
+
+		for (int j = 0; j < nPop; j++) {
+			new_population[j] = (double*)calloc(inst->nedges, sizeof(double));
+			for (int k = 0; k < inst->nedges; k++) {
+				new_population[j][k] = population[j][k];
+				if (j == 0)
+					new_frequencyTable[k] = frequencyTable[k];
+			}
+		}
+
+		update_frequency_table(inst, new_frequencyTable, new_population[pA], kids[i]);
+		for (int j = 0; j < inst->nedges; j++) {
+			new_population[pA][j] = kids[i][j];
+		}
+
+		double delta_L = L_parents - calc_L(inst, new_population, nPop);
+		double delta_H = H_parents - calc_H(inst, new_frequencyTable, nPop);
+
+		double eval = MININT;
+		if (delta_L < 0 && delta_H < 0) {
+			eval = delta_L / delta_H;
+		}
+		else if (delta_L < 0 && delta_H >= 0) {
+			eval = -delta_L / epsilon;
+		}
+		else if (delta_L >= 0) {
+			eval = -delta_L;
+		}
+		if (eval > 0 && eval > best_eval) {
+			best_eval = eval;
+			y = i;
+		}
+
+		for (int j = 0; j < nPop; j++)
+			free(new_population[j]);
+		free(new_population);
+		free(new_frequencyTable);
+	}
+
+	if (y != -1) {
+		printf("\n------ BEST EVAL FOUND: %.2f ------\n", best_eval);
+		update_frequency_table(inst, frequencyTable, population[y], kids[y]);
+		for (int k = 0; k < inst->nedges; k++) {
+			population[y][k] = kids[y][k];
+		}
+	}
+	else {
+		printf("\n------ NO BETTER KID FOUND ------\n");
+	}
+}
+void update_frequency_table(tspinstance* inst, int* frequencyTable, double* pA, double* kid) {
+	for (int i = 0; i < inst->nedges; i++) {
+		if (pA[i] == 1.0)
+			frequencyTable[i]--;
+		if (kid[i] == 1.0)
+			frequencyTable[i]++;
+	}
+}
+double calc_L(tspinstance* inst, double** population, int nPop) {
+	double L = 0.0;
+	int* ij = (int*)calloc(2, sizeof(int));
+	for (int k = 0; k < nPop; k++) {
+
+		double indiv_cost = 0.0;
+		int i = 0, j = 0;
+		for (int w = 0; w < inst->nedges; w++) {
+			if (population[k][w] == 1.0) {
+				ij = invers_xpos(w, inst);
+				indiv_cost += dist(ij[0], ij[1], inst);
+			}
+		}
+		L += indiv_cost;
+
+	}
+	L = L / nPop;
+	return L;
+}
+double calc_H(tspinstance* inst, int* frequencyTable, int nPop){
+	double H = 0.0;
+	for (int i = 0; i < inst->nedges; i++) {
+		if (frequencyTable[i] != 0) {
+			H += (double)frequencyTable[i] / nPop * (log((double)frequencyTable[i]) / nPop);
+		}
+	}
+	H *= -1;
+	return H;
+}
+
+void print_population(tspinstance* inst, double** population, int nPop) {
+
+	printf("\n**** INDIVIDUALS POPULATION ****");
+	for (int i = 0; i < nPop; i++) {
+		printf("\nIndividual %d: ", i);
+		for (int j = 0; j < inst->nedges; j++) {
+			if (population[i][j] == 1.0)
+				printf("%d ", j);
+			else if (population[i][j] == 2.0)
+				printf("%d(%.0f) ", j, population[i][j]);
+		}
+	}
+	printf("\n");
+}
+void plot_population(tspinstance* inst, double** population, int nPop) {
+	printf("\n**** PLOT POPULATION ****\n");
+	for (int i = 0; i < nPop; i++) {
+		for (int j = 0; j < inst->nedges; j++) {
+			inst->best_sol[j] = population[i][j];
+		}
+		plot_instance(inst);
+	}
+}
+void plot_single(tspinstance* inst, double* individual) {
+	printf("\n**** PLOT SINGLE ****\n");
+	for (int j = 0; j < inst->nedges; j++) {
+		inst->best_sol[j] = individual[j];
+	}
+	plot_instance(inst);
+}
+void print_frequency_table(tspinstance* inst, int* frequency_table) {
+
+	printf("\n**** FREQUENCY TABLE ****\n");
+	for (int i = 0; i < inst->nedges; i++) {
+		printf("Edge - Value: %d - %d\n", i, frequency_table[i]);
+	}
+}
+void free_ga(double** population, int* frequency_table, int nPop) {
+	for (int i = 0; i < nPop; i++)
+		free(population[i]);
+	free(population);
+	free(frequency_table);
 }
 
 // optimization methods run the problem optimization
@@ -2837,6 +4643,7 @@ void best_two_opt(tspinstance *inst) {
 			d_j1_j2 = dist(j, succ[j], inst);
 			d_i1_j1 = dist(i, j, inst);
 			d_i2_j2 = dist(succ[i], succ[j], inst);
+			if (inst->verbose > 100) printf("*** i - j: %d - %d\n", i,j);
 			cur_improve = (d_i1_i2 + d_j1_j2) - (d_i1_j1 + d_i2_j2);
 			if ( cur_improve > best_improve ) {  // cross is better
 				best_i = i;
@@ -3281,7 +5088,7 @@ void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp) {
 void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// build succ() and comp() wrt xstar()...
 
 	// check if nodes degree is 2 or 0 (isolated node) for each node
-	if (inst->verbose >= 2000) {
+	if (inst->verbose >= 2000 && inst->setup_model != 24) {
 		int *degree = (int *) calloc(inst->nnodes, sizeof(int));
 		printf("nnodes=%d\n", inst->nnodes);
 		for (int i = 0; i < inst->nnodes; i++) {
@@ -3410,6 +5217,7 @@ void build_sol_lazy_std(tspinstance* inst, const double* xstar, int* succ, int* 
 		(*ncomp)++;
 		int prv = -1;
 		int i = start;
+		int found_succ = 0;
 		while (comp[start] == -1) {
 			for (int j = 0; j < inst->nnodes; j++) {
 				if (i != j && xstar[xpos(i, j, inst)] > 0.5 && j != prv) {
@@ -3418,8 +5226,13 @@ void build_sol_lazy_std(tspinstance* inst, const double* xstar, int* succ, int* 
 					comp[j] = *ncomp;
 					prv = i;
 					i = j;
+					found_succ = 1;
 					break;
 				}
+			}
+			if (!found_succ) {  // no succ found, i is isolated
+				comp[start] = *ncomp;
+				break;
 			}
 		}
 	}
