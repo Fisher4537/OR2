@@ -104,7 +104,7 @@ The proposed model is shown in the system \ref{eq:ATSP_MTZ}. The cost function a
 min \sum_{i\in V}\sum_{j\in V} c_{ij}x_{ij} & \text{Cost function} \\
 \sum_{i\in V} x_{ih} = 1, \forall h \in V  & \text{$ x $ Outer arches degree} \\
 \sum_{i\in V} x_{hi} = 1, \forall h \in V  & \text{$ x $ Inner arches degree} \\
-u_i -u_j +M x_{ij} \le M - 1, \forall i,j \in V \backslash \{1\} & \text{MTZ constraints} \\
+u_i -u_j +M x_{ij} \le M - 1, \forall i,j \in V \backslash \{1\} & \text{MTZ constraints ($ O(n^2) $)} \\
 0 \le x_{ij} \le 1, Integer, \forall i,j \in N  & \text{$ x $ Domain} \\
 0 \le x_{ii} \le 0, Integer, \forall i \in N  & \text{} \\
 0 \le u_{i} \le n-2, Integer, \forall i \in N \backslash \{1\} & \text{$ u $ Domain} 
@@ -113,8 +113,8 @@ u_i -u_j +M x_{ij} \le M - 1, \forall i,j \in V \backslash \{1\} & \text{MTZ con
 \end{equation}
 
 
-Note that the number of MTZ constraints is $ O(n^2) $ therefore much less respect STSP model.\\
-The number of values instead is more than the double $ n(n-1) + n = n^2 $. Computational consideration will be done in the next chapter.
+Note that the number of MTZ constraints is $ O(n^2) $, one for each arch, therefore much less respect STSP model.\\
+The number of decision variables instead is more than the double $ n(n-1) + n = n^2 $. Computational consideration will be done in the next chapter.
 
 \begin{table}[h!]
 	\begin{center}$  $

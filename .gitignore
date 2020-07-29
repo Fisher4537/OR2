@@ -19,7 +19,6 @@ pch.cpp
 pch.h
 *.props
 plot/*
-res/
 
 res.csv
 res_trainset.csv

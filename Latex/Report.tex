@@ -224,13 +224,12 @@
 			\end{itemize}
 		\end{multicols}
 		
-		\chapter{Performance measure}
+		\chapter{Performance measure} \label{sec:performance_meausure}
 			In this chapter is discussed how the different deveeloped algorithms have been compared between each other.\\
-			\textbf{Performance profile.} Exact algorithm (e.g. Subtour, MTZ and FC) guarantee to return the least expensive tour if would run for enough time, therefore a metric of interest is the total execution time that an exact algorithm need to find the optimum. 
-			Due to practical limitation, a time limit must be imposed. The performance profile compare for each tested instance ($ i $), the ratio ($ r^A(i) = \frac{t_{exec}^A(i)}{t_{exec}^*(i)} $) of the execution time of the algorithm A ($ t_{exec}^A(i) $) divided by the execution time of the faster algorithm ($ t_{exec}^*(i) $).
-			After that for each $ k = 1, 2, .., K $ calculate for how many instances the algorithm A has $ r^A(i) \le k $ and the resultant function is the performance profile.
-			The algorithm with the higher curve is the one who have been for more instances near of the best.\\
-			A problem of the performance profile is that some instances require fractions of second to be executed, and little overhead would significantly influence the performance profile however the purpose of this report is to measure the computability of the instance. For example if the faster algorithm run in 0.1s and A in 1s, $ r^A(i_1) = 10 $ and this in accord to the defined metric would be comparable to another instance where $ t_{exec}^*(i_2) = 100 $s and $ t_{exec}^A(i_2) = 1000 $s. To enhance the weight of the second cases, the calculated ratio is modified as follow: $ r^A(i) = \frac{t_{exec}^A(i)+T_{min}}{t_{exec}^*(i)+T_{min}} $, in this way the $ r^A(i_1) = \frac{11.0}{10.1} = 1.08 $ and $ r^A(i_2) = \frac{1010.0}{110.} = 9.18 $.\\
+			\textbf{Performance profile.} Exact algorithm (e.g. Subtour, MTZ and FC) guarantee to return the least expensive tour if would run for enough time, therefore a metric of interest is the total execution time needed to find the optimum. 
+			Due to practical limitation, a time limit must be imposed. The performance profile compare for each tested instance ($ i $), the ratio ($ r^A(i) = \frac{t_{exec}^A(i)}{t_{exec}^*(i)} $) of the execution time of the algorithm A ($ t_{exec}^A(i) $) divided by the execution time of the faster algorithm ($ t_{exec}^*(i) $), for each $ k = 1, 2, .., K $ calculate the percentage expressed in fraction ($ \% $) of how many instances the algorithm A has $ r^A(i) \le k $ and the resultant function is the performance profile.
+			The algorithm with the higher curve is the one who have been for more instances near the best.\\
+			A problem of the performance profile is that some instances require fractions of second to be executed and little overhead would significantly influence the performance profile, however the purpose of this report is to measure the instance computability. For example if the faster algorithm run in 0.1s and A in 1s, $ r^A(i_1) = 10 $, which, for the performance profile, would be comparable to a second case where $ t_{exec}^*(i_2) = 100 $s and $ t_{exec}^A(i_2) = 1000 $s. To enhance the weight of the second cases, the calculated ratio is modified as follow: $ r^A(i) = \frac{t_{exec}^A(i)+T_{min}}{t_{exec}^*(i)+T_{min}} $. In this way, considering a $ T_{min} = 10$s, the $ r^A(i_1) = \frac{11.0}{10.1} = 1.08 $ and $ r^A(i_2) = \frac{1010.0}{110.} = 9.18 $ as desired.\\
 			The second problem is for the instance that require a time near the time limit ($ T_{max} $). As an example, with $ T_{max} = 600 $s, if $ t_{exec}^*(i_1) = 590$s, two algorithm A and B without time limit would run for resp $ t_{exec}^A(i_1) = 601$s and $ t_{exec}^B(i_1) = 1200$s they would be comparable. Due to it is not possible to know how many time an algorithm would exceed the time limit, and in the same time it would be nice to "reward" the best algorithm, when $ t_{exec}^*(i) < T_{max} $ and $ t_{exec}^A(i) >= T_{max} $ the ratio is modified as:  $ r^A(i) = \frac{t_{exec}^A(i)R}{t_{exec}^*(i)} $ where $ R = $ "random value between $ \{1,..,k\} $". In this case, for a large number of case discussed above, the performance profile would not be modified. However it is known that for little number of instances, the performance profile is randomized therefore the result is useless and a warning message should be shown to avoid false considerations.
 			
 			\textbf{Random seed.} Due to some randomization is part of the proposed algorithm, it is possible to set the random seed generator. This is very useful either for reproduce a results or to avoid the \textit{performance variability} (PV). PV is intended here as an unwanted effect such that for infinitesimal change in the input (such as the random seed, the node order, etc.), there is a measurable change in the output. To avoid PV effect, as proposed in the course lesson, each algorithms is executed for each random seeds in a fixed set and the mean of the execution times is reported. Note that to calculate the execution times a random seed set of five integer has been used.
@@ -242,10 +241,11 @@
 				\begin{center}
 					\caption{Description of the machine used to run the algorithm and calculate the performance.}
 					\label{tab:machines}
-					\begin{tabular}{ccc}
-						Machine ID  & OS 				&	 Proc 			\\ \hline \\
-						L 			& Ubuntu 18.04LTS 	& Intel i7 8th Gen 	\\
-						M 			& Windows 10 		& 					\\
+					\begin{tabular}{lll}
+									&   \multicolumn{2}{c}{Machine ID} 	\\
+						 			& L 				&	 M 			\\ \hline \\
+						OS 			& Ubuntu 18.04LTS 	& Windows 10 	\\
+						Processor	& Intel i7 8th Gen	& 				\\
 					\end{tabular}
 				\end{center}
 			\end{table}

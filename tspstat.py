@@ -137,7 +137,7 @@ def plot_pp(models_ratio, domain='time', name='res'):
         ax.set_title('Best_lb measure performance profile')
 
     plt.xlabel('$ k $')
-    plt.ylabel('$ r(k) $')
+    plt.ylabel('$ \\% $')
     plt.savefig(name + '_' + domain + '.png')
     plt.show()
 
