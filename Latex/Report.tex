@@ -21,6 +21,17 @@
 \usepackage{color}
 \usepackage[toc,page]{appendix}
 \usepackage{subcaption}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+
+
+\makeatletter
+\newcommand{\ssymbol}[1]{^{\@fnsymbol{#1}}}
+\makeatother
+
+\makeatletter
+\def\BState{\State\hskip-\ALG@thistlm}
+\makeatother
 
 \definecolor{Black}{rgb}{.0,.0,.0}
 
@@ -79,7 +90,7 @@
 
 %% title2.tex
 \title{Course Report of \\ Operational Research 2}
-\author{Luca Perali 1237770 \\ Michele Thiella 1234567}
+\author{Luca Perali 1237770 \\ Michele Thiella 1206603}
 \date{\today}
 
 %% Starts the document
@@ -245,7 +256,7 @@
 									&   \multicolumn{2}{c}{Machine ID} 	\\
 						 			& L 				&	 M 			\\ \hline \\
 						OS 			& Ubuntu 18.04LTS 	& Windows 10 	\\
-						Processor	& Intel i7 8th Gen	& 				\\
+						Processor	& Intel i7 8th Gen	&	Intel i5 9th Gen		\\
 					\end{tabular}
 				\end{center}
 			\end{table}

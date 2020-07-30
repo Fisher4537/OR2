@@ -11,3 +11,73 @@
 \section{Variable Neighborhood Search}
 
 \section{Genetic Algorithm}
+The genetic algorithm (GA) is the last meta-heuristic technique proposed. Its behaviour derives from an evolutionary biology metaphor. A population of individuals (solutions) is randomly created. The individual solutions represent one tour each. These solution are then exposed to simulated evolution.
+For a complete explanation of the simple genetic algorithm, see \cite{phdthesis}.\\
+A particular genetic algorithm has been implemented in this paper: it is based almost exclusively on the "Powerful Genetic Algorithm Using Edge Assembly Crossover" created by Yuichi Nagata and Shigenobu Kobayashi \cite{Nagata2013, Honda2013}, except for a subsection that has been completely designed by us.\\
+The search process of the GA consists of two stages: \\
+\begin{itemize}
+\item GA-EAX/Stage I: a localized version of Edge Assembly Crossover (EAX) as the crossover operator from the start of the search until no improvement in the best solution is found over a period of generations or because of timelimit.
+\item  GA-EAX/Stage II: after that, switch to a global version of EAX and use it until the end of the search. Stage II is also terminated by the same condition of previous one.
+\end{itemize}
+
+% è stato sviluppato solo lo stage I anche se sarebbe facile aggiungere lo stage II ma per ora lo lascio scritto anche se non è implementato
+
+The recombination operator EAX uses the edges from the two parents to construct disjoint subtours.
+Then, using a more general version of the Patching Algorithm \ref{section:patching}, the subtours are connected in a greedy fashion to produce the offspring tour. Thus, the EAX operator considers local information which is exploited in determining which edges to use to connect subtours.\\
+Another important trait of the EAX operator is that it will introduce new edges into the offspring when connecting subtours. Edges not in the parents, or perhaps not even in the population, are introduced into offspring. 
+The argument as to why good new edges must be introduced during recombination (or by mutation, or local search) is simple. As point out in \cite{Mathias92geneticoperators}, the complete graph of all possible edges for a symmetric TSP has $(N^2-N)/2$ edges, where $N$ is the number of cities. Each tour samples $N$ of these edges, so a population must be of size at least $(N-1)/2$ in order to sample each edge exactly once. Assume population size is proportional to the number of the cities. Then each edge occurs twice in expectation in an initial random population. Selection can therefore quickly eliminate edges from the population. Good edges can also be lost if they occur in poor tours. Thus it is important for operators to intelligently introduce new good edges. This feature is part of the construction of EAX and therefore, may contribute to its effectiveness.\\
+For the survival selection part, some parameters are defined: 
+
+\begin{itemize}
+\item N\textsubscript{pop}
+\item N\textsubscript{kids}
+\item Edge Frequency Table F($e$)
+\end{itemize}
+N\textsubscript{pop} and N\textsubscript{kids} be the population size and the number of offspring solutions generated from a single pair of parents, p\textsubscript{A} and p\textsubscript{B}, respectively, with the chosen values of 300 and 30, as in the default configuration of GA-EAX/Stage I \cite{Nagata2013}. \\
+The edge frequency table F($e$) is a table that records the frequencies of each edge $e \in E$ included in the population, where $E$ is the edge set of the complete graph of a given TSP instance. The values of F($e$) are initialized and are used in the evaluation function for selecting offspring solutions. This evaluation function is based on the edge entropy measure computed from F($e$) and is used for maintaining the population diversity in a positive manner. \\
+To keep the table updated: let $y\ssymbol{1}$ be the selected individual among the generated offsprings, which replaces the population member chosen as parent p\textsubscript{A}. The values of F($e$) are updated as follows: 
+
+\begin{equation}\begin{array}{ll}
+F(e) \leftarrow F(e)-1 & \forall e \in E\textsubscript{remove} \\
+F(e) \leftarrow F(e)+1 & \forall e \in E\textsubscript{add}
+\end{array}\end{equation}
+
+where E\textsubscript{remove} is a set of the edges that are included in p\textsubscript{A} but not included in $y\ssymbol{1}$, E\textsubscript{add} is a set of the edges that are included in $y\ssymbol{1}$ but not included in p\textsubscript{A}. \\
+
+The offspring $y\ssymbol{1}$ is selected, taking account of the balance between the amount of the improvement and loss of the population diversity. Let L be the average tour length of the population and H the edge entropy of the population defined as follows:
+
+\begin{equation}
+H=-\sum_{e \in E} F(e) / N_{\mathrm{pop}}\left(\log \left(F(e) / N_{\mathrm{pop}}\right)\right)
+\end{equation}
+
+$\Delta$L(y) and $\Delta$H(y) denote the differences in L and H, respectively, when x\textsubscript{i}(p\textsubscript{A}) is replaced with $y\ssymbol{1}$. The offspring $y\ssymbol{1}$ is selected so that the following evaluation function is maximized.
+
+\begin{equation}\text { Eval\textsubscript{Ent}}(y):=\left\{\begin{array}{ll}
+\frac{\Delta L(y)}{\Delta H(y)} & (\Delta L<0, \Delta H<0) \\
+-\frac{\Delta L(y)}{\epsilon} & (\Delta L<0, \Delta H \geq 0) \\
+-\Delta L(y), & (\Delta L \geq 0)
+\end{array}\right.\end{equation}
+
+where $y$ is an offspring solution and $\epsilon$ is a sufficiently small positive number (chosen value $0.1$).\\
+Algorithm \ref{alg:gagen} describes in a compact way the various steps of the entire search.
+
+\begin{algorithm}
+\caption{GA General}\label{alg:gagen}
+\begin{algorithmic}[1]
+\Procedure{Procedure GA()}{}
+\State $\textit{\{x\textsubscript{$1$},...,x\textsubscript{N\textsubscript{pop}}\}} := \textit{INIT\_POPULATION()}$
+\While{\textit{termination condition is satisfied}}
+	\State $\textit{r($\cdot$)} := \textit{SHUFFLE\_INDIVIDUALS() $\equiv$ a random permutation of $1$,...,N\textsubscript{pop} } $
+	\For{\texttt{$i := 1$ to N\textsubscript{pop}}}
+		\State $\textit{p\textsubscript{A}} := \textit{x\textsubscript{r($i$)}} , \textit{p\textsubscript{B}} := \textit{x\textsubscript{r($i+1$)}} $
+		\State $\textit{\{y\textsubscript{$1$},...,y\textsubscript{N\textsubscript{kids}}\}} := \textit{EAX\_SINGLE(p\textsubscript{A}, p\textsubscript{B})}$
+		\State $\textit{x\textsubscript{r($i$)}} := \textit{SURVIVAL\_SELECTION(y\textsubscript{$1$},...,y\textsubscript{N\textsubscript{kids}}, p\textsubscript{A})} $
+	\EndFor
+	\State $\textit{best\_individual} := \textit{best individual of actual population}$
+\EndWhile
+\State \textbf{return} $best\_individual$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+Focusing on details of the algorithm
