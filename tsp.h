@@ -124,7 +124,7 @@ int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, double fixing_ratio);
 
 int tabu_search(CPXENVptr env, tspinstance* inst, int* status);
-void push(struct tabu_list** head, int arc, int isArc);
+void push(tabu_list** head, int arc, int isArc);
 int pop_first(tabu_list** head);
 int pop_last(tabu_list* head);
 int remove_by_index(tabu_list** head, int n);
