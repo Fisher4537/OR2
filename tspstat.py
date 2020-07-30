@@ -19,10 +19,12 @@ def get_testset(file_path, v_shift=20., time_limit=300.):
             nthreads = line[4]
             opt_time = float(line[5])
             best_lb = float(line[6][:-2]) # remove ';\n'
-            if opt_time < time_limit - 1.:
+            if 0. < opt_time < time_limit - 1.:
                 opt_time = opt_time + v_shift
             elif time_limit - 1. <= opt_time <= time_limit + 1.:
                 opt_time = opt_time * random.uniform(1., 20.)
+            else:  # invalid parameter: opt_time <= 0
+                continue
             # print('{} {} {} {} {} {}'.format(input_file, input_size, model_type, randomseed, nthreads, opt_time))
             if input_file not in test_set:
                 test_set[input_file] = {}

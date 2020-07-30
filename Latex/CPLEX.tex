@@ -58,11 +58,15 @@ performance profile per verificare tra i due quale è il migliore
 
 
 \section{Flow Chart}
+The FC model has been implemented in two alternatives:
+\begin{enumerate}
+	\item \textit{flow1\_n-1}: this is exactly the model defined in the previous chapter and "$ n-1 $" is because of  the constraint  $ y_{ij} <= x_{ij}*(n-1), \forall i \in V, \forall j \in V \backslash \{1\} $ which is the only difference with \textit{flow1\_n-2}. 
+	\item \textit{flow1\_n-2}: a little improvement is introduced: $ y_{1j} <= x_{1j}*(n-1), \forall j \in V $ but $ y_{ij} <= x_{ij}*(n-2), \forall i \in V, \forall j \in V \backslash \{1\} $. Indeed these constraints are deeper than the previous because them restrict the possible values to assign. However no prediction can be done on the effectiveness of the improvement.
+\end{enumerate}
+In either the two implementation all the constraints are added in the model definition with \texttt{CPXnewrows()} and \texttt{CPXchgcoef()}.
 
 
-considerazioni sul numero di vincoli e sul problema asimmetrico
-
-dettagli implementativi
+Note that looking at \textit{mtz\_lazy} performance w.r.t. to \textit{mtz}, and considering the exponential number of constraint either in \textit{mtz} or \textit{flow1}, for future implementation setting some constraints of \textit{flow1} as lazy should be considered. 
 
 performance profile per verificare tra i due quale è il migliore
 

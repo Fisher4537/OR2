@@ -1110,6 +1110,7 @@ int* heur_grasp(tspinstance* inst, int* status){
 	int* succ = (int*)malloc(inst->nnodes * sizeof(int));
 	for (int i = 0; i < inst->nnodes; i++) succ[i] = -1;
 
+	srand(time(0));
 	int cur_node = round(((double)rand() / RAND_MAX) * (inst->nnodes - 1.0));
 	int first_node = cur_node;
 
@@ -1151,6 +1152,7 @@ int* heur_grasp(tspinstance* inst, int* status){
 		}
 
 		// select succ randomly
+		srand(time(0));
 		int rand_node = rand() % 3;
 		int next_node;
 		double next_dist;
@@ -1192,6 +1194,7 @@ int* heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 	// Creare a random 3-vertex circuit
 	int rand1 = -1, rand2 = -1, rand3 = -1;
 	while (rand1 == -1 || rand2 == -1 || rand3 == -1) {
+		srand(time(0));
 
 		if (rand1 == -1) {
 			rand1 = rand() % (inst->nnodes - 1);
@@ -1505,6 +1508,7 @@ void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, doubl
 				for (int j = i+1; j < inst->nnodes; j++) {
 					k = xpos(i, j, inst);
 					if (inst->best_sol[k] > 0.5) {
+						srand(time(0));
 						random = (double) rand()/RAND_MAX;
 						if (random <= fixing_ratio) { 	// fix bound to 1.0
 							indices[cnt] = k;
@@ -2268,6 +2272,7 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 
 		if (delta > 0.0)  {
 			delta_perc = delta / max_dist;																	// Can accept bad move
+			srand(time(0));
 			prob = (double)rand() / (double)RAND_MAX;
 
 			// Used to print some results during run
@@ -2356,7 +2361,7 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 		{
 			printf("\nHello from process : % d\n\n", omp_get_thread_num());
 		}
-		printf("\nHello from process : % d\n\n", omp_get_thread_num()); 
+		printf("\nHello from process : % d\n\n", omp_get_thread_num());
 
 	*/
 	double global_best_lb = CPX_INFBOUND;
@@ -2394,7 +2399,7 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 			int real_nKids = EAX_Single(inst, population, kids, pA, pB, nKids);						// Generate nKids offspring solutions from pA, pB using differents AB-Cycles
 			if(real_nKids != 0)
 				survival_selection(inst, population, nPop, frequencyTable, real_nKids, pA, kids);
-			
+
 			// free kids matrix
 			for (int j = 0; j < nKids; j++)
 				free(kids[j]);
@@ -2425,7 +2430,7 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 	}
 	free_ga(population, frequencyTable, nPop);
 
-	
+
 
 }
 void init_population(tspinstance* inst, double** population, int nPop) {
@@ -2451,10 +2456,11 @@ void init_frequency_edges(tspinstance* inst, double** population, int* frequency
 void shuffle_individuals(tspinstance* inst, double** population, int nPop) {
 	for (int i = nPop - 1; i > 0; i--)
 	{
-		// Pick a random index from 0 to i 
+		// Pick a random index from 0 to i
+		srand(time(0));
 		int j = rand() % (i + 1);
 
-		// Swap arr[i] with the element at random index 
+		// Swap arr[i] with the element at random index
 		swap(&population[i], &population[j]);
 	}
 }
@@ -2685,7 +2691,7 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 		- If the current traced path is not empty, start the tracing process again from the end of the current traced path.
 		Otherwise, start the tracing process by randomly selecting a vertex from among those linked by at least one edge in GAB.
 		- If there is no edge in GAB, iterations of the tracing process are terminated.
-	
+
 
 	int* succA = (int*)calloc(inst->nnodes, sizeof(int));
 	int* prevA = (int*)calloc(inst->nnodes, sizeof(int));
@@ -2824,7 +2830,7 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 			}
 		}
 
-		printf("\nEdges graph_AB:   "); 
+		printf("\nEdges graph_AB:   ");
 		for (int w = 0; w < inst->nedges; w++)
 			if (graph_AB[w] == 1.0)
 				printf("%2d ", w);
@@ -2878,6 +2884,7 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 	while (EdgeInGAB) {
 
 		if (init_rand_vertex == -1) {
+			srand(time(0));
 			init_rand_vertex = rand() % inst->nnodes;
 		}
 
@@ -2894,6 +2901,7 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 				init_rand_vertex = -1;
 			}
 			else if (graph_AB[nextEdgeL] == 2.0 && graph_AB[nextEdgeR] == 2.0) {
+				srand(time(0));
 				if (rand() % 2 == 0) {
 					graph_AB[nextEdgeL]--;
 					traced_AB[nextEdgeL]++;
@@ -2960,11 +2968,12 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 
 			nextRight = succB[init_rand_vertex];
 			nextEdgeR = xpos(init_rand_vertex, nextRight, inst);
-			
+
 			if (graph_AB[nextEdgeL] == 0.0 && graph_AB[nextEdgeR] == 0.0) {
 				init_rand_vertex = -1;
 			}
 			else if (graph_AB[nextEdgeL] == 2.0 && graph_AB[nextEdgeR] == 2.0) {
+				srand(time(0));
 				if (rand() % 2 == 0) {
 					graph_AB[nextEdgeL]--;
 					traced_AB[nextEdgeL]++;
@@ -3050,6 +3059,7 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 
 				if (idx_nodes > 0) {
 					//init_rand_vertex = nodes[idx_nodes-1];
+					srand(time(0));
 					init_rand_vertex = idx_nodes - 1 == 0? 0 : nodes[rand() % (idx_nodes - 1)];
 					printf("Node choosen: %d\n", init_rand_vertex);
 				}
@@ -3293,7 +3303,7 @@ int build_sol_ga(tspinstance* inst, const double* sol, int* succ, int* prev, int
 void evaluate_traced_ABcycle(tspinstance* inst, double* traced_AB, double** ABcycles, int* idxCycle, int* tourFound, int* edges_cycles_EA_current) {
 
 	/*	Thiella's idea:
-	
+
 		- For each edge in traced path, find relative index i-j
 		- Count number of edges for each node
 		- Delete all edges that have at least one node with one single edge attached
@@ -3303,7 +3313,7 @@ void evaluate_traced_ABcycle(tspinstance* inst, double* traced_AB, double** ABcy
 		- By using this sequence of operations, possible errors are avoided (e.g. double cycles)
 
 		=> not works if the condition is to have alternate edges EA and EB :(
-	
+
 
 	int* i = (int*)calloc(inst->nnodes, sizeof(int));
 	int* j = (int*)calloc(inst->nnodes, sizeof(int));
@@ -3313,7 +3323,7 @@ void evaluate_traced_ABcycle(tspinstance* inst, double* traced_AB, double** ABcy
 		j[k] = -1;
 		tour[k] = -1;
 	}
-	
+
 
 	for (int e = 0, t = 0; e < inst->nedges; e++) {
 
@@ -3473,14 +3483,14 @@ void evaluate_traced_ABcycle(tspinstance* inst, double* traced_AB, double** ABcy
 	}
 
 	if (inst->verbose >= 99) {
-		printf("\nABcycles:   "); 
+		printf("\nABcycles:   ");
 		for (int w = 0; w < inst->nedges; w++) {
 			if(ABcycles[*idxCycle][w] == 1.0)
 				printf("%2d ", w);
 			else if (ABcycles[*idxCycle][w] == 2.0)
 				printf("%2d(%.0f) ", w, ABcycles[*idxCycle][w]);
 		}
-		printf("\ntraced_AB:  "); 
+		printf("\ntraced_AB:  ");
 		for (int w = 0; w < inst->nedges; w++) {
 			if(traced_AB[w] == 1.0)
 				printf("%2d ", w);
@@ -3496,7 +3506,7 @@ void evaluate_traced_ABcycle(tspinstance* inst, double* traced_AB, double** ABcy
 	free(j);
 	free(tour);
 	*/
-	
+
 	int* i = (int*)calloc(inst->nnodes * 2.0, sizeof(int));
 	int* j = (int*)calloc(inst->nnodes * 2.0, sizeof(int));
 	int* tour = (int*)calloc(inst->nnodes * 2.0, sizeof(int));
@@ -3545,6 +3555,7 @@ void evaluate_traced_ABcycle(tspinstance* inst, double* traced_AB, double** ABcy
 		*tourFound = 1;
 
 		int size_tours = print_list_of_list(tours);
+		srand(time(0));
 		int rand_tour = rand() % size_tours;
 
 		int idx_k = 0;
@@ -3627,7 +3638,7 @@ tour_list* grapth_to_tree(tspinstance* inst, int* nodes_one, int* nodes_two, tou
 	}
 	if (root != -1) {													// ERROR!! MUST CHECK ALL OF NODES IN CASE WE HAVE MULTI-SUBTOURS!!!!
 	*/
-	
+
 	int found = 0;
 	for(int start_node = 0; start_node < inst->nnodes; start_node++){
 
@@ -3896,7 +3907,7 @@ void push_list_on_list(tspinstance* inst, tour_list** head_ref, tour_list** path
 	}
 	printf("\n");
 
-	if (count % 2 != 0 || notAlternate) {							// Odd number of edges certainly not respected the alternating conditions between EA and EB 
+	if (count % 2 != 0 || notAlternate) {							// Odd number of edges certainly not respected the alternating conditions between EA and EB
 		printf("Tour doesn't respect the alternation. Skipped!\n");
 		free(copy_edges_cycles_EA_current);
 		return;
@@ -3980,7 +3991,7 @@ int patching_two_edges(tspinstance* inst, double* tour) {
 			printf("\n");
 			plot_instance(inst);
 		}
-		
+
 	}
 	free(succ);
 	free(comp);
@@ -3993,7 +4004,7 @@ void survival_selection(tspinstance* inst, double** population, int nPop, int* f
 	double L_parents = calc_L(inst, population, nPop);					// Average Tour Length of Population
 	double H_parents = calc_H(inst, frequencyTable, nPop);				// Edge Entropy of Population H = - Σ(e in E) [ F(e) / Npop (log(F(e) / Npop)) ]
 	int y = -1;															// index of best kid
-	double best_eval = MININT;
+	double best_eval = INT_MIN;
 	double epsilon = 0.1;												// TODO: best value?
 
 	for (int i = 0; i < nKids; i++) {
@@ -4017,7 +4028,7 @@ void survival_selection(tspinstance* inst, double** population, int nPop, int* f
 		double delta_L = L_parents - calc_L(inst, new_population, nPop);
 		double delta_H = H_parents - calc_H(inst, new_frequencyTable, nPop);
 
-		double eval = MININT;
+		double eval = INT_MIN;
 		if (delta_L < 0 && delta_H < 0) {
 			eval = delta_L / delta_H;
 		}
@@ -4707,6 +4718,7 @@ void random_two_opt(tspinstance* inst) {
 	if (*ncomp != 1) print_error("call random_two_opt with best_sol with multiple tour");
 
 	// random solution in 2opt
+	srand(time(0));
 	int i = rand() % inst->nnodes;
 	int j = rand() % inst->nnodes;
 	while (j == i || j == succ[i]) {
@@ -4775,7 +4787,7 @@ void random_n_opt(tspinstance* inst, int n) {
 	// 	initialization to -1
 	for (int i = 0; i < n; i++) {c_1[i] = -1; c_2[i] = -1;}
 
-	srand(second());	// set random seed
+	srand(time(0));	// set random seed
 	int i;  // tour iterator, assume index nodes value
 	int c_iter = 0;		// iterate over n pairs, each time a random index is selected
 	int already_selected;  // tell if i has already been added in the c_2 struct
@@ -4805,6 +4817,7 @@ void random_n_opt(tspinstance* inst, int n) {
 	}
 
 	// for n times, merge a random node with random successor. (no need to reverse the orientation)
+	srand(time(0));
 	int i_1 = rand() % n;
 	int first_node = c_1[i_1];
 	int i_2 = -1;
@@ -4907,7 +4920,7 @@ void single_patch(tspinstance* inst, int* succ, int* comp, int* ncomp) {
 	// single patch merge the isolated nodes or tours,
 	// if already merged, exit the method
 	if (*ncomp == 1) return;
-
+	srand(time(0));
 	int initial_i = rand() % inst->nnodes;  // randomize the first node
 
 	// get the closer node which is in another tour
