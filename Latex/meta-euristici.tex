@@ -22,10 +22,47 @@ The search process of the GA consists of two stages: \\
 
 % è stato sviluppato solo lo stage I anche se sarebbe facile aggiungere lo stage II ma per ora lo lascio scritto anche se non è implementato
 
+Algorithm \ref{alg:gagen} describes in a compact way the various steps of the entire search.\\
+
+\begin{algorithm}
+\caption{GA General}\label{alg:gagen}
+\begin{algorithmic}[1]
+\Procedure{Procedure GA()}{}
+\State $\textit{\{x\textsubscript{$1$},...,x\textsubscript{N\textsubscript{pop}}\}} := \textit{INIT\_POPULATION()}$
+\While{\textit{termination condition is satisfied}}
+	\State $\textit{r($\cdot$)} := \textit{SHUFFLE\_INDIVIDUALS() $\equiv$ a random permutation of $1$,...,N\textsubscript{pop} } $
+	\For{\texttt{$i := 1$ to N\textsubscript{pop}}}
+		\State $\textit{p\textsubscript{A}} := \textit{x\textsubscript{r($i$)}} , \textit{p\textsubscript{B}} := \textit{x\textsubscript{r($i+1$)}} $
+		\State $\textit{\{y\textsubscript{$1$},...,y\textsubscript{N\textsubscript{kids}}\}} := \textit{EAX\_SINGLE(p\textsubscript{A}, p\textsubscript{B})}$
+		\State $\textit{x\textsubscript{r($i$)}} := \textit{SURVIVAL\_SELECTION(y\textsubscript{$1$},...,y\textsubscript{N\textsubscript{kids}}, p\textsubscript{A})} $
+	\EndFor
+	\State $\textit{best\_individual} := \textit{best individual of actual population}$
+\EndWhile
+\State \textbf{return} $best\_individual$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{EAX\_SINGLE}
 The recombination operator EAX uses the edges from the two parents to construct disjoint subtours.
 Then, using a more general version of the Patching Algorithm \ref{section:patching}, the subtours are connected in a greedy fashion to produce the offspring tour. Thus, the EAX operator considers local information which is exploited in determining which edges to use to connect subtours.\\
 Another important trait of the EAX operator is that it will introduce new edges into the offspring when connecting subtours. Edges not in the parents, or perhaps not even in the population, are introduced into offspring. 
-The argument as to why good new edges must be introduced during recombination (or by mutation, or local search) is simple. As point out in \cite{Mathias92geneticoperators}, the complete graph of all possible edges for a symmetric TSP has $(N^2-N)/2$ edges, where $N$ is the number of cities. Each tour samples $N$ of these edges, so a population must be of size at least $(N-1)/2$ in order to sample each edge exactly once. Assume population size is proportional to the number of the cities. Then each edge occurs twice in expectation in an initial random population. Selection can therefore quickly eliminate edges from the population. Good edges can also be lost if they occur in poor tours. Thus it is important for operators to intelligently introduce new good edges. This feature is part of the construction of EAX and therefore, may contribute to its effectiveness.\\
+The argument as to why good new edges must be introduced during recombination is simple. As point out in \cite{Mathias92geneticoperators}, the complete graph of all possible edges for a symmetric TSP has $(N^2-N)/2$ edges, where $N$ is the number of nodes. Each tour samples $N$ of these edges, so a population must be of size at least $(N-1)/2$ in order to sample each edge exactly once. Assume population size is proportional to the number of the nodes. Then each edge occurs twice in expectation in an initial random population. Selection can therefore quickly eliminate edges from the population. Good edges can also be lost if they occur in poor tours. Thus it is important for operators to intelligently introduce new good edges. This feature is part of the construction of EAX and therefore, may contribute to its effectiveness.\\
+Focusing on details of the EAX procedure:\\
+Once two parents have been selected for crossover, the EAX operator merges these two individuals into a single graph denoted by R. The two parents are denoted by A and B, respectively. Each edge in R is annotated with the parent to which it belongs. R may contain two instances of the same edge, if both parents contain the edge (that is why a more general version of Patching Algorithm is used).\\
+R is next divided into a set of disjoint subtours. Let v\textsubscript{i} represent a vertex from R and let (v\textsubscript{i},  v\textsubscript{j}), i $\neq$ j, represent an edge. Suppose (v\textsubscript{i},  v\textsubscript{j}) represents an edge randomly chosen from parent A.\\
+Choose one vertex (either v\textsubscript{i} or v\textsubscript{j}) as the origin. If v\textsubscript{i} is the origin, then choose an edge which leads from the second vertex, v\textsubscript{j} , to any other vertex in R. However, this edge must come from parent B. If more than one such edge exists, a random selection is made. The algorithm continues to traverse R, at each step alternately picking edges from parent A and parent B.\\
+After each edge is traversed, the algorithm checks to see if adding this new edge to the set of previously selected edges will result in an AB-cycle. An AB-cycle is a even-length sub-cycle of R with edges that alternately come from A and B. An AB-cycle may repeat nodes, but not edges. While there can be two edges between a pair of nodes, they are uniquely identified as an A or B edge, and thus distinct.\\
+Once an AB-cycle has been found it is stored and the edges making up that cycle are removed from R. The algorithm repeats this procedure until R contains no more edges, having been completely decomposed into a set of AB-cycles. \\
+The first several edges used in the construction of the AB-cycle may not appear in the final AB-cycle. This occurs when the final edge connects back onto the subgraph at some node x other than the origin node, and the induced subcycle is an AB-cycle. In this case the ‘extraneous’ edges are however removed from R graph but is kept aside in the path being traced, to eventually be used later in forming another cycle. Nagata and Kobayashi choose an edge incident with x from R to begin construction of the next AB-cycle and in our algorithm this idea is kept (other technique prefers to select the starting location of a new AB-cycle at random from R).
+For the symmetric TSP problem, R is undirected and therefore, the set of AB-cycles is not uniquely determined by the algorithm. Furthermore, a number of "ineffective" AB-cycles may be formed by the algorithm. All AB-cycles that have less than 4 different nodes inside them belong to this group, such cycles consist solely of two edges between the same pair of nodes. Any ineffective AB-cycles are found and removed from R and also removed from consideration by the remaining phases of the algorithm.
+\\
+After construction of the set of AB-cycles, a subset of AB-cycles is chosen to be used in the generation of an intermediate child. This subset is called an E-set. For selecting AB-cycles for inclusion into the E-set, we choose an our method different from those defined by Nagata and Kobayashi. %SPIGA CHE LI SCORRI TUTTI
+\\
+Construction of an intermediate child, C, begins with a copy of parent A. Then each edge of each subtour in the E-set is examined, with the following actions taken on C. If the edge from the E-set is a member of parent A, the edge is deleted from C. If the edge is a member of parent B, the edge is added to C. The result is a set of disjoint subtours which comprise the intermediate child. 
+The last stage of the EAX operator involves transformation of the intermediate child into a single legal tour using General Patching Algorithm...
+ 
+\subsection{SURVIVAL\_SELECTION}
 For the survival selection part, some parameters are defined: 
 
 \begin{itemize}
@@ -59,25 +96,5 @@ $\Delta$L(y) and $\Delta$H(y) denote the differences in L and H, respectively, w
 \end{array}\right.\end{equation}
 
 where $y$ is an offspring solution and $\epsilon$ is a sufficiently small positive number (chosen value $0.1$).\\
-Algorithm \ref{alg:gagen} describes in a compact way the various steps of the entire search.
 
-\begin{algorithm}
-\caption{GA General}\label{alg:gagen}
-\begin{algorithmic}[1]
-\Procedure{Procedure GA()}{}
-\State $\textit{\{x\textsubscript{$1$},...,x\textsubscript{N\textsubscript{pop}}\}} := \textit{INIT\_POPULATION()}$
-\While{\textit{termination condition is satisfied}}
-	\State $\textit{r($\cdot$)} := \textit{SHUFFLE\_INDIVIDUALS() $\equiv$ a random permutation of $1$,...,N\textsubscript{pop} } $
-	\For{\texttt{$i := 1$ to N\textsubscript{pop}}}
-		\State $\textit{p\textsubscript{A}} := \textit{x\textsubscript{r($i$)}} , \textit{p\textsubscript{B}} := \textit{x\textsubscript{r($i+1$)}} $
-		\State $\textit{\{y\textsubscript{$1$},...,y\textsubscript{N\textsubscript{kids}}\}} := \textit{EAX\_SINGLE(p\textsubscript{A}, p\textsubscript{B})}$
-		\State $\textit{x\textsubscript{r($i$)}} := \textit{SURVIVAL\_SELECTION(y\textsubscript{$1$},...,y\textsubscript{N\textsubscript{kids}}, p\textsubscript{A})} $
-	\EndFor
-	\State $\textit{best\_individual} := \textit{best individual of actual population}$
-\EndWhile
-\State \textbf{return} $best\_individual$
-\EndProcedure
-\end{algorithmic}
-\end{algorithm}
 
-Focusing on details of the algorithm
