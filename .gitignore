@@ -18,7 +18,7 @@ Hmw1.*
 pch.cpp
 pch.h
 *.props
-plot/*
+
 
 res.csv
 res_trainset.csv
