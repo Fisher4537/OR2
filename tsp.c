@@ -1436,6 +1436,7 @@ int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	else
 		next_time_limit = remaining_time;
 	CPXsetdblparam(env, CPX_PARAM_TILIM, next_time_limit);
+	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 1);
 
 	// first optimization step
 	mip_optimization(env, lp, inst, status);
@@ -1448,6 +1449,7 @@ int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	// build_sol(inst, succ, comp, ncomp);
 	// if (inst->verbose >= 100) printf("Partial solution, ncomp = %d\n",*ncomp );
 	if (inst->verbose >= 1000) plot_instance(inst);
+	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, INT_MAX);
 
 
 	while ( (second()-init_time) < external_time_limit &&

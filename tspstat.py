@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def get_testset(file_path, v_shift=20., time_limit=300.):
+def get_testset(file_path, v_shift=20., time_limit=300., model_filter=None):
     test_set = {}
     with open(file_path, mode='r') as in_csv:
         for line in in_csv:  # skip first line
@@ -19,6 +19,13 @@ def get_testset(file_path, v_shift=20., time_limit=300.):
             nthreads = line[4]
             opt_time = float(line[5])
             best_lb = float(line[6][:-2]) # remove ';\n'
+
+            # filter model
+            if model_filter is not None:
+                if model_type not in model_filter:
+                    continue
+
+            # correct time
             if 0. < opt_time < time_limit - 1.:
                 opt_time = opt_time + v_shift
             elif time_limit - 1. <= opt_time <= time_limit + 1.:
@@ -44,7 +51,7 @@ def get_testset(file_path, v_shift=20., time_limit=300.):
     return test_set
 
 
-def performance_profile(file_path, v_shift=20., time_limit=300.):
+def performance_profile(file_path, v_shift=20., time_limit=300., model_filter=None):
     """
         test_set = {
             'att48.tsp': {
@@ -71,7 +78,7 @@ def performance_profile(file_path, v_shift=20., time_limit=300.):
         }
     """
     # read input
-    test_set = get_testset(file_path, v_shift=v_shift, time_limit=time_limit)
+    test_set = get_testset(file_path, v_shift=v_shift, time_limit=time_limit, model_filter=model_filter)
 
 
     # compute statistics
@@ -148,8 +155,10 @@ if __name__ == '__main__':
     # parse input
     parser = argparse.ArgumentParser(description='Process input param')
     parser.add_argument('--file', '-f', type=str, help='input csv file')
+    parser.add_argument('--model_filter', type=str, help='string with the name of the filter')
 
     args = parser.parse_args()
 
     # get performance profile
-    performance_profile(args.file)
+    model_filter = args.model_filter.split(",") if "model_filter" in args else None
+    performance_profile(args.file, model_filter=model_filter)
