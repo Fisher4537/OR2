@@ -131,7 +131,7 @@ def plot_pp(models_ratio, domain='time', name='res'):
 
     fig, ax = plt.subplots(1)
     
-    x_ax = np.arange(0, 4, 0.2)**2 + 0.96
+    x_ax = np.arange(0, 4, 0.2)**2 + 0.96 if domain == 'time' else np.arange(0, 2, 0.1)**2 + 0.96
     # print(x_ax)
     for i, model in enumerate(models_ratio):
         y_model = [sum(map(lambda ratio: ratio <= x, models_ratio[model]))/len(models_ratio[model]) for x in x_ax]

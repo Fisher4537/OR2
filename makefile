@@ -15,7 +15,7 @@ TRAINSET_HEAVY = data_heavy/att532.tsp data_heavy/fl417.tsp data_heavy/d657.tsp
 SEED = 0 123456 666 777 1995
 
 testexact: $(EXE)
-	for file in $(TEST_AVERAGE); do \
+	for file in $(TEST_LIGHT); do \
 		for model in $(MODEL_LIST); do \
 			for seed in $(SEED); do \
 				./$(EXE) -input $$file -setup_model $$model -randomseed $$seed -v 1 -nthread 4 -time_limit 600; \

@@ -1335,7 +1335,7 @@ void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
 int vns(tspinstance* inst) {
 
-	if (inst->verbose >= 100) printf("VNS\n");
+	if (inst->verbose >= 90) printf("VNS\n");
 	fflush(stdout);
 
 	// struct to keep solution
@@ -1358,8 +1358,10 @@ int vns(tspinstance* inst) {
 
 	while (inst->timelimit > second() - init_time && i < max_iteration) {  // stop condition
 
-		while (1) {  // iterate best_two_opt
+		while (inst->timelimit > second() - init_time) {  // iterate best_two_opt
 			best_two_opt(inst);
+			if (inst->verbose >= 80)
+				printf("%10.1lf,%.2lf\n", inst->best_lb, second() - init_time);
 			if (prev_lb > inst->best_lb) {  // found a new best, continue iteration
 				prev_lb = inst->best_lb;
 			} else {		// no new best_lb found, stop iteration
@@ -1371,13 +1373,16 @@ int vns(tspinstance* inst) {
 		if (best_lb > inst->best_lb) {
 			for (int i = 0; i < inst->nedges; i++) best_sol[i] = inst->best_sol[i];
 			best_lb = inst->best_lb;
-		}
-
+			if (inst->verbose >= 90)
+				printf("VNS: iteration = %7d, cur best_lb = %10.2lf, time = %10.2lf UPDATE!\n", i, inst->best_lb, second() - init_time);
+		} else if (inst->verbose >= 90)
+			printf("VNS: iteration = %7d, cur best_lb = %10.2lf, time = %10.2lf\n", i, inst->best_lb, second() - init_time);
 		// move to a random 5 opt solution
 		random_n_opt(inst, 5);
 		prev_lb = inst->best_lb;	// update solution
 		i++;  // one iteration compleate
 	}
+
 
 	for (int i = 0; i < inst->nedges; i++) inst->best_sol[i] = best_sol[i];
 	inst->best_lb = best_lb;
@@ -4815,7 +4820,6 @@ void random_n_opt(tspinstance* inst, int n) {
 		} else {
 			// continue and choose another index
 		}
-
 	}
 
 	// for n times, merge a random node with random successor. (no need to reverse the orientation)
@@ -4826,48 +4830,7 @@ void random_n_opt(tspinstance* inst, int n) {
 	c_iter = 0;
 	while (c_iter < n) {
 
-		// initialize i_1 as not already initialize and prefere isolated node
-		// int isolated = 0;
-		// already_selected = 0;
-		// i_1 = 0;
-		// for (i = 0; i < n; i++) {
-		//
-		// 	for (int j = 0; j < n; j++) {
-		// 		already_selected = succ[c_2[j]] == c_1[i];
-		// 		if (already_selected) {  // already selected c_1[i]
-		// 			break;		// no matter what, it can not be selected, change c_1[i]
-		// 		}
-		// 		if (c_1[i] == c_2[j]) {  // check if c_1[i] is isolated
-		// 			isolated = 1;
-		// 		}
-		// 	}
-		// 	if (isolated && !already_selected) {  // select isolated node that has is not already selected
-		// 		i_1 = i;
-		// 		printf("c_1[i_1] is isolated and is not already selected: %d\n", c_1[i_1]);
-		// 		fflush(stdout);
-		// 		break;
-		// 	} else if (!isolated && !already_selected) {	// propose i because it is not isolated
-		// 		i_1 = i;
-		// 	}
-		// }
-		// if (!isolated) {
-		// 	printf("c_1[i_1] is NOT isolated and is not already selected: %d\n", c_1[i_1]);
-		// 	fflush(stdout);
-		// }
-		// if (already_selected) print_error("node already selected. Random_n_opt");
-		//
-		// // select i_2
-		// int c = 0;  // count
-		// while (succ[c_2[i_2]] != -1 || c_2[i_2] == c_1[i_1]) {	// already selected i_2
-		// 	i_2 = (i_2 + 1) % n;
-		// 	if (c >= n) {  // only a node with
-		// 		print_error("no available node to select. random_n_opt");
-		// 	}
-		// 	c++;
-		// }
-
 		// select one of the c_1 at random and set as first nodes
-
 		int i = c_1[i_1];
 		while (succ[i] != -1) i = succ[i];
 
