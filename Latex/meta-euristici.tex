@@ -28,7 +28,46 @@ The performance profile as shown in fig \ref{fig:Lsubtours_hardfixing_lightavera
 
 \section{simulated-anealing}
 
-\section{Variable Neighborhood Search}
+\section{Variable Neighborhood Search (VNS)}
+This metaheuristic moves from a solution to another iterating two phases:
+\begin{enumerate}
+	\item optimization
+	\item perturbation
+\end{enumerate}
+The first is done iterating a refining heuristic until a local minimum is found, in this specific case it has been used the \texttt{best\_2\_opt()} algorithm, which is explained in cap \ref{sec:best_2_opt}. After the optimization, a perturbation is applied to leave the local minima, here \texttt{random\_n\_opt()} with $ n=5 $. This algorithm generate a new solution that differ n edges from the first (check at the end of the section for details).
+The two phases are iterated until the max number of iterations or time limit occur.\\
+Note that the implemented VNS is not optimized to work with multiple thread.\\
+In fig \ref{fig:VNS_d2103} is shown the cost of the solution in each \texttt{best\_two\_opt()} step of the VNS. It is interesting to note that most of the time is required for the first descent and after that the first local minimum is found, the best lower bound does not decrease so much.
+The calculated tour is plotted in fig \ref{fig:d2103_16}.\\
+The performance profiles in fig \ref{fig:Lsubtour_hardfixing_vns_time} and \ref{fig:Lsubtour_hardfixing_vns_lb} show that VNS is faster than the exact algorithm and the returned solution is near the optimum.
+
+\textbf{\texttt{Random\_n\_opt()}.} The n\_opt set of an tour T is the set of tour that have exactly n different edges w.r.t. T. \texttt{Random\_n\_opt()} return a random tour in this set.
+\begin{figure}[!h]
+	\begin{subfigure}{.5\columnwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/d2103.png}
+		\caption{The cost of the solution (vs time domain) returned by \texttt{best\_two\_opt()} in each step of the VNS.}
+		\label{fig:VNS_d2103}
+	\end{subfigure}
+	\begin{subfigure}{.5\columnwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/d2103_16.png}
+		\caption{The graph of the solution returned by VNS.}
+		\label{fig:d2103_16}
+	\end{subfigure}
+	\begin{subfigure}{.5\columnwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/Lsubtour_hardfixing_vns_time.png}
+		\caption{Performance profile considering the execution time}
+		\label{fig:Lsubtour_hardfixing_vns_time}
+	\end{subfigure}
+	\begin{subfigure}{.5\columnwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/Lsubtour_hardfixing_vns_lb.png}
+		\caption{Performance profile considering the lower bound.}
+		\label{fig:Lsubtour_hardfixing_vns_lb}
+	\end{subfigure}
+\end{figure}
 
 \section{Genetic Algorithm}
 The genetic algorithm (GA) is the last meta-heuristic technique proposed. Its behaviour derives from an evolutionary biology metaphor. A population of individuals (solutions) is randomly created. The individual solutions represent one tour each. These solution are then exposed to simulated evolution.
