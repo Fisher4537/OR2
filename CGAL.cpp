@@ -21,8 +21,7 @@ using namespace std;
 
 
 int nnodes = 0;
-int verbose = 0;                    // 100 some details
-                                    // 1000 all the accurate details
+int verbose = 0;                   // 1000 all the accurate details
 
 class varCGAL {
 

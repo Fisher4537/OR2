@@ -290,8 +290,9 @@
 				\end{center}
 			\end{table}
 
-		\chapter{CGAL on Windows in VS2019} \label{sec:testset}
-\subsection{GMP on Windows}
+		\chapter{CGAL Library in Windows with VS2019} \label{sec:cagalOne}
+CGAL is a library that simplifies access reliably to computational geometry algorithms. it is written in C ++ and therefore it is compatible with this project. Here are the steps to follow to use the CGAL library in a Windows environment with the IDE Visual Studio 2019 version.\\ Unfortunately, porting from the Linux environment requires installing MPIR (a fork of GMP), MPFR and all boost header files. Furthermore, the possibility of compiling the library was also explained.
+\subsection{GMP in Windows}
 \begin{itemize}
 \item Follow steps at: \href{https://doc.cgal.org/latest/Manual/windows.html}{https://doc.cgal.org/latest/Manual/windows.html}. For the x64 version of CGAL, instead of command:
 \begin{lstlisting}
@@ -321,8 +322,9 @@ Pay attention to the last command:
 It must be run next to cyggmp-10.dll and the compiled library probably is located in Cygwin\textbackslash bin folder.
 Lastly the option: \textit{/machine:i386} is for the 32bit version, \textit{/machine:x64} for the 64bit version).
 \end{itemize}
-
-\subsection{Cygwin Package Information (installed)}
+\newpage
+\subsubsection{Cygwin Package Information (installed)}
+These are the packages that should be installed at the end of the \ref {sec:cagalOne} procedure in case you choose to recompile the library on your machine.
 \begin{center}
 \begin{tabular}{|m{4cm}|m{4cm}|}
 Package & Version \\
@@ -414,6 +416,7 @@ libpsl5 & 0.21.0-1 \\
 libquadmath0 & 9.3.0-2 \\
 \hline
 \end{tabular}
+\newpage
 \begin{tabular}{|m{3cm}|m{3cm}|}
 Package & Version \\
 \hline
@@ -463,8 +466,8 @@ zlib0 & 1.2.11-1 \\
 \end{tabular}
 \end{center}
 
-\subsection{Include GMP in Win (if MPIR is not enough)}
-
+\subsection{Include GMP in Windows (if MPIR is not enough)}
+MPIR is a highly optimised library for bignum arithmetic forked from the GMP bignum library. It is written in assembly language and C. It offers many features but in order to use the CGAL library correctly it is not enough, it is necessary to include GMP in the Visual Studio IDE.
 \begin{enumerate}
 \item \textit{VS -> Strumenti -> Gestione pacchetti NuGet -> Console di gestione pacchetti}:
 	
@@ -551,7 +554,7 @@ int main()
 }
 \end{lstlisting}
 
-\subsection{Error Framework}
+\subsection{Solution to Error Framework}
 \begin{itemize}
 \item \textit{VS -> Esplora Soluzione -> <nome\_progetto> -> right click -> Gestisci pacchetti NuGet}: check the require .NET Framework
 \end{itemize}

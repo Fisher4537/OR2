@@ -26,7 +26,7 @@ def best_lb_vs_time(file_path):
     ax.plot(np.array(time_domain), np.array(best_lb))
 
     ax.set(xlabel='Time [s]', ylabel='Best lower bound',
-           title='Tabu-Search '+file_path)
+           title='Simulating-Annealing '+file_path)
 
     fig.savefig(os.path.join(file_path[:-3] + "png"))
     plt.show()
@@ -40,3 +40,15 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     best_lb_vs_time(args.file)
+
+    i = 0.27
+    k = 0.27
+    j = 2
+    #f = open("time.txt", "x")
+
+    while j <= 100000:
+      #f.write("%s \n" % k)
+      k = i * j
+      k = round(k, 2)
+      j += 1
+    #f.close()

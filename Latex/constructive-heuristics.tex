@@ -1,6 +1,13 @@
 \chapter{Constructive Heuristics}
 
-\section{Greedy}
+\section{Greedy}\label{sec:greedy}
+To take a look at the potential of the CGAL library, we decided to implement the greedy algorithm. It follows the same idea as the one previously described (Section \ ref {sec: greedy}) but using completely different data structures. Thanks to the potential of the C ++ code and therefore the use of objects, the CGAL library offers a very wide range of elements.\\ First of all, the objects used for this algorithm are briefly explained:
+CGAL :: Simple_cartesian <double> K;
+CGAL :: Search_traits_2 <K> TreeTraits;
+CGAL :: Orthogonal_k_nemap.com_search <TreeTraits> Neighbor_search;
+Neighbor_search :: Tree Tree;
+\subsection{Greedy with CGAL Library}
+
 \section{Greedy Randomize Adaptive Search Path (GRASP)}
 GRASP metaheuristic, as the name anticipate, is a Greedy constructive heuristic with some randomization. Indeed, for the TSP problem, instead of bring the closer isolated node as next, it's chose a random node between the $ G $ closest isolated nodes, where $ G = 3 $ in the tested implementation.
 The idea is that in TSP it's not always the closer to be the next node on the optimum tour. Moreover, in other metaheuristics that start from a solution and optimize it, a percentage of randomness is appreciated.

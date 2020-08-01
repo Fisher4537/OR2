@@ -62,6 +62,13 @@ The cooling schedule chosen is based on the timelimit given to the algorithm, at
 Furthermore, if the temperature decreases sufficiently slowly, the probability of finding the global minimum tends to 1, thanks to all simulated annealing proofs of convergence in the literature which is based on homogeneous Markov chain theory and the condition of reversibility \cite{Henderson}. Since only improvement steps are accepted at zero temperature, various Random-2-opt are performed before concluding the algorithm in order to optimize the achieved solution as much as possible.\\
 The slight probability of taking a step that gives higher energy is what allows simulated annealing to frequently get out of local minima.
 
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=1.0\columnwidth]{../res/fl1400_23.png}
+	\caption{Performance profile considering the execution time of 1400 nodes file with timelimit of 10000}
+	\label{fig:simultaing_annealing_perform_time}
+\end{figure}
+
 \section{Variable Neighborhood Search (VNS)}
 This metaheuristic moves from a solution to another iterating two phases:
 \begin{enumerate}
@@ -112,8 +119,7 @@ The search process of the GA consists of two stages: \\
 \item GA-EAX/Stage I: a localized version of Edge Assembly Crossover (EAX) as the crossover operator from the start of the search until no improvement in the best solution is found over a period of generations or because of timelimit.
 \item  GA-EAX/Stage II: after that, switch to a global version of EAX and use it until the end of the search. Stage II is also terminated by the same condition of previous one.
 \end{itemize}
-
-% è stato sviluppato solo lo stage I anche se sarebbe facile aggiungere lo stage II ma per ora lo lascio scritto anche se non è implementato
+For this project only Stage I was developed but the global version does not add any difficulties in the code.
 
 Algorithm \ref{alg:gagen} describes in a compact way the various steps of the entire search.\\
 
