@@ -26,7 +26,7 @@ def get_testset(file_path, v_shift=20., time_limit=300., model_filter=None):
                     continue
 
             # correct time
-            if 0. < opt_time < time_limit - 1.:
+            if 0.000001 < opt_time < time_limit - 1.:
                 opt_time = opt_time + v_shift
             elif time_limit - 1. <= opt_time <= time_limit + 1.:
                 opt_time = opt_time * random.uniform(1., 20.)

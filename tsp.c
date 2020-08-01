@@ -264,13 +264,13 @@ int TSPopt(tspinstance *inst) {
 	switch_callback(inst, env, lp);
 
 	// set warm start if used
+	double ini = second();
 	switch_warm_start(inst, env, lp, &status);
 
 	if (inst->verbose >= 100) printf("\nbuild model succesfully.\n");
 	if (inst->verbose >= 100) printf("optimizing model...\n");
 
 	// compute cplex and calculate opt_time w.r.t. OS used
-	double ini = second();
 	optimization(env, lp, inst, &status);
 	double fin = second();
 	inst->opt_time = (double)(fin - ini);
