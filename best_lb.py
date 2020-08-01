@@ -15,7 +15,8 @@ def best_lb_vs_time(file_path):
                 continue
             line = line.split(',')
             best_lb.append(float(line[0]))
-            time_domain.append(float(line[1][:-2]))
+            #time_domain.append(float(line[1][:-2]))
+            time_domain.append(float(line[1]))
             # if len(time_domain) > 100000:
             #     break
             line_count += 1
@@ -25,9 +26,9 @@ def best_lb_vs_time(file_path):
     ax.plot(np.array(time_domain), np.array(best_lb))
 
     ax.set(xlabel='Time [s]', ylabel='Best lower bound',
-           title='VNS '+file_path)
+           title='Tabu-Search '+file_path)
 
-    fig.savefig(os.path.join("res", "VNS_" + file_path[:-3] + "png"))
+    fig.savefig(os.path.join(file_path[:-3] + "png"))
     plt.show()
 
 

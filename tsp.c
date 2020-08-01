@@ -219,7 +219,7 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			return "heuristic_insertion";				// Heuristic Insertion (Warm Start for CPLEX)
 		case 23:
 			inst->model_type = 0;
-			inst->warm_start = 3;
+			inst->warm_start = 1;
 			inst->heuristic = 8;
 			return "simulating_annealing";				// GRASP + Simulating Annealing
 		case 24:
@@ -1861,7 +1861,7 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 	free(ncomp);
 	if (inst->verbose >= 100) printf("BEST FINAL GLOBAL LB found: [%f]\n", inst->best_lb);
 
-	if (inst->verbose >= 10000) write_list_lb(head_save);
+	if (inst->verbose >= 100) write_list_lb(head_save);
 
 }
 void push(tabu_list** head_ref, int arc, int isArc) {
@@ -2247,6 +2247,8 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 	int dont_print_same_number = 100;		// used to have a slim verbose
 
 
+	tabu_list* head_save = NULL;
+
 	if (inst->verbose >= 100)
 		printf("\nSimulating Annealing uses a maxTemperature with an extra value of\
 		 				1e8. This allow to do more iterations when temperature goes to 0.0!\n");
@@ -2302,12 +2304,14 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 					printf("LB reset from -> to : [%f] -> [%f]\n", inst->best_lb, best_lb);
 				}
 				inst->best_lb = best_lb;
+				push(&head_save, inst->best_lb, 0);
 			}else {
 				if (inst->verbose > 100) {
 					printf("BAD Moves found and Accepted\n");													// Accepted bad move
 					printf("LB update from -> to : [%f] -> [%f]\n", best_lb, inst->best_lb);
 				}
 				best_lb = inst->best_lb;
+				push(&head_save, best_lb, 0);
 			}
 		}else {																								// good move always accepted
 			if (inst->verbose > 100) {
@@ -2315,6 +2319,7 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 				printf("LB update from -> to : [%f] -> [%f]\n", best_lb, inst->best_lb);
 			}
 			best_lb = inst->best_lb;
+			push(&head_save, best_lb, 0);
 
 			if (inst->best_lb < best_global_lb) {
 				if (inst->verbose >= 100) printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_global_lb, inst->best_lb);
@@ -2340,6 +2345,8 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 	}
 
 	inst->best_lb = best_global_lb;
+	push(&head_save, best_global_lb, 0);
+	write_list_lb(head_save);
 
 	if (inst->verbose > 100)
 		print_succ(succ, inst);

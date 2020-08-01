@@ -29,7 +29,7 @@ Tabu Search (TS) has been developed by Fred Glover \cite{Glover1998}. TS is a he
 Pejorative moves are now allowed and the algorithm chooses the lowest cost one and adds this move to the tabu list, updates the current solution and starts again with the Best-2-opt.
 During the next iteration, while searching for the new solution, check that the move to obtain it does not belong to the list. If it does not appear, then the move is lawful and continues with the next steps of the algorithm. Conversely, if the move is tabu (i.e. not allowed, prohibited), the solution is discarded and another is chosen, until a lawful move is found. The algorithm will continue to choose licit pejorative moves until an improvement one, that does not belong to the list, is found. In this case the algorithm starts again.\\
 As will be discussed later, the tabu list has a maximum size of elements. Consequently, when a new element has to be inserted and the list is full, the "oldest" element (i.e. the one that has been inserted longer) of the list will be replaced with it.\\
-This strategy allows research to move along the "hills" that the costs of the various solutions form in the solution space. It is an excellent method to escape from the local minimum by maintaining a search based on the Best-2-opt.\\
+This strategy allows research to move along the "hills" that the costs of the various solutions form in the solution space. It is an excellent method to escape from the local minimum by maintaining a search based on the Best-2-opt (Figure \ref{fig:tabu_search_perform_time}).\\
 Looking at the implementation details there are many aspects that must be carefully evaluated:
 
 \begin{itemize}
@@ -42,7 +42,25 @@ First of all, the type of structure used for the tabu list. We have decided to p
 One of the main differences is the allocation of memory, as the linked list dynamically manages its size and therefore aims to optimize space but, on the other hand, the removal of the oldest inserted element requires complete scrolling of the list. Instead the array optimizes the operations on the elements contained but on the other hand it cannot have a dynamic dimension except through the creation and the copy in a new array (probably with an excellent knowledge of low-level memory and an ad hoc solution is possible to manage dynamic dimension of an array). For the management of the elements in the array it was decided to add one more element than the value of the chosen dimension, assigning it a static value of -1 that will never be changed. In this way, replacing an element when the list is full is very simple as it is sufficient to assign the new edge instead of -1 and replace the next element with -1. This causes the array to be cyclical and, through a single index variable, does not require any research for this type of operation.\\
 Another aspect to consider is the size of the tabu list. An "infinite" dimension would risk bringing the algorithm to a standstill in which it can no longer make any move since all those around two optimality have been prohibited. Conversely, too small a size could cause a return to the local minimum from which one was running away. A lot of studies and research have been done for this specific aspect \cite{Nababan_2019, Tsubakitani1998} and a better overall result than others has not been found, changing the typology of the problem also varies the best size of the list. An average list size with respect to the problem proved to be the best choice as a balance between computational time and the optimal markspace value. Thus a size equal to half the number of problem nodes was set.\\
 Finally, the termination criterion can be based on a maximum number of iterations of the algorithm or on a fixed number of iterations in which the solution no longer improves or, as in our case, on a timelimit.
-\section{simulated-anealing}
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=1.0\columnwidth]{../res/gr666_17.png}
+	\caption{Performance profile considering the execution time}
+	\label{fig:tabu_search_perform_time}
+\end{figure}
+
+\section{Simulated-Annealing}
+The goal is to find a point in the space at which a real valued energy function (or cost function) is minimized. Simulated annealing is a minimization technique which has given good results in avoiding local minima. This research is based on a Random-2-Opt (similar to \ref{sec:best_2_opt} but choose a random one instead of looking for the best one). Moreover, it follows the idea of taking a random walk through the space at successively lower temperatures, where the probability of taking a step is given by a Boltzmann distribution,
+\begin{equation}
+	P(\Delta E)=e^{-\frac{ E_{i+1} - E_{i}}{k \times T}}
+\end{equation}
+if  E\textsubscript{i+1} > E\textsubscript{i}, and p($\Delta$E) = 1 when  E\textsubscript{i+1} $\leq$ E\textsubscript{i}, with $\Delta$E =  E\textsubscript{i+1} - E\textsubscript{i} and $k$ is the Boltzmann constant. \\
+A step will occur if the new energy is lower. If the new energy is higher, the transition can still occur, and its likelihood is proportional to the temperature $T$ and inversely proportional to the energy difference $\Delta$E.
+The temperature $T$ is initially set to a high value (\textit{$INT\_MAX$} of \textit{<limits.h>} C class), and a random walk is carried out at that temperature. Then, the temperature is lowered very slightly according to a cooling schedule.
+The cooling schedule chosen is based on the timelimit given to the algorithm, at each interaction the temperature is scaled as a percentage based on the percentage of time spent on the timelimit to perform that iteration. This avoids estimating a fixed value with which to decrease the temperature at each iteration, as the time required for an iteration can vary greatly based on the probability value found (when successful, the computational time increases drastically compared to when probability fails).\\
+Furthermore, if the temperature decreases sufficiently slowly, the probability of finding the global minimum tends to 1, thanks to all simulated annealing proofs of convergence in the literature which is based on homogeneous Markov chain theory and the condition of reversibility \cite{Henderson}. Since only improvement steps are accepted at zero temperature, various Random-2-opt are performed before concluding the algorithm in order to optimize the achieved solution as much as possible.\\
+The slight probability of taking a step that gives higher energy is what allows simulated annealing to frequently get out of local minima.
 
 \section{Variable Neighborhood Search (VNS)}
 This metaheuristic moves from a solution to another iterating two phases:
