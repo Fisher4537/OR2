@@ -2345,6 +2345,12 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 	}
 
 	inst->best_lb = best_global_lb;
+	for (int i = 0; i < inst->nedges; i++)
+		if (best_global_sol[i] == 1.0)
+			inst->best_sol[i] = 1.0;
+		else
+			inst->best_sol[i] = 0.0;
+
 	push(&head_save, best_global_lb, 0);
 	write_list_lb(head_save);
 
