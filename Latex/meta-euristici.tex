@@ -22,10 +22,26 @@ The performance profile as shown in fig \ref{fig:Lsubtours_hardfixing_lightavera
 \end{figure}
 
 
-\section{local-branching}
+\section{Local-Branching}
 
-\section{tabu-search}
+\section{Tabu-Search}
+Tabu Search (TS) has been developed by Fred Glover \cite{Glover1998}. TS is a heuristic that combines a local search process with a number of anti-cycling rules which prevent the search from getting trapped in a local minimum. Tabu Search is very similar to a local search algorithm that proceeds iteratively from one solution to another through the Best-2-opt \ref{sec:best_2_opt} method. It also uses a special memory structure, called a tabu list, that determines which subsequent solution will be chosen and therefore to organize the way space is explored. The algorithm starts with a random solution. By applying the Best-2-opt, as long as a new improvement solution is found, it updates the current solution to it. When it comes to a local minimum (i.e. there are no improvement solutions around two optimality) the use of the tabu list comes into play.\\
+Pejorative moves are now allowed and the algorithm chooses the lowest cost one and adds this move to the tabu list, updates the current solution and starts again with the Best-2-opt.
+During the next iteration, while searching for the new solution, check that the move to obtain it does not belong to the list. If it does not appear, then the move is lawful and continues with the next steps of the algorithm. Conversely, if the move is tabu (i.e. not allowed, prohibited), the solution is discarded and another is chosen, until a lawful move is found. The algorithm will continue to choose licit pejorative moves until an improvement one, that does not belong to the list, is found. In this case the algorithm starts again.\\
+As will be discussed later, the tabu list has a maximum size of elements. Consequently, when a new element has to be inserted and the list is full, the "oldest" element (i.e. the one that has been inserted longer) of the list will be replaced with it.\\
+This strategy allows research to move along the "hills" that the costs of the various solutions form in the solution space. It is an excellent method to escape from the local minimum by maintaining a search based on the Best-2-opt.\\
+Looking at the implementation details there are many aspects that must be carefully evaluated:
 
+\begin{itemize}
+\item Type of structure for tabu list
+\item Size of tabu list
+\item Termination criterion
+\end{itemize}
+
+First of all, the type of structure used for the tabu list. We have decided to propose two different solutions, as each of them has its potential and its defects. The first, more classic, involves the use of a fixed-size array to store prohibited moves (so for each Best-2-opt move, the two relative edges are inserted into the array). The second, however, uses a linked list in which each element is formed by a variable for the edge and a pointer \textit{next} to the next element.
+One of the main differences is the allocation of memory, as the linked list dynamically manages its size and therefore aims to optimize space but, on the other hand, the removal of the oldest inserted element requires complete scrolling of the list. Instead the array optimizes the operations on the elements contained but on the other hand it cannot have a dynamic dimension except through the creation and the copy in a new array (probably with an excellent knowledge of low-level memory and an ad hoc solution is possible to manage dynamic dimension of an array). For the management of the elements in the array it was decided to add one more element than the value of the chosen dimension, assigning it a static value of -1 that will never be changed. In this way, replacing an element when the list is full is very simple as it is sufficient to assign the new edge instead of -1 and replace the next element with -1. This causes the array to be cyclical and, through a single index variable, does not require any research for this type of operation.\\
+Another aspect to consider is the size of the tabu list. An "infinite" dimension would risk bringing the algorithm to a standstill in which it can no longer make any move since all those around two optimality have been prohibited. Conversely, too small a size could cause a return to the local minimum from which one was running away. A lot of studies and research have been done for this specific aspect \cite{Nababan_2019, Tsubakitani1998} and a better overall result than others has not been found, changing the typology of the problem also varies the best size of the list. An average list size with respect to the problem proved to be the best choice as a balance between computational time and the optimal markspace value. Thus a size equal to half the number of problem nodes was set.\\
+Finally, the termination criterion can be based on a maximum number of iterations of the algorithm or on a fixed number of iterations in which the solution no longer improves or, as in our case, on a timelimit.
 \section{simulated-anealing}
 
 \section{Variable Neighborhood Search (VNS)}
@@ -55,6 +71,8 @@ The performance profiles in fig \ref{fig:Lsubtour_hardfixing_vns_time} and \ref{
 		\caption{The graph of the solution returned by VNS.}
 		\label{fig:d2103_16}
 	\end{subfigure}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% LE IMMAGINI QUI DENTRO NON CI SONOOOOOOO
+\begin{comment}
 	\begin{subfigure}{.5\columnwidth}
 		\centering
 		\includegraphics[width=\columnwidth]{../res/Lsubtour_hardfixing_vns_time.png}
@@ -67,6 +85,8 @@ The performance profiles in fig \ref{fig:Lsubtour_hardfixing_vns_time} and \ref{
 		\caption{Performance profile considering the lower bound.}
 		\label{fig:Lsubtour_hardfixing_vns_lb}
 	\end{subfigure}
+\end{comment}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \end{figure}
 
 \section{Genetic Algorithm}
