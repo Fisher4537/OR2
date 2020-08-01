@@ -2351,7 +2351,6 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 		else
 			inst->best_sol[i] = 0.0;
 
-	push(&head_save, best_global_lb, 0);
 	write_list_lb(head_save);
 
 	if (inst->verbose > 100)
@@ -2384,6 +2383,9 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 		printf("\nHello from process : % d\n\n", omp_get_thread_num());
 
 	*/
+	
+	tabu_list* head_save = NULL;
+	
 	double global_best_lb = CPX_INFBOUND;
 	double remaining_time = inst->timelimit;
 
@@ -2392,6 +2394,7 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 	int nStag;							// Termination Criterion of GA-EAX/Stage1
 
 	double** population = (double**)calloc(nPop, sizeof(double*));
+	double* best_global_sol = (double*)calloc(inst->nedges, sizeof(double));
 
 	int* frequencyTable = (int*)calloc(inst->nedges, sizeof(int));
 
@@ -2442,14 +2445,21 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 				}
 			}
 			printf("\nIndividual %d: %0.f\n", i, cost);
-			if (cost <= global_best_lb)
+			push(&head_save, cost, 0);
+			if (cost <= global_best_lb) {
 				global_best_lb = cost;
+				for (int k = 0; k < inst->nedges; k++)
+					if (population[i][k] == 1.0)
+						inst->best_sol[k] = 1.0;
+					else
+						inst->best_sol[k] = 0.0;
+			}
 		}
 		printf("\n");
 		remaining_time -= second() - ini;
 	}
 	free_ga(population, frequencyTable, nPop);
-
+	write_list_lb(head_save);
 
 
 }
