@@ -1,5 +1,23 @@
 \chapter{Refining Heuristics}
+In this chapter are discussed the heuristic that starting from an initial solution of the TSP return a better solution in term of cost. This kind of heuristic will be called Refining Heuristics because of the solution cost improvement. 
+
+\section{2-opt} \label{sec:best_2_opt}
+
+This heuristic is a simple local search algorithm for TSP problem.\\
+\texttt{2\_opt()} 
+\begin{enumerate}
+	\item iterate over each edge of the tour $ (n_1,n_2) \in E, $ with cost $ c_{n_1n_2} $
+	\item for each other edge of the tour $ (m_1, m_2) \in E $ with no node in common, $ m_1,m_2 \ne n_1,n_2 $ and associated cost $ c_{m_1m_2} $
+	\item evaluate which is the pair of edges that has the best cost improvement $ \delta_{cost} = c_{n_1m_1} + c_{n_2m_2} - c_{n_1n_2} - c_{m_1m_2} $.
+\end{enumerate}
+In the example in fig \ref{fig:2_opt_graph} the pair that has the best improvement is $ (1,4) $ and $ (5,2) $. Note that although $ (5,2) = (2,5) $ for the model, for this algorithm it must be choose an orientation of the tour, and each edge must be represented with consequent ordered node pair: if $ (1,4) $ is the first considered edge, it impose the orientation of the tour and to calculate $ \delta_{cost} $ according with the formula defined above, the second edge is $ (5,2) $ not $ (2,5) $, and the added edges are $ (1,5) $ and $ (4,2) $. Adding $ (1,2) $ and $ (5,4) $ would create two different tours.
 
 
-\section{Best-2-opt} \label{sec:best_2_opt}
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=.3\columnwidth]{img/2_opt_graph.png}
+	\caption{Example graph to explain \texttt{2\_opt()} method. The input graph is that with continuous edges. \texttt{2\_opt()} would remove $ (1,4) $ and $ (2,5) $ from the tour and replace them with $ (1,5) $ and $  (2,4) $}
+	\label{fig:2_opt_graph}
+\end{figure}
+
 \section{n-opt}

@@ -125,7 +125,7 @@ Algorithm \ref{alg:gagen} describes in a compact way the various steps of the en
 \While{\textit{termination condition is satisfied}}
 	\State $\textit{r($\cdot$)} := \textit{SHUFFLE\_INDIVIDUALS() $\equiv$ a random permutation of $1$,...,N\textsubscript{pop} } $
 	\For{\texttt{$i := 1$ to N\textsubscript{pop}}}
-		\State $\textit{p\textsubscript{A}} := \textit{x\textsubscript{r($i$)}} , \textit{p\textsubscript{B}} := \textit{x\textsubscript{r($i+1$)}} $
+		\State $p_A := \textit{x\textsubscript{r($i$)}} , \textit{p\textsubscript{B}} := \textit{x\textsubscript{r($i+1$)}} $
 		\State $\textit{\{y\textsubscript{$1$},...,y\textsubscript{N\textsubscript{kids}}\}} := \textit{EAX\_SINGLE(p\textsubscript{A}, p\textsubscript{B})}$
 		\State $\textit{x\textsubscript{r($i$)}} := \textit{SURVIVAL\_SELECTION(y\textsubscript{$1$},...,y\textsubscript{N\textsubscript{kids}}, p\textsubscript{A})} $
 	\EndFor
