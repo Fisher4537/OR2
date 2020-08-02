@@ -2,13 +2,33 @@
 
 \section{Greedy}\label{sec:greedy}
 \subsection{Greedy with CGAL Library}
-To take a look at the potential of the CGAL library, we decided to implement the greedy algorithm. It follows the same idea as the one previously described (Section \ ref {sec: greedy}) but using completely different data structures. Thanks to the potential of the C ++ code and therefore the use of objects, the CGAL library offers a very wide range of elements.\\ First of all, the objects used for this algorithm are briefly explained:
+To take a look at the potential of the CGAL library, we decided to implement the greedy algorithm. It follows the same idea as the one previously described (Section \ref{sec:greedy}) but using completely different data structures. Thanks to the potential of the C++ code and therefore the use of objects, the CGAL library offers a very wide range of elements.\\ 
+The installation of CGAL within the Windows environment with Visual Studio 2019 is reported in the appendix \ref{sec:cagalOne}.\\
+Using the code:
+
+\begin{lstlisting}
+extern "C" {...}
+\end{lstlisting}
+
+it's possible to define within methods in C++ code that can be execute by a C class.\\
+First of all, the objects used for this algorithm are briefly explained:
 \begin{enumerate}
-\item CGAL :: Simple\_cartesian <double> K: 
-\item CGAL :: Search\_traits\_2 <K> TreeTraits:
-\item CGAL :: Orthogonal\_k\_nemap.com\_search <TreeTraits> Neighbor\_search:
-\item Neighbor\_search :: Tree Tree:
+\item CGAL :: Simple\_cartesian <double> K: The layer of geometry kernels provides basic geometric entities of constant size and primitive operations on them. Each entity is provided as both a stand-alone class, which is parameterized by a kernel class, and as a type in the kernel class. CGAL provides different kernels, they can differ by internal representation of objects (e.g. cartesian versus homogeneous) or provide different functionalities. When creating a new package, the authors have to specify clearly the requirements needed by the kernel used and may specify a targeted kernel in the list of predefined kernels. In this project \textit{Exact\_predicates\_inexact\_constructions\_kernel} is used. Thus, a \textit{Simple\_cartesian} object is chosen to represent a model for a kernel using Cartesian coordinates to represent the geometric objects.
+\item CGAL :: Search\_traits\_2 <K> TreeTraits: The \textit{Simple\_cartesian} allows to define a \textit{dD Spatial Searching} which is, in this kind of problems, a 2D space.
+\item CGAL :: Orthogonal\_k\_nemap.com\_search <TreeTraits> Neighbor\_search: Thanks to the aforementioned objects, with this one a neighborhood search is created, based on the Euclidean distance in a Cartesian plane.
+\item Neighbor\_search :: Tree Tree: In our implementation was decided to use a Tree representation in which to apply the \textit{Neighbor\_search}.
 \end{enumerate}
+Once the model and structure have been defined, the search is simple. Each node is created via the \textit{Point\_2} object of the kernel defined above. The various points are assigned to the \textit{Tree}. As a last step just pass the \textit{Tree}, the starting node and the number of total nodes to the \textit{Neighbor\_search} and it return an ordered list of nodes from the closest to the furthest from the starting one.\\
+By repeating this procedure for each node, a matrix of nodes sorted by distance from the starting point is obtained and with an ad hoc searching function:
+
+\begin{lstlisting}
+vector<int>::iterator it = find_if(neigh_sol_idx[succ].begin(), neigh_sol_idx[succ].end(),
+					 [&](int neig) {
+	return find(var->sol[i].begin(), var->sol[i].end(), neig) == var->sol[i].end();
+});
+\end{lstlisting}
+
+the resulting matrix will have a number of lines equal to the number of nodes and each of them will be a tour built starting from a node and always choosing the closest from the current node, exactly as the algorithm \ref{sec: greedy}.
 
 \section{Greedy Randomize Adaptive Search Path (GRASP)}
 GRASP metaheuristic, as the name anticipate, is a Greedy constructive heuristic with some randomization. Indeed, for the TSP problem, instead of bring the closer isolated node as next, it's chose a random node between the $ G $ closest isolated nodes, where $ G = 3 $ in the tested implementation.

@@ -945,7 +945,7 @@ int* heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status
 			free(sol);
 		}
 		free_cgal();
-		if (inst->verbose >= 100)
+		if (inst->verbose >= 10)
 			printf("BEST_LB Greedy Heuristic CGAL found: [%f]\n", inst->best_lb);
 
 		// Copy and convert to double sol in best_sol
@@ -3117,8 +3117,8 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 				countEdges = 0;
 				for (int w = 0; w < inst->nnodes; w++) {
 					if (ABcycles[*idxCycle - 1][edges_cycles_EA[*idxCycle - 1][w]] == 0.0) {
-						edges_cycles_EA[*idxCycle][countEdges] = edges_cycles_EA[*idxCycle - 1][w];
-						edges_cycles_EA[*idxCycle - 1][w] = -1;
+						//edges_cycles_EA[*idxCycle][countEdges] = edges_cycles_EA[*idxCycle - 1][w];
+						//edges_cycles_EA[*idxCycle - 1][w] = -1;
 						countEdges++;
 					}
 				}
@@ -3142,22 +3142,24 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 			}
 		}
 
-		printf("\nEdges graph_AB:   ");
-		for (int w = 0; w < inst->nedges; w++) {
-			if (graph_AB[w] == 1.0)
-				printf("%2d ", w);
-			else if (graph_AB[w] == 2.0)
-				printf("%2d(%.0f) ", w, graph_AB[w]);
-		}
-		printf("\nEdges_EA:   ");
-		for (int w = 0; w < inst->nedges; w++) {
-			if (copy_EA[w] == 1.0)
-				printf("%2d ", w);
-		}
-		printf("\nEdges_EB:   ");
-		for (int w = 0; w < inst->nedges; w++) {
-			if (copy_EB[w] == 1.0)
-				printf("%2d ", w);
+		if (inst->verbose > 100) {
+			printf("\nEdges graph_AB:   ");
+			for (int w = 0; w < inst->nedges; w++) {
+				if (graph_AB[w] == 1.0)
+					printf("%2d ", w);
+				else if (graph_AB[w] == 2.0)
+					printf("%2d(%.0f) ", w, graph_AB[w]);
+			}
+			printf("\nEdges_EA:   ");
+			for (int w = 0; w < inst->nedges; w++) {
+				if (copy_EA[w] == 1.0)
+					printf("%2d ", w);
+			}
+			printf("\nEdges_EB:   ");
+			for (int w = 0; w < inst->nedges; w++) {
+				if (copy_EB[w] == 1.0)
+					printf("%2d ", w);
+			}
 		}
 		printf("\n********************************* END TOUR FOUND *********************************\n");
 
