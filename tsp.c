@@ -55,7 +55,7 @@ char * model_name(int i) {
 		case 11: return "heuristic_greedy_cgal";			// Greedy with CGAL (no CPLEX)
 		case 12: return "heuristic_grasp";					// GRASP (no CPLEX)
 		case 13: return "heuristic_insertion";				// Heuristic Insertion (no CPLEX)
-		case 14: return "grasp_best_two_opt";				// GRASP + best_two_opt
+		case 14: return "grasp";				// GRASP + best_two_opt
 		case 15: return "patching";							// Patching
 		case 16: return "vns";
 		case 17: return "tabu_search";						// Greedy + TABU' SEARCH (linked list version)
@@ -66,6 +66,8 @@ char * model_name(int i) {
 		case 22: return "heuristic_insertion_cplex";		// Heuristic Insertion (Warm Start for CPLEX)
 		case 23: return "simulating_annealing";				// GRASP + Simulating Annealing
 		case 24: return "genetic_algorithm";				// Genetic Algorithm
+		case 25: return "grasp_best_two_opt";
+		case 26: return "insertion_best_two_opt";
 		default: return "not_supported";
 	}
 }
@@ -172,7 +174,7 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->model_type = 0;
 			inst->warm_start = 3;
 			inst->heuristic = 3;
-			return "grasp_best_two_opt";				// GRASP + best_two_opt
+			return "grasp";				// GRASP + best_two_opt
 		case 15:
 			inst->model_type = 0;
 			inst->warm_start = 0;
@@ -226,6 +228,16 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->model_type = 0;
 			inst->heuristic = 9;
 			return "genetic_algorithm";					// Genetic Algorithm
+		case 25:
+			inst->model_type = 0;
+			inst->warm_start = 1;
+			inst->heuristic = 3;
+			return "greedy_best_two_opt";				// GRASP + best_two_opt
+		case 26:
+			inst->model_type = 0;
+			inst->warm_start = 4;
+			inst->heuristic = 3;
+			return "insertion_best_two_opt";				// Insertion + best_two_opt
 		default: return "not_supported";
 	}
 }
@@ -1285,6 +1297,8 @@ int contained_in_index(int* vector, int count_sol, int elem) {
 
 // optimization
 void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
+	double last_best_lb;
+	double init_time = second();
 	switch (inst->heuristic){
 
 		case 0:													// No Heuristic used
@@ -1300,7 +1314,19 @@ void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		break;
 
 		case 3:
-			best_two_opt(inst);
+			// execute best_two_opt while local minimum is found
+			last_best_lb = inst->best_lb;
+
+			while (inst->timelimit > second() - init_time) {  // iterate best_two_opt
+				best_two_opt(inst);
+				if (inst->verbose >= 80)
+					printf("%10.1lf,%.3lf\n", inst->best_lb, second() - init_time);
+				if (last_best_lb > inst->best_lb) {  // found a new best, continue iteration
+					last_best_lb = inst->best_lb;
+				} else {		// no new best_lb found, stop iteration
+					break;
+				}
+			}
 		break;
 
 		case 4:
@@ -2383,9 +2409,9 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 		printf("\nHello from process : % d\n\n", omp_get_thread_num());
 
 	*/
-	
+
 	tabu_list* head_save = NULL;
-	
+
 	double global_best_lb = CPX_INFBOUND;
 	double remaining_time = inst->timelimit;
 

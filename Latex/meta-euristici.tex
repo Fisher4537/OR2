@@ -17,7 +17,7 @@ The performance profile as shown in fig \ref{fig:Lsubtours_hardfixing_lightavera
 \begin{figure}[h]
 	\centering
 	\includegraphics[width=\columnwidth]{../res/Lsubtours_hardfixing_lightaverage_time.png}
-	\caption{Performance profile to compare subtours methods with \textit{hard\_fixing}. The name of \textit{hard\_fix} model contain in order: $ max\_f_r, incr_fr, decr\_f_r, good\_gap, optimal\_gap $. The test set is the composition of data\_light and data\_average.}
+	\caption{Performance profile to compare subtours methods with \texttt{hard\_fixing}. The name of \texttt{hard\_fix} model contain in order: $ max\_f_r, incr_fr, decr\_f_r, good\_gap, optimal\_gap $. The test set is the composition of data\_light and data\_average.}
 	\label{fig:Lsubtours_hardfixing_lightaverage_time}
 \end{figure}
 
@@ -64,7 +64,7 @@ The slight probability of taking a step that gives higher energy is what allows 
 
 \begin{figure}[h]
 	\centering
-	\includegraphics[width=1.0\columnwidth]{../res/fl1400_23.png}
+	\includegraphics[width=.6\columnwidth]{../res/fl1400_23.png}
 	\caption{Performance profile considering the execution time of 1400 nodes file with timelimit of 10000}
 	\label{fig:simultaing_annealing_perform_time}
 \end{figure}
@@ -87,7 +87,7 @@ The performance profiles in fig \ref{fig:Lsubtour_hardfixing_vns_time} and \ref{
 	\begin{subfigure}{.5\columnwidth}
 		\centering
 		\includegraphics[width=\columnwidth]{../res/d2103.png}
-		\caption{The cost of the solution (vs time domain) returned by \texttt{best\_two\_opt()} in each step of the VNS.}
+		\caption{The profile of the cost of the solution (vs time domain) returned by \texttt{best\_two\_opt()} in each step of the VNS.}
 		\label{fig:VNS_d2103}
 	\end{subfigure}
 	\begin{subfigure}{.5\columnwidth}
@@ -102,6 +102,7 @@ The performance profiles in fig \ref{fig:Lsubtour_hardfixing_vns_time} and \ref{
 		\caption{Performance profile considering the execution time}
 		\label{fig:Lsubtour_hardfixing_vns_time}
 	\end{subfigure}
+\hfill
 	\begin{subfigure}{.5\columnwidth}
 		\centering
 		\includegraphics[width=\columnwidth]{../res/Lsubtour_hardfixing_vns_lb.png}

@@ -19,5 +19,40 @@ In the example in fig \ref{fig:2_opt_graph} the pair that has the best improveme
 	\caption{Example graph to explain \texttt{2\_opt()} method. The input graph is that with continuous edges. \texttt{2\_opt()} would remove $ (1,4) $ and $ (2,5) $ from the tour and replace them with $ (1,5) $ and $  (2,4) $}
 	\label{fig:2_opt_graph}
 \end{figure}
+As can be seen in fig \ref{fig:lb_time_grasp_best_two_opt_d2103} multiple execution of \texttt{2\_opt()} can improve more than 50\% the cost of the solution before to find a local minimum.
+\begin{figure}[!h]
+\centering
+\includegraphics[width=.6\columnwidth]{../res/lb_time_grasp_best_two_opt_d2103.png}
+\caption{Consequence execution of \texttt{2\_opt()} until local minimum if found. GRASP constructive heuristic is used to find the first available solution.}
+\label{fig:lb_time_grasp_best_two_opt_d2103}
+\end{figure}
 
-\section{n-opt}
+It is interesting to see the solution cost profile of \texttt{2\_opt()} (fig \ref{fig:a280_25}) applied to the best of the greedy solution. Note that the best tour is calculated in $ 7.42 $s with \texttt{subtour\_callback\_general} but \texttt{2\_opt()} find similar solution in $ 0.07$s
+
+\begin{figure}[!h]
+	\begin{subfigure}{.5\columnwidth}
+		\centering
+		\includegraphics[width=0.9\columnwidth]{../res/a280_10.png}
+		\caption{The shortest greedy tours.}
+		\label{fig:a280_10}
+	\end{subfigure}
+	\begin{subfigure}{.5\columnwidth}
+		\centering
+		\includegraphics[width=0.9\columnwidth]{../res/a280_25.png}
+		\caption{The result of iterative \texttt{2\_opt} applied after a the best greedy.}
+		\label{fig:a280_25}
+	\end{subfigure}
+	\begin{subfigure}{.5\columnwidth}
+		\centering
+		\includegraphics[width=0.9\columnwidth]{../res/lb_greedy_best_two_opt_a280.png}
+		\caption{The profile of the solution cost over time of the \texttt{2\_opt} optimization.}
+		\label{fig:lb_greedy_best_two_opt_a280}
+	\end{subfigure}
+	\begin{subfigure}{.5\columnwidth}
+		\centering
+		\includegraphics[width=0.9\columnwidth]{../res/a280_0.png}
+		\caption{The shortest tour tours.}
+		\label{fig:a280_0}
+	\end{subfigure}
+\end{figure}
+
