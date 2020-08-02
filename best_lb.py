@@ -26,7 +26,7 @@ def best_lb_vs_time(file_path):
     ax.plot(np.array(time_domain), np.array(best_lb))
 
     ax.set(xlabel='Time [s]', ylabel='Best lower bound',
-           title='Simulating-Annealing '+file_path)
+           title=file_path)
 
     fig.savefig(os.path.join(file_path[:-3] + "png"))
     plt.show()

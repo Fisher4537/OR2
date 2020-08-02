@@ -49,7 +49,7 @@ A \texttt{succ} structure is use to represent the input tours, which for each  $
 \end{cases}
 \end{equation} \\
 In the \texttt{succ} structure, each edge could be considered as oriented: if \texttt{succ[i] = j} than \texttt{i} $\rightarrow$ \texttt{j} is the considered edge orientation. \\
-The merge phase is the core of the method. To avoid a large number of intersection between edges, which is a sign of non optimal solution, all the tour are initialize in clockwise orientation and the merge phase keep the property in the output tour. An example of merge is done in fig \ref{fig:patching_merge}.
+The merge phase is the core of the method. To avoid a large number of intersection between edges, which is a sign of non optimal solution, all the tour are initialize in clockwise orientation and the merge phase must keep the property in the output tour. An example of merge is done in fig \ref{fig:patching_merge}. Note that once the two nodes are selected there are only two possible merge: one create the intersection and the other one does not. It is easy to prove that without intersection the tour is shorter. Moreover if each tour is clockwise, the property is naturally maintained
 \begin{figure}[!h]
 	\begin{subfigure}{.26\columnwidth}
 		\includegraphics[width=\columnwidth]{img/patching_merge1.png}
@@ -69,7 +69,7 @@ The merge phase is the core of the method. To avoid a large number of intersecti
 		\label{fig:patching_merge3}
 	\end{subfigure}
 
-	\caption{Merge phase in detail.}
+	\caption{Merge phase in detail. Note that the orientation of the arch is that expressed from the associated \texttt{succ} structure, however the problem is ATSP, therefore the edges are not oriented.}
 	\label{fig:patching_merge}
 \end{figure}\\
 
@@ -84,25 +84,22 @@ The merge phase is the core of the method. To avoid a large number of intersecti
 														& \texttt{succ[i]:}	& 5 & 3 & 1 & 2 & 6 & 4 \\
 	\end{tabular}
 \end{table}
-To keep the clockwise orientation of the tour there is a special consideration have to be done to merge an isolated node with a tour of two nodes. In the final tour the clockwise property is checked if the condition is satisfied:
+To keep the clockwise orientation of the tour there is a special consideration have to be done to merge an isolated node with a tour of two nodes. In the final tour the clockwise property must is checked if the condition is satisfied:
 $ (x_3 - x_1)*(y_2 - y_1) < (y_3 - y_1)*(x_2 - x_1) $,
 otherwise the tour is reversed.
-
-
 \begin{figure}[!h]
-	\hfill%
+	\centering
 	\begin{subfigure}{.2\columnwidth}
 		\includegraphics[width=\columnwidth]{img/patching_merge_clockwise1.png}
-		\caption{}
+		\caption{Tours to be merged}
 		\label{fig:patching_merge_clockwise1}
 	\end{subfigure}
-\hfill%
+\hfill
 	\begin{subfigure}{.46\columnwidth}
 		\includegraphics[width=\columnwidth]{img/patching_merge_clockwise2.png}
-		\caption{}
+		\caption{Two different orientation can result with the same cost. The clockwise orientation is accepted, otherwise the tour is reversed.}
 		\label{fig:patching_merge_clockwise2}
 	\end{subfigure}
-\hfill%
-	\caption{Special case of merge phase that create a tour with 3 edges.}
+	\caption{Special case of merge phase that create a tour with 3 edges. The orientation of the tour must be reverse if necessary.}
 	\label{fig:patching_merge_clockwise}
 \end{figure}

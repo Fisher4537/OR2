@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def get_testset(file_path, v_shift=20., time_limit=300., model_filter=None):
+def get_testset(file_path, v_shift=5., time_limit=300., model_filter=None):
     test_set = {}
     with open(file_path, mode='r') as in_csv:
         for line in in_csv:  # skip first line
@@ -51,7 +51,7 @@ def get_testset(file_path, v_shift=20., time_limit=300., model_filter=None):
     return test_set
 
 
-def performance_profile(file_path, v_shift=20., time_limit=300., model_filter=None):
+def performance_profile(file_path, v_shift=3., time_limit=300., model_filter=None):
     """
         test_set = {
             'att48.tsp': {
