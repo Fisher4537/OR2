@@ -18,8 +18,8 @@ int main(int argc, char **argv)
 		 fflush(stdout);
 	}
 
-	int seed[5] = { 0, 123456, 666, 777, 1995 };
 	/*
+	int seed[5] = { 0, 123456, 666, 777, 1995 };
 	char files[45][15] = {  "att48.tsp",
 							"berlin52.tsp",
 							"bier127.tsp",
@@ -50,7 +50,7 @@ int main(int argc, char **argv)
 							"ulysses16.tsp",
 							"ulysses22.tsp"
 	};
-	*/
+	
 	char files[21][15] = {  "att48.tsp",
 							"berlin52.tsp",
 							"bier127.tsp",
@@ -75,16 +75,18 @@ int main(int argc, char **argv)
 	};
 	for (int i = 12; i < 21; i++) {
 		for (int j = 0; j < 2; j++) {
+			*/
 			tspinstance inst;
 
 			// parse input args
 			parse_command_line(argc, argv, &inst);
 
+			/*
 			(&inst)->randomseed = seed[j];
 			char name[100] = "Test_Set\\";
 			concatenate_string(name, files[i]);
 			strcpy((&inst)->input_file, name);
-
+			*/ 
 			// read input files
 			read_input(&inst);
 
@@ -97,8 +99,8 @@ int main(int argc, char **argv)
 			else if ((&inst)->verbose < 100) save_results(&inst, "res_trainset.csv");
 
 			free_instance(&inst);
-		}
-	}
+		//}
+	//}
 	// printf("END OF mainTSP, press Return to exit...");
 	// getchar(); // pause execution
 	return 0;
