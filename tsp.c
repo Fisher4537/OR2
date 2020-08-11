@@ -66,7 +66,7 @@ char * model_name(int i) {
 		case 22: return "heuristic_insertion_cplex";		// Heuristic Insertion (Warm Start for CPLEX)
 		case 23: return "simulating_annealing";				// GRASP + Simulating Annealing
 		case 24: return "genetic_algorithm";				// Genetic Algorithm
-		case 25: return "grasp_best_two_opt";
+		case 25: return "greedy_best_two_opt";
 		case 26: return "insertion_best_two_opt";
 		default: return "not_supported";
 	}
@@ -1577,14 +1577,14 @@ void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, doubl
 
 int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	// TODO resolve returning value
+	double ini = second();
 	int k_index = 0;
 	double k[5] = { 3.0, 5.0, 10.0, 15.0, 20.0};
 	double timelimit = 300;									// internal timelimit
 	double temp_timelimit = timelimit;
-	double remaining_time = inst->timelimit;
 
 	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 1);			// abort Cplex after the first incument update
-	CPXsetdblparam(env, CPX_PARAM_TILIM, timelimit);
+	CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit - (second() - ini));
 
 	double* best_sol = (double*)calloc(inst->nedges, sizeof(double));
 	double best_lb = CPX_INFBOUND;
@@ -1594,8 +1594,7 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 
 	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, INT_MAX);
 
-	for (int h = 0; remaining_time > 0.0; h++) {
-		double ini = second();
+	for (int h = 0; inst->timelimit - (second() - ini) > 0.0; h++) {
 
 		int nnz = 0;
 		for (int i = 0; i < inst->nnodes * (inst->nnodes - 1) / 2; i++) {
@@ -1627,34 +1626,23 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 				rhs = (double)inst->nnodes - k[k_index];
 			else
 				rhs = (double)inst->nnodes - k[4] > (double)inst->nnodes ? (double)inst->nnodes : k[4];
-			if (temp_timelimit > remaining_time)
-				CPXsetdblparam(env, CPX_PARAM_TILIM, remaining_time);
-			else
-				CPXsetdblparam(env, CPX_PARAM_TILIM, temp_timelimit);
-		}else {
+
+		} else {
 			if (k_index < 4) {
 				k_index++;
 				rhs = (double)inst->nnodes - k[k_index];
 				temp_timelimit = timelimit * (k_index + 1.0);
-			}else {
+			} else {
 				k[4] = (k[4] * 2.0 > (double)inst->nnodes) ? (double)inst->nnodes : k[4] * 2.0;
 				rhs = (double)inst->nnodes - k[4];
 			}
-			if(temp_timelimit > remaining_time)
-				CPXsetdblparam(env, CPX_PARAM_TILIM, remaining_time);
-			else
-				CPXsetdblparam(env, CPX_PARAM_TILIM, temp_timelimit);
-
 		}
 
 		sprintf(cname[0], "local-branching constraint, k_index = %f", k_index < 5 ? k[k_index] : k[4]);
 
-		char sense = 'G';
-
 		if (inst->verbose >= 100) {
-			printf("\n********** Round = %d  -  K = %f  -  Remaining_time = %6.3lf **********\n\n", h, k[k_index], remaining_time);
+			printf("\n********** Round = %d  -  K = %f  -  Remaining_time = %6.3lf **********\n\n", h, k[k_index], inst->timelimit - (second() - ini));
 		}
-
 
 		for (int i = 0; i < inst->nnodes; i++){
 			for (int j = i + 1; j < inst->nnodes; j++) {
@@ -1665,20 +1653,20 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 				}
 			}
 		}
+
+		char sense = 'G';
 		if (CPXaddrows(env, lp, 0, 1, nnz, &rhs, &sense, &izero, index, value, NULL, cname))
 			print_error("wrong CPXpreaddrows() for adding local-branching constraint\n");
 
 		free(index);
 		free(value);
 
+		CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit - (second() - ini));
 		if (mip_optimization(env, lp, inst, status)) {
 			printf("Error in CPXmipopt\n");
 		}
 
-		double fin = second();
-		remaining_time -= (fin - ini);
-
-		if (remaining_time <= 0.01) {
+		if (inst->timelimit - (second() - ini) <= 0.01) {
 			if (CPXgetstat(env, lp) == 101 || CPXgetstat(env, lp) == 102) {
 				if(best_lb > inst->best_lb)
 					inst->best_sol = best_sol;
@@ -1689,6 +1677,7 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 			printf("*** Better soluzion found! ***\n");
 			return 0;
 		}
+
 		if (k[4] == inst->nnodes) {
 			int status = CPXgetstat(env, lp);
 			if (CPXgetstat(env, lp) == 101 || CPXgetstat(env, lp) == 102) {

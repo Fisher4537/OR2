@@ -4,7 +4,7 @@
 
 %% Sets the document class for the document
 % Openany is added to remove the book style of starting every new chapter on an odd page (not needed for reports)
-\documentclass[10pt, english, openany]{report}
+\documentclass[11pt, english, openany]{report}
 
 %% Loading packages that alter the style
 \usepackage[]{graphicx}
@@ -147,15 +147,16 @@
 	\input{constructive-heuristics.tex}
 	\input{refining-heuristics.tex}
 	\input{repair.tex}
+	\input{mip-heuristics.tex}
 	\input{conclusion.tex}
 	\clearpage
 	
 	\begin{appendices}
 		\chapter{Test bed} \label{sec:testset}
 		The TSPLIB \cite{TSPLIB} is a library that contain different instances of TSP problem and its best solution found. All the file described in this section are part of the TSPLIB. To test the developed algorithm three different set have been prepared, depending on the number of node ($=|V|$) in the graph: Data Light, Data Average and Data Heavy.\\
-		These are all intended as STSP, however the same instance can be considered also for ATSP replacing each edge with two arches with opposite direction. This subdivision is justified by the different execution time of the algorithms: it is more interesting to compare the performance of different algorithms in similar instances.\\
+		These are all intended as sTSP, however the same instance can be considered also for aTSP replacing each edge with two arches with opposite direction. This subdivision is justified by the different execution time of the algorithms: it is more interesting to compare the performance of different algorithms in similar instances.\\
 		
-		\textbf{Data Light:}
+		\textbf{Data Light ($ |V| \le 150 $):}
 		\begin{multicols}{4}
 			\begin{itemize}
 				\item att48.tsp
@@ -191,7 +192,7 @@
 		\end{multicols}
 		
 		
-		\textbf{Data Average:}
+		\textbf{Data Average ($ 150 < |V| \le 300 $):}
 		\begin{multicols}{4}
 			\begin{itemize}
 				\item a280.tsp
@@ -214,7 +215,7 @@
 		\end{multicols}
 		
 		
-		\textbf{Data Heavy:}
+		\textbf{Data Heavy ($ 300 < |V|$):}
 		\begin{multicols}{4}
 			\begin{itemize}
 				\item ali535.tsp

@@ -1,8 +1,8 @@
 \chapter{Constructive Heuristics}
 
 \section{Greedy}\label{sec:greedy}
-Greedy heuristic for TSP start by choosing a random element and add one node at a time the closer node, making as usual the local optimal choice. This create good path in the first part of the tour, however the last added edges create different crosses with the other one. Therefore this heuristic can be applied in combination with refining heuristics such as: local branch, hard fixing, iterative two opt and other ones that try to improve a tour.\\
-The algorithm is $ O(n^2) $ where $ n = |V| $, therefore is pretty fast, however depending on the first selected node, the cost of the tour can differ more than 100 \% one another. The implemented algorithm, at cost of execution time, perform the described greedy using all the nodes as starting node, returning the shortest tour. The time complexity for the implemented algorithm raise to $ O(n^3) $.\\
+Greedy heuristic for TSP start by choosing a random element and add always the closer node, one node at a time, making the local optimal choice. This create good path in the first part of the tour, however the last added edges create different crosses. Therefore this heuristic can be applied in combination with refining heuristics such as: \texttt{local\_branch}, \texttt{hard\_fixing}, \texttt{best\_two\_opt} and other ones that try to improve a tour.\\
+The algorithm computational time is $ O(n^2) $ where $ n = |V| $, therefore is pretty fast, however depending on the first selected node, the cost of the tour can differ more than 100 \% one another. The implemented algorithm (from now only \texttt{Greedy}), at cost of execution time, perform the described greedy using all the nodes as starting node, returning the shortest tour. The time complexity for the implemented algorithm raise to $ O(n^3) $.\\
 In fig \ref{fig:a280_10_} an example of tour calculated with the implemented algorithm.
 
 \begin{figure}[h]
@@ -42,51 +42,51 @@ vector<int>::iterator it = find_if(neigh_sol_idx[succ].begin(), neigh_sol_idx[su
 });
 \end{lstlisting}
 
-the resulting matrix will have a number of lines equal to the number of nodes and each of them will be a tour built starting from a node and always choosing the closest from the current node, exactly as the algorithm \ref{sec: greedy}.
+the resulting matrix will have a number of lines equal to the number of nodes and each of them will be a tour built starting from a node and always choosing the closest from the current node, exactly as \texttt{Greedy}.
 
 \section{Greedy Randomize Adaptive Search Path (GRASP)}
 GRASP metaheuristic, as the name anticipate, is a Greedy constructive heuristic with some randomization. Indeed, for the TSP problem, instead of bring the closer isolated node as next, it's chose a random node between the $ G $ closest isolated nodes, where $ G = 3 $ in the tested implementation.
 The idea is that in TSP it's not always the closer to be the next node on the optimum tour. Moreover, in other metaheuristics that start from a solution and optimize it, a percentage of randomness is appreciated.
 
-In figure \ref{fig:att48_diff} can be compared of the optimum tour, the best Greedy and 4 different instances of GRASP. It's nice to see that the best Greedy (fig \ref{fig:att48_GREEDY}) is pretty close to the optimal solution and also some instance of GRASP like \ref{fig:att48_GRASP2} and \ref{fig:att48_GRASP4}.
+In figure \ref{fig:att48_diff} can be compared of the optimum tour, \texttt{Greedy} and 4 different instances of \texttt{GRASP}. It's nice to see that the \texttt{Greedy} (fig \ref{fig:att48_GREEDY}) is pretty close to the optimal solution and also some instance of \texttt{GRASP} like \ref{fig:att48_GRASP2} and \ref{fig:att48_GRASP4}.
 \begin{figure}[!h]
 	\begin{subfigure}{.5\textwidth}
 		\centering
 		\includegraphics[width=\columnwidth]{../res/att48_0.png}
-		\caption{Optimal subtour (cost $ = 10628 $, exec time = $ 0.76 $ s)}
+		\caption{Optimal subtour: cost $ = 10628 $, time = $ 0.76 $ s}
 		\label{fig:att48_best}
 	\end{subfigure}
 	\begin{subfigure}{.5\textwidth}
 		\centering
 		\includegraphics[width=\columnwidth]{../res/att48_10.png}
-		\caption{Best Greedy (cost $ = 12012 $, exec time = $ 10^{-6} $s)}
+		\caption{\texttt{Greedy}: cost $ = 12012 $, time = $ 10^{-6} $s}
 		\label{fig:att48_GREEDY}
 	\end{subfigure}
 	\begin{subfigure}{.5\textwidth}
 	\centering
 	\includegraphics[width=\columnwidth]{../res/att48_12_1.png}
-	\caption{GRASP (cost = 21824, exec time = $ 10^{-6} $s)}
+	\caption{\texttt{GRASP}: cost = 21824, time = $ 10^{-6} $s}
 	\label{fig:att48_GRASP1}
 	\end{subfigure}
 	\begin{subfigure}{.5\textwidth}
 	\centering
 	\includegraphics[width=\columnwidth]{../res/att48_12_2.png}
-	\caption{GRASP (cost = 12576, exec time = $ 10^{-6} $s)}
+	\caption{\texttt{GRASP}: cost = 12576, time = $ 10^{-6} $s}
 	\label{fig:att48_GRASP2}
 	\end{subfigure}
 	\begin{subfigure}{.5\textwidth}
 	\centering
 	\includegraphics[width=\columnwidth]{../res/att48_12_3.png}
-	\caption{GRASP (cost = 22179, exec time = $ 10^{-6} $s)}
+	\caption{\texttt{GRASP}: cost = 22179, time = $ 10^{-6} $s}
 	\label{fig:att48_GRASP3}
 	\end{subfigure}
 	\begin{subfigure}{.5\textwidth}
 	\centering
 	\includegraphics[width=\columnwidth]{../res/att48_12_4.png}
-	\caption{GRASP (cost = 13198, exec time = $ 10^{-6} $s)}
+	\caption{\texttt{GRASP}: cost = 13198, time = $ 10^{-6} $s}
 	\label{fig:att48_GRASP4}
 	\end{subfigure}
-	\caption{Differences of Greedy and GRASP tour for att48.tsp instace.}
+	\caption{Differences of \texttt{Greedy} and \texttt{GRASP} tour for att48.tsp instace.}
 	\label{fig:att48_diff}
 \end{figure}
 
@@ -98,19 +98,19 @@ The complexity of the algorithm is $ O(n^2) $.
 
 \textbf{Construction heuristic comparison.} The performance profile in fig \ref{fig:pp_Lconstructives} show the three constructive presented in this chapter and plus \texttt{greedy\_best\_two\_opt} and \texttt{insertion\_best\_two\_opt}. These last two algorithm combine the constructive heuristic with the iteration of \texttt{2\_opt()} to quickly improve the cost of the solution. Between the three constructive \texttt{heristic\_insertion} is clearly better in term of time domain and optimum tour, however with the help of 
 \texttt{best\_two\_opt}, \texttt{greedy} perform better than the \texttt{insertion}.\\
-Another consideration is about execution time of \texttt{heuristic\_insertion} which perform better as grasp (as expected) but in term of solution cost reaches the improved version \texttt{insertion\_best\_two\_opt}
+Another consideration is about execution time of \texttt{heuristic\_insertion} which perform better as \texttt{GRASP} (as expected) but in term of solution cost reaches the improved version \texttt{insertion\_best\_two\_opt}, therefore for this algorithm the \texttt{best\_two\_opt} improvement is not so effective as for \texttt{Greedy}.
 
 \begin{figure}[!h]
 	\centering
 	\begin{subfigure}{.9\textwidth}
 		\centering
-		\includegraphics[width=\columnwidth]{../res/Lconstructives_time.png}
+		\includegraphics[width=\columnwidth]{../res/Lconstructives_LA_time.png}
 		\caption{Performance profile in time domain.}
 		\label{fig:Lconstructives_time}
 	\end{subfigure}
 	\begin{subfigure}{.9\textwidth}
 	\centering
-	\includegraphics[width=\columnwidth]{../res/Lconstructives_lb.png}
+	\includegraphics[width=\columnwidth]{../res/Lconstructives_LA_lb.png}
 	\caption{Performance profile in solution cost domain.}
 	\label{fig:Lconstructives_lb}
 	\end{subfigure}

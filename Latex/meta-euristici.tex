@@ -1,29 +1,5 @@
 \chapter{Meta-heuristics}
 
-\section{Hard-fixing}
-A simple idea to reduce the complexity of the problem is to get an initial solution link an incumbent, fix some active edges and resolve the subproblem with CPLEX. This is exactly the idea behind hard fix approach.\\
-The implementation proposed is applied in STSP problem, with the optimization of the general callback (\textit{subtour\_callback\_general}).
-The algorithm can be divided in step:
-\begin{enumerate}
-	\item calculate an initial solution: in our implementation this is calculated by CPLEX with the \textit{subtour\_callback\_general} and \texttt{CPX\_PARAM\_INTSOLLIM} set to 1. When the first incumbent is available,the optimization terminate and a solution is obtained.
-	\item fix a percentage of edges (fixing rate $ f_r $): edges are fixed using \texttt{CPXchgbds()} method that change the upper and lower bound of the decision variables. The fixing percentage is an important parameter: fixing too much edges leads to a fast resolution of the subproblem however increase the risk of obtaining the same solution and fall in a loop. Fixing too low edges involves slower resolution. In the first iteration $ f_r = 0.9 $.
-	\item CPLEX optimization with time limit: After the fixing phase, the problem is optimized with \texttt{CPX\_mipopt()} and a short time limit is set ($ = 50 $s).
-	\item fixing rate update: after the last phase, if the returned solution is improved better than a fixed gap ($  good\_gap $), it is considered a good solution and the $ f_r $ is increased by a constant ($ incr\_f_r $) until a max ($ max\_f_r $) otherwise if the new solution is not increased enough (less than $ optimal\_gap $), $ f_r $ is decreased of a constant ($ decr\_f_r $) until a min ($ min\_f_r $). Note that $ good\_gap $ and $ optimal\_gap $ are expressed as fraction of the best lower bound.
-	\item check end condition: if the time limit is reached, or $ f_r = 0.0 $ and the solution is not improved in the last iteration then the solution is returned. Note that in the second case, the best solution is found. In case that no ending condition is satisfy, the algorithm continue with point 3.
-\end{enumerate}
-
-The performance profile as shown in fig \ref{fig:Lsubtours_hardfixing_lightaverage_time}. Hard fixing has performance comparable with the exact model.
-
-\begin{figure}[h]
-	\centering
-	\includegraphics[width=\columnwidth]{../res/Lsubtours_hardfixing_lightaverage_time.png}
-	\caption{Performance profile to compare subtours methods with \texttt{hard\_fixing}. The name of \texttt{hard\_fix} model contain in order: $ max\_f_r, incr_fr, decr\_f_r, good\_gap, optimal\_gap $. The test set is the composition of data\_light and data\_average.}
-	\label{fig:Lsubtours_hardfixing_lightaverage_time}
-\end{figure}
-
-
-\section{Local-Branching}
-
 \section{Tabu-Search}
 Tabu Search (TS) has been developed by Fred Glover \cite{Glover1998}. TS is a heuristic that combines a local search process with a number of anti-cycling rules which prevent the search from getting trapped in a local minimum. Tabu Search is very similar to a local search algorithm that proceeds iteratively from one solution to another through the Best-2-opt \ref{sec:best_2_opt} method. It also uses a special memory structure, called a tabu list, that determines which subsequent solution will be chosen and therefore to organize the way space is explored. The algorithm starts with a random solution. By applying the Best-2-opt, as long as a new improvement solution is found, it updates the current solution to it. When it comes to a local minimum (i.e. there are no improvement solutions around two optimality) the use of the tabu list comes into play.\\
 Pejorative moves are now allowed and the algorithm chooses the lowest cost one and adds this move to the tabu list, updates the current solution and starts again with the Best-2-opt.
@@ -55,11 +31,11 @@ The goal is to find a point in the space at which a real valued energy function 
 \begin{equation}
 	P(\Delta E)=e^{-\frac{ E_{i+1} - E_{i}}{k \times T}}
 \end{equation}
-if  E\textsubscript{i+1} > E\textsubscript{i}, and p($\Delta$E) = 1 when  E\textsubscript{i+1} $\leq$ E\textsubscript{i}, with $\Delta$E =  E\textsubscript{i+1} - E\textsubscript{i} and $k$ is the Boltzmann constant. \\
-A step will occur if the new energy is lower. If the new energy is higher, the transition can still occur, and its likelihood is proportional to the temperature $T$ and inversely proportional to the energy difference $\Delta$E.
-The temperature $T$ is initially set to a high value (\textit{$INT\_MAX$} of \textit{<limits.h>} C class), and a random walk is carried out at that temperature. Then, the temperature is lowered very slightly according to a cooling schedule.
+if  $E_{i+1} > E_{i}$, and $p(\Delta E) = 1$ when  $E_{i+1} \leq E_{i}$, with $\Delta E =  E_{i+1} - E_{i}$ and $k$ is the Boltzmann constant. \\
+A step will occur if the new energy is lower. If the new energy is higher, the transition can still occur, and its likelihood is proportional to the temperature $T$ and inversely proportional to the energy difference $\Delta E$.
+The temperature $T$ is initially set to a high value ($INT\_MAX$ of \textit{<limits.h>} C class), and a random walk is carried out at that temperature. Then, the temperature is lowered very slightly according to a cooling schedule.
 The cooling schedule chosen is based on the timelimit given to the algorithm, at each interaction the temperature is scaled as a percentage based on the percentage of time spent on the timelimit to perform that iteration. This avoids estimating a fixed value with which to decrease the temperature at each iteration, as the time required for an iteration can vary greatly based on the probability value found (when successful, the computational time increases drastically compared to when probability fails).\\
-Furthermore, if the temperature decreases sufficiently slowly, the probability of finding the global minimum tends to 1, thanks to all simulated annealing proofs of convergence in the literature which is based on homogeneous Markov chain theory and the condition of reversibility \cite{Henderson}. Since only improvement steps are accepted at zero temperature, various Random-2-opt are performed before concluding the algorithm in order to optimize the achieved solution as much as possible.\\
+Furthermore, if the temperature decreases sufficiently slowly, the probability of finding the global minimum tends to 1, thanks to all simulated annealing proofs of convergence in the literature which is based on homogeneous Markov chain theory and the condition of reversibility \cite{Henderson}. Since only improvement steps are accepted at zero temperature, various \texttt{Random-2-opt} are performed before concluding the algorithm in order to optimize the achieved solution as much as possible.\\
 The slight probability of taking a step that gives higher energy is what allows simulated annealing to frequently get out of local minima.
 
 \begin{figure}[h]
@@ -75,14 +51,14 @@ This metaheuristic moves from a solution to another iterating two phases:
 	\item optimization
 	\item perturbation
 \end{enumerate}
-The first is done iterating a refining heuristic until a local minimum is found, in this specific case it has been used the \texttt{best\_2\_opt()} algorithm, which is explained in cap \ref{sec:best_2_opt}. After the optimization, a perturbation is applied to leave the local minima, here \texttt{random\_n\_opt()} with $ n=5 $. This algorithm generate a new solution that differ n edges from the first (check at the end of the section for details).
+The first is done iterating a refining heuristic until a local minimum is found, in this specific case it has been used the \texttt{best\_two\_opt()} algorithm, which is explained in cap \ref{sec:best_2_opt}. After the optimization, a perturbation is applied to leave the local minima, here \texttt{random\_n\_opt()} with $ n=5 $. This algorithm generate a new solution that differ n edges from the first (check at the end of the section for details).
 The two phases are iterated until the max number of iterations or time limit occur.\\
 Note that the implemented VNS is not optimized to work with multiple thread.\\
 In fig \ref{fig:VNS_d2103} is shown the cost of the solution in each \texttt{best\_two\_opt()} step of the VNS. It is interesting to note that most of the time is required for the first descent and after that the first local minimum is found, the best lower bound does not decrease so much.
 The calculated tour is plotted in fig \ref{fig:d2103_16}.\\
 The performance profiles in fig \ref{fig:Lsubtour_hardfixing_vns_time} and \ref{fig:Lsubtour_hardfixing_vns_lb} show that VNS is faster than the exact algorithm and the returned solution is near the optimum.
 
-\textbf{\texttt{Random\_n\_opt()}.} The n\_opt set of an tour T is the set of tour that have exactly n different edges w.r.t. T. \texttt{Random\_n\_opt()} return a random tour in this set.
+The n\_opt set of an tour T is the set of tour that have exactly n different edges w.r.t. T. \texttt{random\_n\_opt()} return a random tour in this set.
 \begin{figure}[!h]
 	\begin{subfigure}{.5\columnwidth}
 		\centering
@@ -147,7 +123,7 @@ Algorithm \ref{alg:gagen} describes in a compact way the various steps of the en
 The recombination operator EAX uses the edges from the two parents to construct disjoint subtours.
 Then, using a more general version of the Patching Algorithm \ref{section:patching}, the subtours are connected in a greedy fashion to produce the offspring tour. Thus, the EAX operator considers local information which is exploited in determining which edges to use to connect subtours.\\
 Another important trait of the EAX operator is that it will introduce new edges into the offspring when connecting subtours. Edges not in the parents, or perhaps not even in the population, are introduced into offspring. 
-The argument as to why good new edges must be introduced during recombination is simple. As point out in \cite{Mathias92geneticoperators}, the complete graph of all possible edges for a symmetric TSP has $(N^2-N)/2$ edges, where $N$ is the number of nodes. Each tour samples $N$ of these edges, so a population must be of size at least $(N-1)/2$ in order to sample each edge exactly once. Assume population size is proportional to the number of the nodes. Then each edge occurs twice in expectation in an initial random population. Selection can therefore quickly eliminate edges from the population. Good edges can also be lost if they occur in poor tours. Thus it is important for operators to intelligently introduce new good edges. This feature is part of the construction of EAX and therefore, may contribute to its effectiveness.\\
+The argument as to why good new edges must be introduced during recombination is simple. As point out in \cite{Mathias92geneticoperators}, the complete graph of all possible edges for a sTSP has $(N^2-N)/2$ edges, where $N$ is the number of nodes. Each tour samples $N$ of these edges, so a population must be of size at least $(N-1)/2$ in order to sample each edge exactly once. Assume population size is proportional to the number of the nodes. Then each edge occurs twice in expectation in an initial random population. Selection can therefore quickly eliminate edges from the population. Good edges can also be lost if they occur in poor tours. Thus it is important for operators to intelligently introduce new good edges. This feature is part of the construction of EAX and therefore, may contribute to its effectiveness.\\
 
 \begin{figure}[h]
 	\centering

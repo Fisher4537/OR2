@@ -1,5 +1,6 @@
 \chapter{Conclusion}
-
+In conclusion, different MIP exact model have been developed to resolve the TSP problem and \texttt{subtour\_callback\_general} has definitely obtain the best results in term of times. However no exact algorithm can resolve a problem with more than 1000 nodes in less than 600s. This must be considered in particular when the execution time is limited. In this case heuristics can be successfully applied to obtain a good solution (not the best) about 10 times faster. This result are confirmed with the performance profile in fig \ref{fig:pp_Lbest}.\\
+For the heuristics, \texttt{best\_two\_opt()} obtain really good results in term of execution time and cost optimization, indeed the best heuristic are the constructive ones combined with the iteration of \texttt{best\_two\_opt()}.
 \begin{figure}[!h]
 	\centering
 	\begin{subfigure}{.9\textwidth}
@@ -14,6 +15,6 @@
 		\caption{Performance profile in solution cost domain.}
 		\label{fig:Lbest_lb}
 	\end{subfigure}
-	\caption{Performance profile of the best models.}
+	\caption{Performance profile of the best models executed in the union of \textit{data\_light} and \textit{data\_average}.}
 	\label{fig:pp_Lbest}
 \end{figure}

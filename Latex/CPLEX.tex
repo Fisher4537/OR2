@@ -18,12 +18,12 @@ The interest, for the course purposes, is the LP optimization used to solve the 
 
 
 \section{Subtour Elimination}\label{sec:subtour}
-The subtour elimination model described above enhance an exponential number of constraint ($ O(2^n) $), therefore it is not practicable to insert all the constraints in the model definition, instead is preferable to resolve the continuous relaxation without subtour elimination and than check if the solution verify the constraints, otherwise add the more violated constraints to the model. Four different version of subtour elimination model has been created:
+The subtour elimination model described above enhance an exponential number of constraints ($ O(2^n) $), therefore it is not practicable to insert all the constraints in the model definition, instead is preferable to resolve the continuous relaxation without subtour elimination and than check if the solution verify the constraints, otherwise add the more violated constraints to the model. Four different version of subtour elimination model has been created:
 \begin{enumerate}
-	\item \textit{subtour\_iter\_opt}: iterating until there is only one tour, it's applied the optimization step (\texttt{CPX\_mipopt()}) and externally check the subtour constraints and eventually add the violated to the model with \texttt{CPXnewrows()} and \texttt{CPXchgcoef()}. When no constraint is violated the best solution is found.
-	\item \textit{subtour\_heur\_iter\_opt}: is equal to the previous one, but in the first iteration the subtour is checked immediately after the first available solution is found (\texttt{CPX\_PARAM\_INTSOLLIM} is set to 1). 
-	\item \textit{subtour\_callback\_lazy}: While in the first two method the check is done outside CPLEX, here is used the \texttt{CPXsetlazyconstraintcallbackfunc()}. The lazy constraint, as described in the official CPLEX documentation, are constraints that the user knows are unlikely to be violated, therefore are applied only when necessary, exactly the case of the subtour elimination. The specified function in particular allow to set and modify user-written callback which will be called in two cases: when CPLEX compares an integer-feasible solution to lazy constraints and when the LP at a node is unbounded and when a lazy constraint might cut off the primal ray. Inside the lazy callback, the \texttt{CPXcutcallbackadd()} is used to add the subtour constraints. \\ Note that the lazy callback is not compatible with Dynamic Search (an alternative algorithm to B\&C which is more efficient) which is automatically disabled.
-	\item \textit{subtour\_callback\_general}: The \texttt{CPXcallbacksetfunc()} allow to set up a callback specifying the context in which to call that function. In this method is used to apply the lazy constraint with \texttt{CPXcutcallbackadd()} in the \texttt{CPX\_CALLBACKCONTEXT\_CANDIDATE} context. \texttt{CPXcallbacksetfunc()} is compatible with Dynamic Search therefore it is expected to have better performance than \textit{subtour\_callback\_lazy} method.
+	\item \texttt{subtour\_iter\_opt}: iterating until there is only one tour, it's applied the optimization step (\texttt{CPX\_mipopt()}) and externally check the subtour constraints and eventually add the violated to the model with \texttt{CPXnewrows()} and \texttt{CPXchgcoef()}. When no constraint is violated the best solution is found.
+	\item \texttt{subtour\_heur\_iter\_opt}: is equal to the previous one, but in the first iteration the subtour is checked immediately after the first available solution is found (\texttt{CPX\_PARAM\_INTSOLLIM} is set to 1). 
+	\item \texttt{subtour\_callback\_lazy}: While in the first two method the check is done outside CPLEX, here is used the \texttt{CPXsetlazyconstraintcallbackfunc()}. The lazy constraint, as described in the official CPLEX documentation, are constraints that the user knows are unlikely to be violated, therefore are applied only when necessary, exactly the case of the subtour elimination. The specified function in particular allow to set and modify user-written callback which will be called in two cases: when CPLEX compares an integer-feasible solution to lazy constraints and when the LP at a node is unbounded and when a lazy constraint might cut off the primal ray. Inside the lazy callback, the \texttt{CPXcutcallbackadd()} is used to add the subtour constraints. \\ Note that the lazy callback is not compatible with Dynamic Search (an alternative algorithm to B\&C which is more efficient) which is automatically disabled.
+	\item \texttt{subtour\_callback\_general}: The \texttt{CPXcallbacksetfunc()} allow to set up a callback specifying the context in which to call that function. In this method is used to apply the lazy constraint with \texttt{CPXcutcallbackadd()} in the \texttt{CPX\_CALLBACKCONTEXT\_CANDIDATE} context. \texttt{CPXcallbacksetfunc()} is compatible with Dynamic Search therefore it is expected to have better performance than \texttt{subtour\_callback\_lazy} method.
 \end{enumerate} 
 
 \begin{figure}[h]
@@ -42,32 +42,40 @@ The subtour elimination model described above enhance an exponential number of c
 \end{figure}
 
 The performance profile in figure \ref{fig:res_subtour_av} is obtained by executing each subtour method in each Data Average instance for 5 different random seed generator. \\
-In this set of instances the \textit{subtour\_callback\_lazy} perform better as expected. In Data Light set no significant evidence is enhance. This is because $ t_{exec} $ is near 10s ($ T_{min} $) and for little differences of $ t_{exec} $ the ratio $ r $ is near 1 (check appendix \ref{sec:performance_meausure} for more details.
-Morover it show that in the $ 80\%  $  of the instances the \textit{subtour\_callback\_general} perform better than the other 3 alternatives.\\
-\textit{subtour\_heur\_iter\_opt} seems to be faster than \textit{subtour\_iter\_opt} for the discussed optimization. 
+In this set of instances the \texttt{subtour\_callback\_lazy} perform better as expected. In Data Light set no significant evidence is enhance. This is because $ t_{exec} $ is near 10s ($ T_{min} $) and for little differences of $ t_{exec} $ the ratio $ r $ is near 1 (check appendix \ref{sec:performance_meausure} for more details.
+Morover it show that in the $ 80\%  $  of the instances the \texttt{subtour\_callback\_general} perform better than the other 3 alternatives.\\
+\texttt{subtour\_heur\_iter\_opt} seems to be faster than \texttt{subtour\_iter\_opt} for the discussed optimization. 
 
 
 \section{Miller Tucker Zemlin}
 The number of MTZ constraints is $O(n^2)$ therefore two different models has been proposed to evaluate the callback effectiveness:
 \begin{enumerate}
-	\item \textit{mtz}: where all the constraints are part of the model definition and added with \texttt{CPXnewrows()} and \texttt{CPXchgcoef()}. 
-	\item \textit{mtz\_lazy}: where the MTZ constraints are added as lazy constraints with \texttt{CPXaddlazyconstraints()}, which allow to check the constraints each time an incumbent should be update and to add the violated ones.
+	\item \texttt{mtz}: where all the constraints are part of the model definition and added with \texttt{CPXnewrows()} and \texttt{CPXchgcoef()}. 
+	\item \texttt{mtz\_lazy}: where the MTZ constraints are added as lazy constraints with \texttt{CPXaddlazyconstraints()}, which allow to check the constraints each time an incumbent should be update and to add the violated ones.
 \end{enumerate}
 
-performance profile per verificare tra i due quale è il migliore
+Computational evaluation in the next chapter.
 
-
-\section{Flow Chart}
-The FC model has been implemented in two alternatives:
+\section{Flow1}
+The F1 model has been implemented in two alternatives:
 \begin{enumerate}
-	\item \textit{flow1\_n-1}: this is exactly the model defined in the previous chapter and "$ n-1 $" is because of  the constraint  $ y_{ij} <= x_{ij}*(n-1), \forall i \in V, \forall j \in V \backslash \{1\} $ which is the only difference with \textit{flow1\_n-2}. 
-	\item \textit{flow1\_n-2}: a little improvement is introduced: $ y_{1j} <= x_{1j}*(n-1), \forall j \in V $ but $ y_{ij} <= x_{ij}*(n-2), \forall i \in V, \forall j \in V \backslash \{1\} $. Indeed these constraints are deeper than the previous because them restrict the possible values to assign. However no prediction can be done on the effectiveness of the improvement.
+	\item \texttt{flow1\_n-1}: this is exactly the model defined in the previous chapter and "$ n-1 $" is because of  the constraint  $ y_{ij} <= x_{ij}*(n-1), \forall i \in V, \forall j \in V \backslash \{1\} $ which is the only difference with \texttt{flow1\_n-2}. 
+	\item \texttt{flow1\_n-2}: a little improvement is introduced: $ y_{1j} <= x_{1j}*(n-1), \forall j \in V $ but $ y_{ij} <= x_{ij}*(n-2), \forall i \in V, \forall j \in V \backslash \{1\} $. Indeed these constraints are deeper than the previous because them restrict the possible values to assign. However no prediction can be done on the effectiveness of the improvement.
 \end{enumerate}
 In either the two implementation all the constraints are added in the model definition with \texttt{CPXnewrows()} and \texttt{CPXchgcoef()}.
 
+Note that looking at \texttt{mtz\_lazy} performance w.r.t. to \texttt{mtz}, and considering the exponential number of constraint either in \texttt{mtz} or \texttt{flow1}, for future implementation setting some constraints of \texttt{flow1} as lazy should be considered.\\
+All four method are well balanced, only \texttt{mtz} seems to be more time consuming, however none of them predominate the other.
 
-Note that looking at \textit{mtz\_lazy} performance w.r.t. to \textit{mtz}, and considering the exponential number of constraint either in \textit{mtz} or \textit{flow1}, for future implementation setting some constraints of \textit{flow1} as lazy should be considered. 
-
-performance profile per verificare tra i due quale è il migliore
-
-performance profile con MTZ
+\begin{figure}[h]
+	\begin{subfigure}{\columnwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/Lmtz_flow1_time.png}
+		\caption{Performance Profile of the aTSP implemented solver, tested on \textit{data\_light}.}
+	\end{subfigure}
+	\begin{subfigure}{\columnwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/Lmtz_flow1_lb.png}
+		\caption{Performance Profile in solution cost domain of the aTSP, tested on \textit{data\_light}.}
+	\end{subfigure}
+\end{figure}
