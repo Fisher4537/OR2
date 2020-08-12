@@ -53,6 +53,7 @@ typedef struct {
 	int model_type;					// TSP
 	int randomseed;
 	int nthread;					// number of threads
+	double init_time;			// initial execution time
 	double timelimit;				// overall time limit, in sec.s
 	char input_file[100];			// input file
 	int edge_weight_type;
@@ -64,7 +65,6 @@ typedef struct {
 
 	//global data
 	double opt_time;				// optimization time
-	double	tstart;
 	double zbest;					// best sol. available
 	double tbest;					// time for the best sol. available
 	double *best_sol;				// best sol. available
@@ -176,7 +176,8 @@ int* heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int insertion_move(tspinstance* inst, int* best_sol, int count_sol, int vertex);
 int contained_in_index(int* vector, int count_sol, int elem);
 
-void best_two_opt(tspinstance *inst);
+void two_opt(tspinstance *inst);
+int best_two_opt(tspinstance* inst);
 void random_two_opt(tspinstance* inst);
 void random_n_opt(tspinstance* inst, int n);
 

@@ -32,8 +32,6 @@
 
 			- Tabu search: we can add variable length of list and add the check also for tabu solution
 
-			- Remember to add: srand(time(NULL));  where and if needed	(during debug i don't use it)
-
 			- Errore nei modelli 19-20-21-22 da sistemare! RIGA : 883 => CPXaddmipstarts genera l'errore... l'euristica ritorna un tour unico, dopo aver fatto CPXaddmipstarts il tour viene diviso
 			  in più tour.. già provato a cambiare i parametri del metodo
 
@@ -244,6 +242,8 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 
 int TSPopt(tspinstance *inst) {
 
+	inst->init_time = second();  // initial time, used for time measurement
+
 	// open cplex model
 	int status;
 	CPXENVptr env = CPXopenCPLEX(&status);
@@ -264,6 +264,8 @@ int TSPopt(tspinstance *inst) {
 	// set all the parameters of model chosen
 	setup_model(inst);
 
+	double init_opt_time = second();  // used to calculate optimization time
+
 	// set input data in CPX structure
 	build_model(inst, env, lp);
 
@@ -276,7 +278,6 @@ int TSPopt(tspinstance *inst) {
 	switch_callback(inst, env, lp);
 
 	// set warm start if used
-	double ini = second();
 	switch_warm_start(inst, env, lp, &status);
 
 	if (inst->verbose >= 100) printf("\nbuild model succesfully.\n");
@@ -284,8 +285,7 @@ int TSPopt(tspinstance *inst) {
 
 	// compute cplex and calculate opt_time w.r.t. OS used
 	optimization(env, lp, inst, &status);
-	double fin = second();
-	inst->opt_time = (double)(fin - ini);
+	inst->opt_time = (double)(second() - init_opt_time);
 
 
 	if (inst->verbose >= 100) printf("optimization complete!\n");
@@ -1297,8 +1297,6 @@ int contained_in_index(int* vector, int count_sol, int elem) {
 
 // optimization
 void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
-	double last_best_lb;
-	double init_time = second();
 	switch (inst->heuristic){
 
 		case 0:													// No Heuristic used
@@ -1314,19 +1312,7 @@ void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		break;
 
 		case 3:
-			// execute best_two_opt while local minimum is found
-			last_best_lb = inst->best_lb;
-
-			while (inst->timelimit > second() - init_time) {  // iterate best_two_opt
-				best_two_opt(inst);
-				if (inst->verbose >= 80)
-					printf("%10.1lf,%.3lf\n", inst->best_lb, second() - init_time);
-				if (last_best_lb > inst->best_lb) {  // found a new best, continue iteration
-					last_best_lb = inst->best_lb;
-				} else {		// no new best_lb found, stop iteration
-					break;
-				}
-			}
+			*status = best_two_opt(inst);
 		break;
 
 		case 4:
@@ -1375,19 +1361,18 @@ int vns(tspinstance* inst) {
 	// stop condition: time_limit, number of iteration (i)
 	int i = 0;  // number of iteration
 	int max_iteration = 100;	// max number of iteration before stop
- 	double init_time = second();
 	// int* succ = (int*)calloc(inst->nnodes, sizeof(int));
 	// int* comp = (int*)calloc(inst->nnodes, sizeof(int));
 	// int* ncomp = (int*)calloc(1, sizeof(int));
 	// build_sol(inst, succ, comp, ncomp);
 	// if (*ncomp != 1) {print_error("VNS need to start with a single tour solution.");}
 
-	while (inst->timelimit > second() - init_time && i < max_iteration) {  // stop condition
+	while (inst->timelimit > second() - inst->init_time && i < max_iteration) {  // stop condition
 
-		while (inst->timelimit > second() - init_time) {  // iterate best_two_opt
-			best_two_opt(inst);
+		while (inst->timelimit > second() - inst->init_time) {  // iterate two_opt
+			two_opt(inst);
 			if (inst->verbose >= 80)
-				printf("%10.1lf,%.2lf\n", inst->best_lb, second() - init_time);
+				printf("%10.1lf,%.2lf\n", inst->best_lb, second() - inst->init_time);
 			if (prev_lb > inst->best_lb) {  // found a new best, continue iteration
 				prev_lb = inst->best_lb;
 			} else {		// no new best_lb found, stop iteration
@@ -1400,9 +1385,9 @@ int vns(tspinstance* inst) {
 			for (int i = 0; i < inst->nedges; i++) best_sol[i] = inst->best_sol[i];
 			best_lb = inst->best_lb;
 			if (inst->verbose >= 90)
-				printf("VNS: iteration = %7d, cur best_lb = %10.2lf, time = %10.2lf UPDATE!\n", i, inst->best_lb, second() - init_time);
+				printf("VNS: iteration = %7d, cur best_lb = %10.2lf, time = %10.2lf UPDATE!\n", i, inst->best_lb, second() - inst->init_time);
 		} else if (inst->verbose >= 90)
-			printf("VNS: iteration = %7d, cur best_lb = %10.2lf, time = %10.2lf\n", i, inst->best_lb, second() - init_time);
+			printf("VNS: iteration = %7d, cur best_lb = %10.2lf, time = %10.2lf\n", i, inst->best_lb, second() - inst->init_time);
 		// move to a random 5 opt solution
 		random_n_opt(inst, 5);
 		prev_lb = inst->best_lb;	// update solution
@@ -1446,28 +1431,21 @@ void patching(tspinstance* inst) {
 
 int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
-	double external_time_limit = inst->timelimit;
 	double internal_time_limit = 50.0;
-	double init_time = second();
 	double next_time_limit = internal_time_limit;
-	double remaining_time = external_time_limit - (second()-init_time);
 	double objval_p = 0.0;
 	double gap = 1.0;						// best_lb - objval_p / best_lb
 	double fr = 0.9;				// fixing_ratio
 
-	// structure init
-	// int *succ = (int*) calloc(inst->nnodes, sizeof(int));
-	// int *comp = (int*) calloc(inst->nnodes, sizeof(int));
-	// int *ncomp = (int*) calloc(1, sizeof(int));
-
 	// set next internal time limit
-	remaining_time = external_time_limit - (second()-init_time);
+	double remaining_time = inst->timelimit - (second()-inst->init_time);
 	if (remaining_time > internal_time_limit*2)
 		next_time_limit = internal_time_limit;
 	else
 		next_time_limit = remaining_time;
+
 	CPXsetdblparam(env, CPX_PARAM_TILIM, next_time_limit);
-	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 1);
+	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 10);
 
 	// first optimization step
 	mip_optimization(env, lp, inst, status);
@@ -1483,7 +1461,7 @@ int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, INT_MAX);
 
 
-	while ( (second()-init_time) < external_time_limit &&
+	while ( (second()-inst->init_time) < inst->timelimit &&
 	 (fr > 0.0 || gap > (inst->optimal_gap)))
 	{
 		// printf("BEST SOLUTION: %lf\n", inst->best_lb);
@@ -1492,7 +1470,7 @@ int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		fix_bound(env, lp, inst, status, fr);
 
 		// set next internal time limit
-		remaining_time = external_time_limit - (second()-init_time);
+		remaining_time = inst->timelimit - (second()-inst->init_time);
 		if (remaining_time > internal_time_limit*2)
 			next_time_limit = internal_time_limit;
 		else
@@ -2482,7 +2460,7 @@ void init_population(tspinstance* inst, double** population, int nPop) {
 
 	for (int i = 0; i < nPop; i++) {
 		heur_grasp(inst, 1);
-		best_two_opt(inst);
+		two_opt(inst);
 		population[i] = (double*)calloc(inst->nedges, sizeof(double));
 		for (int j = 0; j < inst->nedges; j++) {
 			population[i][j] = inst->best_sol[j];
@@ -4189,6 +4167,26 @@ void free_ga(double** population, int* frequency_table, int nPop) {
 	free(frequency_table);
 }
 
+int best_two_opt(tspinstance* inst) {
+
+	double last_best_lb;
+
+	// execute two_opt while local minimum is found
+	last_best_lb = inst->best_lb;
+
+	while (inst->timelimit > second() - inst->init_time) {  // iterate two_opt
+		two_opt(inst);
+		if (inst->verbose >= 80)
+			printf("%10.1lf,%.3lf\n", inst->best_lb, second() - inst->init_time);  // used to plot time vs cost
+		if (last_best_lb > inst->best_lb) {  // found a new best, continue iteration
+			last_best_lb = inst->best_lb;
+		} else {		// no new best_lb found, stop iteration
+			return 0;
+		}
+	}
+	return 0;
+}
+
 // optimization methods run the problem optimization
 int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status) {
 
@@ -4668,10 +4666,10 @@ int mygeneric_separation(tspinstance* inst, const double* xstar, CPXCALLBACKCONT
 
 
 // Refining
-void best_two_opt(tspinstance *inst) {
+void two_opt(tspinstance *inst) {
 	// improving the best_sol if possibile in 2opt set
 
-	if (inst->verbose >= 100) printf("BEST_TWO_OPT\n");
+	if (inst->verbose >= 100) printf("two_opt\n");
 	fflush(stdout);
 
 	// check if current solution has only one tour
@@ -4680,7 +4678,7 @@ void best_two_opt(tspinstance *inst) {
 	int *ncomp = (int*) calloc(1, sizeof(int));
 	build_sol(inst, succ, comp, ncomp);
 	if (inst->verbose >= 100) print_succ(succ, inst);
-	if (*ncomp != 1) print_error("call best_two_opt with best_sol with multiple tour");
+	if (*ncomp != 1) print_error("call two_opt with best_sol with multiple tour");
 
 	// search in 2opt if a better solution is found
 	int i = 0;					// start from node 0
