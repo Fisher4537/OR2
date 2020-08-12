@@ -1355,7 +1355,6 @@ int vns(tspinstance* inst) {
 
 	// copy current solution
 	for (int i = 0; i < inst->nedges; i++) best_sol[i] = inst->best_sol[i];
-	double prev_lb = inst->best_lb;
 	double best_lb = inst->best_lb;
 
 	// stop condition: time_limit, number of iteration (i)
@@ -1369,16 +1368,7 @@ int vns(tspinstance* inst) {
 
 	while (inst->timelimit > second() - inst->init_time && i < max_iteration) {  // stop condition
 
-		while (inst->timelimit > second() - inst->init_time) {  // iterate two_opt
-			two_opt(inst);
-			if (inst->verbose >= 80)
-				printf("%10.1lf,%.2lf\n", inst->best_lb, second() - inst->init_time);
-			if (prev_lb > inst->best_lb) {  // found a new best, continue iteration
-				prev_lb = inst->best_lb;
-			} else {		// no new best_lb found, stop iteration
-				break;
-			}
-		}
+		best_two_opt(inst);
 
 		// save the solution
 		if (best_lb > inst->best_lb) {
@@ -1390,7 +1380,6 @@ int vns(tspinstance* inst) {
 			printf("VNS: iteration = %7d, cur best_lb = %10.2lf, time = %10.2lf\n", i, inst->best_lb, second() - inst->init_time);
 		// move to a random 5 opt solution
 		random_n_opt(inst, 5);
-		prev_lb = inst->best_lb;	// update solution
 		i++;  // one iteration compleate
 	}
 
