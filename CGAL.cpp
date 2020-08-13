@@ -151,9 +151,6 @@ extern "C" {
         
         for (int i = 0; i < nnodes; i++) {
 
-            if (i == 52)
-                printf("");
-
             order_by_dis(i, 1);
             
             if (verbose > 1000)
