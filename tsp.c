@@ -2383,6 +2383,7 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 	int pA, pB;	// Indexes of parents: pA as acceptor and pB as donor
 
 	init_population(inst, population, nPop);
+	// TODO: aggiorna la soluzione
 	print_population(inst, population, nPop);
 	init_frequency_edges(inst, population, frequencyTable, nPop);
 	print_frequency_table(inst, frequencyTable);

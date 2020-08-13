@@ -35,7 +35,7 @@ class varCGAL {
 
 };
 
-varCGAL* var = new varCGAL();
+varCGAL* var;
 
 
 int status;                         // 0 : all OK
@@ -49,6 +49,9 @@ extern "C" {
     }
 
     int load_point(char* pathFileTSP) {
+        
+        nnodes = 0;
+        var = new varCGAL();
 
         var->points.clear();
         ifstream tspFile;
@@ -148,6 +151,9 @@ extern "C" {
         
         for (int i = 0; i < nnodes; i++) {
 
+            if (i == 52)
+                printf("");
+
             order_by_dis(i, 1);
             
             if (verbose > 1000)
@@ -203,7 +209,7 @@ extern "C" {
         var->points_ordered.shrink_to_fit(); mem -= var->points_ordered.capacity();
         var->indexes.shrink_to_fit(); mem -= var->indexes.capacity();
         var->sqrt_distance.shrink_to_fit(); mem -= var->sqrt_distance.capacity();
-        
+
         if (verbose > 100)
             printf("CGAL Memory freed: %zd", mem);
     }
