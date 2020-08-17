@@ -110,7 +110,7 @@ Algorithm \ref{alg:gagen} describes in a compact way the various steps of the en
 	\For{\texttt{$i := 1$ to N\textsubscript{pop}}}
 		\State $p_A := \textit{x\textsubscript{r($i$)}} , \textit{p\textsubscript{B}} := \textit{x\textsubscript{r($i+1$)}} $
 		\State $\textit{\{y\textsubscript{$1$},...,y\textsubscript{N\textsubscript{kids}}\}} := \textit{EAX\_SINGLE(p\textsubscript{A}, p\textsubscript{B})}$
-		\State $\textit{x\textsubscript{r($i$)}} := \textit{SURVIVAL\_SELECTION(y\textsubscript{$1$},...,y\textsubscript{N\textsubscript{kids}}, p\textsubscript{A})} $
+		\State $x_{r(i)} := SURVIVAL\_SELECTION(y_1,...,y_{N_{kids}}, p_A) $
 	\EndFor
 	\State $\textit{best\_individual} := \textit{best individual of actual population}$
 \EndWhile
