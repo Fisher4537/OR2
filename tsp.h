@@ -227,7 +227,6 @@ void plot_arrow_asym(FILE *gnuplot, char *pngname, tspinstance *inst);
 void print_succ(int* succ, tspinstance* inst);
 void pause_execution();
 void print_error(const char *err);
-void concatenate_string(char* original, char* add);
 
 //*********************************** CGAL Methods ***********************************
 void set_verbose(int v);

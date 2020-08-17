@@ -954,7 +954,7 @@ int* heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status
 				for (int k = 0; k < inst->nnodes; k++)
 					best_sol[k] = sol[k];
 			}
-			free(sol);
+			//free(sol);
 		}
 		free_cgal();
 		if (inst->verbose >= 10)
@@ -5734,6 +5734,9 @@ void plot_instance(tspinstance *inst) {
 	FILE *gnuplot;
 	#ifdef _WIN32
 			// printf("Windows\n");
+		if(inst->verbose < 100)
+			gnuplot = _popen("D:\\Programmi\\gnuplot\\bin\\gnuplot.exe", "w");
+		else
 			gnuplot = _popen("D:\\Programmi\\gnuplot\\bin\\gnuplot.exe -persist", "w");
 
 			if (gnuplot != NULL){
@@ -5782,13 +5785,15 @@ void plot_instance(tspinstance *inst) {
 
 	// show plot or save in file and close
 	fflush(gnuplot);
-	if (inst->verbose >= 1000)
-		#ifdef _WIN32
-			Sleep(2000); // pause execution to see the plot
-		#else
+	
+	#ifdef _WIN32
+		//Sleep(2000);		//Don't need in windows if gnuplot doesn't have -persist param
+		fclose(gnuplot);
+	#else
+		if (inst->verbose >= 1000)
 			sleep(2); // pause execution to see the plot
-		#endif
-	fclose(gnuplot);
+		fclose(gnuplot);
+	#endif
 }
 
 void setup_style(FILE *gnuplot, tspinstance *inst) {

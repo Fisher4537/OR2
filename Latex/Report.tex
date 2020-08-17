@@ -322,7 +322,6 @@ Pay attention to the last command:
 It must be run next to cyggmp-10.dll and the compiled library probably is located in Cygwin\textbackslash bin folder.
 Lastly the option: \textit{/machine:i386} is for the 32bit version, \textit{/machine:x64} for the 64bit version).
 \end{itemize}
-\newpage
 \subsubsection{Cygwin Package Information (installed)}
 These are the packages that should be installed at the end of the \ref {sec:cagalOne} procedure in case you choose to recompile the library on your machine.
 \begin{center}
@@ -469,13 +468,13 @@ zlib0 & 1.2.11-1 \\
 \subsection{Include GMP in Windows (if MPIR is not enough)}
 MPIR is a highly optimised library for bignum arithmetic forked from the GMP bignum library. It is written in assembly language and C. It offers many features but in order to use the CGAL library correctly it is not enough, it is necessary to include GMP in the Visual Studio IDE.
 \begin{enumerate}
-\item \textit{VS -> Strumenti -> Gestione pacchetti NuGet -> Console di gestione pacchetti}:
+\item \textit{VS} $\rightarrow$ \textit{Strumenti} $\rightarrow$ \textit{Gestione pacchetti NuGet} $\rightarrow$ \textit{Console di gestione pacchetti}:
 	
 \begin{lstlisting}
 Install-Package NuGet.CommandLine
 \end{lstlisting}	
 
-\item \textit{VS -> Esplora Soluzione -> <nome\_progetto> -> packages.config -> add}: 
+\item \textit{VS} $\rightarrow$ \textit{Esplora Soluzione} $\rightarrow$ \textit{<nome\_progetto>} $\rightarrow$ \textit{packages.config} $\rightarrow$ add: 
 
 \begin{lstlisting}
 <package id="Baseclass.Contrib.Nuget.Output" version="2.4.3" targetFramework="native" />
@@ -484,7 +483,7 @@ Install-Package NuGet.CommandLine
 \end{lstlisting}
 		
 
-\item Go on project folder (where packages.config is located) -> open CMD :
+\item Go on project folder (where packages.config is located) $\rightarrow$ open CMD :
 
 \begin{lstlisting}
 .\..\packages\NuGet.CommandLine.5.5.1\tools\NuGet.exe Install -NonInteractive -OutputDirectory packages packages.config
@@ -492,10 +491,10 @@ Install-Package NuGet.CommandLine
 	
 \item Close and reopen VS.
 
-\item \textit{VS -> Esplora Soluzione -> <nome\_progetto> -> right click -> Gestisci pacchetti NuGet}: \\
+\item \textit{VS} $\rightarrow$ \textit{Esplora Soluzione} $\rightarrow$ \textit{<nome\_progetto>} $\rightarrow$ right click $\rightarrow$ \textit{Gestisci pacchetti NuGet}: \\
 The 3 packages added in packages.config should be installed.\\
 In top-right press the icon "settings" (near package origin). \\
-In \textit{Gestione pacchetti NuGet -> Generale}: \\
+In \textit{Gestione pacchetti NuGet} $\rightarrow$ \textit{Generale}: \\
 
 	\textit{Cancella tutte le cache NuGet}
 
@@ -507,23 +506,23 @@ Complete guide explained in \href{https://stackoverflow.com/a/33505176/2161332}{
 
 \subsection{Add Library file}
 \begin{enumerate}
-\item \textit{VS -> Esplora Soluzione -> <nome\_progetto> -> right click -> Proprietà}:
+\item \textit{VS} $\rightarrow$ \textit{Esplora Soluzione} $\rightarrow$ \textit{<nome\_progetto>} $\rightarrow$ \textit{right click} $\rightarrow$ \textit{Proprietà}:
 
-\item \textit{C/C++ -> Generale -> Directory inclusioni aggiuntive -> add}:
+\item \textit{C/C++} $\rightarrow$ \textit{Generale} $\rightarrow$ \textit{Directory inclusioni aggiuntive} $\rightarrow$ \textit{add}:
 
 \begin{lstlisting}
-D:\Programmi\vcpkg\installed\x64-windows\include
-D:\Programmi\vcpkg\packages\mpfr_x64-windows\bin
-D:\Programmi\vcpkg\packages\mpir_x64-windows\bin
+<local_path_to>\vcpkg\installed\x64-windows\include
+<local_path_to>\vcpkg\packages\mpfr_x64-windows\bin
+<local_path_to>\vcpkg\packages\mpir_x64-windows\bin
 \end{lstlisting}
 	
-\item \textit{Linker -> Generale -> Directory librerie aggiuntive -> add}:
+\item \textit{Linker} $\rightarrow$ \textit{Generale} $\rightarrow$ \textit{Directory librerie aggiuntive} $\rightarrow$ \textit{add}:
 
 \begin{lstlisting}
-D:\Programmi\vcpkg\installed\x64-windows\lib
+<local_path_to>\vcpkg\installed\x64-windows\lib
 \end{lstlisting}
 
-	 \textit{-> Input -> add}:
+	 $\rightarrow$ \textit{Input} $\rightarrow$ \textit{add}:
 \begin{lstlisting}
 mpfr.lib
 mpir.lib	
@@ -556,12 +555,12 @@ int main()
 
 \subsection{Solution to Error Framework}
 \begin{itemize}
-\item \textit{VS -> Esplora Soluzione -> <nome\_progetto> -> right click -> Gestisci pacchetti NuGet}: check the require .NET Framework
+\item \textit{VS} $\rightarrow$ \textit{Esplora Soluzione} $\rightarrow$ \textit{<nome\_progetto>} $\rightarrow$ right click $\rightarrow$ \textit{Gestisci pacchetti NuGet}: check the require .NET Framework
 \end{itemize}
 It can be possible to change used Framework directy on VS settings :
 \begin{enumerate}
-\item \textit{VS -> Esplora Soluzione -> <nome\_progetto> -> right click -> Proprietà}:
-\item \textit{Proprietà di configurazione -> Avanzate}: Versione di .NET Framework di destinazione
+\item \textit{VS} $\rightarrow$ \textit{Esplora Soluzione} $\rightarrow$ \textit{<nome\_progetto>} $\rightarrow$ right click $\rightarrow$ \textit{Proprietà}:
+\item \textit{Proprietà di configurazione} $\rightarrow$ \textit{Avanzate}: Versione di .NET Framework di destinazione
 \end{enumerate}
 (reference: \href{https://docs.microsoft.com/it-it/cpp/build/how-to-modify-the-target-framework-and-platform-toolset?view=vs-2019}{https://docs.microsoft.com/it-it/cpp/build/how-to-modify-the-target-framework-and-platform-toolset?view=vs-2019})
 \begin{itemize}
