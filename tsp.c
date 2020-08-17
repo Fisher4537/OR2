@@ -324,6 +324,7 @@ int* invers_xpos(int pos, tspinstance* inst) {
 			temp_pos++;
 		}
 	}
+	free(ij);
 }
 
 int asym_xpos(int i, int j, tspinstance *inst) {
@@ -883,21 +884,35 @@ void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* statu
 	}
 	if (inst->useCplex) {
 
+		CPXsetintparam(env, CPX_PARAM_ADVIND, 1);
+
 		if (best_sol[0] == -1) {	// first element best_sol == -1 => error and return status at best_sol[1]
 			*status = best_sol[1];
 			return *status;
 		}
 
-		int nocheck_warmstart = CPX_MIPSTART_REPAIR;
+		int nocheck_warmstart = CPX_MIPSTART_NOCHECK;
 		// CPLEX attempts to repair the MIP start if it is infeasible, according to
 		// the parameter that sets the frequency to try to repair an infeasible MIP
 		// start
 		// number of attempts to repair infeasible MIP start = CPXPARAM_MIP_Limits_RepairTries. Default => CPLEX choose
 		// CPX_MIPSTART_SOLVEMIP;		// CPLEX solves a subMIP.
-		double val = 1.0;
+		int* best_sol_complete = (int*)calloc(inst->nedges, sizeof(int));
+		double* best_sol_values = (double*)calloc(inst->nedges, sizeof(double));
+		
+		for (int i = 0; i < inst->nedges; i++) {
+			best_sol_values[i] = 0.0;
+			best_sol_complete[i] = i;
+		}
+
+		for (int i = 0; i < inst->nnodes; i++)
+			best_sol_values[best_sol[i]] = 1.0;
+
+		//double val = 1.0;
 		int izero = 0;
 
-		if (*status = CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) {
+		//if (*status = CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) {
+		if (*status = CPXaddmipstarts(env, lp, 1, inst->nedges, &izero, best_sol_complete, best_sol_values, &nocheck_warmstart, NULL)) {
 			print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
 		}
 	}
@@ -1543,7 +1558,6 @@ void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, doubl
 }
 
 int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
-	// TODO resolve returning value
 	double ini = second();
 	int k_index = 0;
 	double k[5] = { 3.0, 5.0, 10.0, 15.0, 20.0};
@@ -1676,6 +1690,155 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 	}
 	return 0;
 }
+
+/*
+int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
+	// TODO resolve returning value
+
+	int k_index = 0;
+	double k[5] = { 3.0, 5.0, 10.0, 15.0, 20.0};
+	double timelimit = 300;									// internal timelimit
+	double temp_timelimit = timelimit;
+
+	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 1);			// abort Cplex after the first incument update
+	CPXsetdblparam(env, CPX_PARAM_TILIM, timelimit);
+
+	double* best_sol = (double*)calloc(inst->nedges, sizeof(double));
+	double best_lb = CPX_INFBOUND;
+
+	mip_optimization(env, lp, inst, status);
+	CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
+
+	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, INT_MAX);
+
+	for (int h = 0; remaining_time > 0.0; h++) {
+		double ini = second();
+		int nnz = 0;
+		for (int i = 0; i < inst->nnodes * (inst->nnodes - 1) / 2; i++) {
+			if (inst->best_sol[i] > 0.5) {
+				nnz++;
+			}
+		}
+
+		int izero = 0;
+		int* index = (int*)calloc(nnz, sizeof(int));
+		double* value = (double*)calloc(nnz, sizeof(double));
+
+		nnz = 0;
+
+		char** cname = (char**)calloc(1, sizeof(char*));
+		cname[0] = (char*)calloc(100, sizeof(char));
+
+		double rhs;
+		double gap = 1.0;
+		gap = ((inst->best_lb - inst->best_int) / inst->best_lb) * 100;
+		if (best_lb > inst->best_lb &&  gap > 0.09) {
+			if (inst->verbose >= 100) {
+				printf("BEST_LB update from -> to : [%f] -> [%f]\tBEST_INT : %f\tGAP : %f\n",
+									best_lb, inst->best_lb, inst->best_int, gap);
+			}
+
+			best_lb = inst->best_lb;
+			if(k_index < 5)
+				rhs = (double)inst->nnodes - k[k_index];
+			else
+				rhs = (double)inst->nnodes - k[4] > (double)inst->nnodes ? (double)inst->nnodes : k[4];
+
+			if(temp_timelimit > remaining_time)
+				CPXsetdblparam(env, CPX_PARAM_TILIM, remaning_time);
+			else
+				CPXsetdblparam(env, CPX_PARAM_TILIM, temp_timelimit);
+
+		} else {
+			if (k_index < 4) {
+				k_index++;
+				rhs = (double)inst->nnodes - k[k_index];
+				temp_timelimit = timelimit * (k_index + 1.0);
+			} else {
+				k[4] = (k[4] * 2.0 > (double)inst->nnodes) ? (double)inst->nnodes : k[4] * 2.0;
+				rhs = (double)inst->nnodes - k[4];
+			}
+			if(temp_timelimit > remaining_time)
+				CPXsetdblparam(env, CPX_PARAM_TILIM, remaning_time);
+			else
+				CPXsetdblparam(env, CPX_PARAM_TILIM, temp_timelimit);
+		}
+
+		sprintf(cname[0], "local-branching constraint, k_index = %f", k_index < 5 ? k[k_index] : k[4]);
+
+		if (inst->verbose >= 100) {
+			printf("\n********** Round = %d  -  K = %f  -  Remaining_time = %6.3lf **********\n\n", h, k[k_index], remaining_time);
+		}
+
+		for (int i = 0; i < inst->nnodes; i++){
+			for (int j = i + 1; j < inst->nnodes; j++) {
+				if (inst->best_sol[xpos(i, j, inst)] == 1) {
+					index[nnz] = xpos(i, j, inst);
+					value[nnz] = 1.0;
+					nnz++;
+				}
+			}
+		}
+
+		char sense = 'G';
+		if (CPXaddrows(env, lp, 0, 1, nnz, &rhs, &sense, &izero, index, value, NULL, cname))
+			print_error("wrong CPXpreaddrows() for adding local-branching constraint\n");
+
+		free(index);
+		free(value);
+
+
+		if (mip_optimization(env, lp, inst, status)) {
+			printf("Error in CPXmipopt\n");
+		}
+
+		double fin = second();
+		remaining_time -= (fin-ini);
+
+		if (remaining_time <= 0.01) {
+			if (CPXgetstat(env, lp) == 101 || CPXgetstat(env, lp) == 102) {
+				if(best_lb > inst->best_lb)
+					inst->best_sol = best_sol;
+			}
+			if (CPXdelrows(env, lp, CPXgetnumrows(env, lp) - 1, CPXgetnumrows(env, lp) - 1))
+				print_error("wrong CPXdelrows() for deleting local-branching constraint\n");
+
+			printf("*** Better soluzion found! ***\n");
+			return 0;
+		}
+
+		if (k[4] == inst->nnodes) {
+			int status = CPXgetstat(env, lp);
+			if (CPXgetstat(env, lp) == 101 || CPXgetstat(env, lp) == 102) {
+				if (inst->verbose >= 100)
+					printf("CPXgetstat: %s", status == 101 ? "Optimal integer solution found\n" :
+														"Optimal sol. within epgap or epagap tolerance found\n");
+				return 0;
+			}
+			if (inst->verbose >= 100)
+				printf("CPXgetstat: %s", (status == 107) ? "Time limit exceeded, integer solution exists" : "debug this to see");
+		}
+
+		CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
+
+		int status = CPXgetstat(env, lp);
+		if (inst->verbose >= 100)
+			printf("CPXgetstat: %s",
+							(status==101) ? "Optimal integer solution found\n" :
+							(status==102) ? "Optimal sol. within epgap or epagap tolerance found\n " :
+							(status==107) ? "Time limit exceeded, integer solution exists" : "debug this to see");
+
+		if (CPXgetstat(env, lp) == 101 || CPXgetstat(env, lp) == 102) {
+			best_sol = inst->best_sol;																							// TODO: check if this assignment is correct!
+		}
+
+		if(CPXdelrows(env, lp, CPXgetnumrows(env, lp) - 1, CPXgetnumrows(env, lp) - 1))
+			print_error("wrong CPXdelrows() for deleting local-branching constraint\n");
+
+	}
+	return 0;
+}
+*/
 
 int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 	if (inst->verbose >= 100) printf("Tabu Search\n");
