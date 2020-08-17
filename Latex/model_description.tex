@@ -100,8 +100,8 @@ The aTSP can be defined in different ways, in this report two version will be co
 
 Miller Tucker Zemlin (MTZ) model impose the "subtour elimination" constraints with the help of another decision variable $ u_k $. For each node $ k = 2,..,n $, $ u_k $ is the position of the node $ k $ in the tour that start from the node $ 1 $. As an example in fig \ref{fig:asymTSP_MTZ} it is shown that $ u_1 = 0 $ and than $ u_k $ increase until $ n-1 $ along the tour.
 
-The proposed model is shown in the system \ref{eq:aTSP_MTZ}. The cost function and the degree constraints are adapted to the asymmetric problem, moreover MTZ constraint is derived from $ u_j \ge u_i+1-M(1-x_{ij}), \forall i,j \in V \backslash \{1\}, M \gg 0 $. Considering an arch $ (i,j) \in A \backslash \{1\} $ if it is in the tour then $ u_j \ge u_i + 1 $ because $ M(1-x_{ij}) = 0 $, else $ u_j \ge u_i + 1 - M < 0 \implies u_j \ge 0 $. For example for the arch $ (4,2) $ in fig \ref{fig:asymTSP_MTZ}, $ 3 \ge 2 + 1 - M(1-1) \iff 3 \ge 3 $. \\
-
+The proposed model is shown in the system of equations \ref{eq:aTSP_MTZ}. The cost function and the degree constraints are adapted to the asymmetric problem, moreover MTZ constraint is derived from $ u_j \ge u_i+1-M(1-x_{ij}), \forall i,j \in V \backslash \{1\}, M \gg 0 $. Considering an arch $ (i,j) \in A \backslash \{1\} $, if it is in the tour then $ u_j \ge u_i + 1 $ because $ M(1-x_{ij}) = 0 $, else $ u_j \ge u_i + 1 - M < 0 \implies u_j \ge 0 $. For example for the arch $ (4,2) $ in fig \ref{fig:asymTSP_MTZ}, $ 3 \ge 2 + 1 - M(1-1) \iff 3 \ge 3 $. \\
+Note that, if the value of M is less than $|V| - 1$  then the constraint is incorrect, otherwise a value of M greater than $|V| - 1 $ makes the constraint redundant, therefore the best value of M is $|V| - 1$, as implemented. \\
 \begin{equation}
 \begin{cases}
 min \sum_{i\in V}\sum_{j\in V} c_{ij}x_{ij} & \text{Cost function} \\

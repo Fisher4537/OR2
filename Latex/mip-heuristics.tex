@@ -28,8 +28,6 @@ The Local Branching is a relatively recent algorithm developed by Matteo Fischet
 Consider $ x^H $ as non optimal tour and $ \chi $ the fraction of edges to fix, Local Branching add $ \sum_{ e\in E: x_e^H = 1 } x_e \ge \chi n $ to automatically fix the desired number of edges. \\ 
 In this paper, the structure of the algorithm is very similar to that of Hard-Fixing. Initialization is analogous to Point 1 (\ref{hard-fix-step})
 In the CPLEX optimization with time limit (Point 3), the time limit is a little higher and is set to 300 according to the choice of the fixing rate update. Thus, the fixing rate is an array consisting of 5 values {3.0, 5.0, 10.0, 15.0, 20.0}. It starts from the first value of 3.0 which is kept until better solutions are found. It is updated to the next value as soon as the algorithm returns a non-improving solution. \\
-In our implementation, however, the fixing rate does not only have increases. When a better solution is found, it is reset to the initial value and starts over. \\
-% controlla che se non sbaglio a lezione il prof seguiva una strategia diversa
 This choice is motivated by the idea that keeping a low fixing rate allows you to find a solution in a short time and therefore not reach the time limit, which instead is set with a higher value to allow a longer search when the degrees of freedom increase.
 In this way, searches with high fixed\_rate are carried out only to find a new improvement solution in a larger neighborhood and are more successful with higher time limits. But as soon as a solution is found, it returns to the low and therefore fast fixed\_rate.\\
 Finally the check end condition: \\

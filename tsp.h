@@ -116,7 +116,7 @@ void build_flow1(tspinstance *inst, CPXENVptr env, CPXLPptr lp);
 void build_mtz_lazy(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 void add_lazy_mtz(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 
-void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* status);
+int switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* status);
 
 void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
@@ -168,11 +168,11 @@ void plot_single(tspinstance* inst, double* individual);
 void print_frequency_table(tspinstance* inst, int* frequency_table);
 void free_ga(double** population, int* frequency_table, int nPop);
 
-int* heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
-int* heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int succ_not_contained(int node, int* sol, tspinstance* inst);
-int* heur_grasp(tspinstance* inst, int* status);
-int* heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+int heur_grasp(tspinstance* inst, int* status);
+int heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int insertion_move(tspinstance* inst, int* best_sol, int count_sol, int vertex);
 int contained_in_index(int* vector, int count_sol, int elem);
 
