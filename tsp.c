@@ -86,18 +86,18 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
  9																				genetic_algorithm
 */
 
-	inst->callback = 0;
-	inst->heuristic = 0;
-	inst->warm_start = 0;
-	inst->mip_opt = -1;
-	inst->useCplex = 0;
+	inst->callback = -1;		// callback if needed (generic/lazy etc.)
+	inst->heuristic = 0;  	// type of optimization
+	inst->warm_start = -1;	// constructive heuristic
+	inst->mip_opt = -1;			// MIP optimization
+	inst->useCplex = 0;			// 1 for method that use CPLEX, otherwise 0
 
 	switch (inst->setup_model) {
 		case 0:
 			inst->model_type = 0;
 			inst->mip_opt = 0;
 			inst->useCplex = 1;
-			return "subtour";							// basic model with asymmetric x and q
+			return "subtour";							// loop model for sTSP
 		case 1:
 			inst->model_type = 1;
 			inst->mip_opt = 2;
@@ -147,6 +147,7 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->heuristic = 2;
 			inst->callback = 2;
 			inst->mip_opt = 2;
+			inst->useCplex = 1;
 			return "local_branching";				// Soft-Fixing => Local Branching
 		case 10:
 			inst->model_type = 0;
@@ -221,7 +222,7 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->model_type = 0;
 			inst->warm_start = 1;
 			inst->heuristic = 8;
-			return "simulating_annealing";				// GRASP + Simulating Annealing
+			return "simulating_annealing";				// greedy + Simulating Annealing
 		case 24:
 			inst->model_type = 0;
 			inst->heuristic = 9;
@@ -230,7 +231,7 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->model_type = 0;
 			inst->warm_start = 1;
 			inst->heuristic = 3;
-			return "greedy_best_two_opt";				// GRASP + best_two_opt
+			return "greedy_best_two_opt";				// greedy + best_two_opt
 		case 26:
 			inst->model_type = 0;
 			inst->warm_start = 4;
@@ -244,34 +245,50 @@ int TSPopt(tspinstance *inst) {
 
 	inst->init_time = second();  // initial time, used for time measurement
 
-	// open cplex model
-	int status;
-	CPXENVptr env = CPXopenCPLEX(&status);
-	CPXLPptr lp = CPXcreateprob(env, &status, "TSP");
-
-	// Cplex's parameter setting
-	CPXsetintparam(env,CPX_PARAM_THREADS, inst->nthread);		// allow executing N parallel threads
-	CPXsetintparam(env,CPX_PARAM_RANDOMSEED, inst->randomseed);		// avoid performace variability
-	CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit);		// set time limit
-	if (inst->verbose >= 100) CPXsetintparam(env, CPX_PARAM_SCRIND, CPX_ON);	// show CPLEX log
-
-	// CPX_PARAM_MIPEMPHASIS: it balances optimality and integer feasibility.
-	//	(CPX_MIPEMPHASIS_BALANCED, CPX_MIPEMPHASIS_FEASIBILITY, CPX_MIPEMPHASIS_OPTIMALITY,
-	//	CPX_MIPEMPHASIS_BESTBOUND, CPX_MIPEMPHASIS_HIDDENFEAS)
-	// CPX_PARAM_MIPSEARCH: Dynamic search or B&C ?
-	// CPXsetintparam(env, CPX_PARAM_MIPDISPLAY, 4);			// Display new incumbents, and display a log line every n nodes
-
 	// set all the parameters of model chosen
 	setup_model(inst);
+	CPXENVptr env;
+	CPXLPptr lp;
+	int status;
+	double init_opt_time;
 
-	double init_opt_time = second();  // used to calculate optimization time
+	// open cplex model
+	if (inst->useCplex) {
+		env = CPXopenCPLEX(&status);
+		lp = CPXcreateprob(env, &status, "TSP");
 
-	// set input data in CPX structure
-	build_model(inst, env, lp);
+		// Cplex's parameter setting
+		CPXsetintparam(env,CPX_PARAM_THREADS, inst->nthread);		// allow executing N parallel threads
+		CPXsetintparam(env,CPX_PARAM_RANDOMSEED, inst->randomseed);		// avoid performace variability
+		CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit);		// set time limit
+		if (inst->verbose >= 100) CPXsetintparam(env, CPX_PARAM_SCRIND, CPX_ON);	// show CPLEX log
+
+		// CPX_PARAM_MIPEMPHASIS: it balances optimality and integer feasibility.
+		//	(CPX_MIPEMPHASIS_BALANCED, CPX_MIPEMPHASIS_FEASIBILITY, CPX_MIPEMPHASIS_OPTIMALITY,
+		//	CPX_MIPEMPHASIS_BESTBOUND, CPX_MIPEMPHASIS_HIDDENFEAS)
+		// CPX_PARAM_MIPSEARCH: Dynamic search or B&C ?
+		// CPXsetintparam(env, CPX_PARAM_MIPDISPLAY, 4);			// Display new incumbents, and display a log line every n nodes
+
+		// set input data in CPX structure
+		build_model(inst, env, lp);
+		if (inst->verbose >= 100) printf("\nbuild model succesfully.\n");
+	}
+
+	init_opt_time = second();  // used to calculate optimization time
 
 	// setup struct to save solution
-	inst->nedges = CPXgetnumcols(env, lp);
-	inst->best_sol = (double *) calloc(inst->nedges, sizeof(double));
+	inst->nedges = inst->model_type == 0 ? inst->nnodes*(inst->nnodes -1)/2 : inst->nnodes*(inst->nnodes -1);
+	int best_sol_size;
+	if (inst->model_type == 0) {
+		best_sol_size = inst->nnodes*(inst->nnodes-1)/2;
+	} else if (inst->model_type == 1 || inst->model_type == 3) {
+		best_sol_size = inst->nnodes*inst->nnodes;
+	} else if (inst->model_type == 2) {
+		best_sol_size = inst->nnodes*(inst->nnodes-1)*2;
+	} else {
+		print_error("invalid model_type");
+	}
+	inst->best_sol = (double *) calloc(best_sol_size, sizeof(double));
 	inst->zbest = CPX_INFBOUND;
 
 	// set callback if selected
@@ -280,24 +297,20 @@ int TSPopt(tspinstance *inst) {
 	// set warm start if used
 	switch_warm_start(inst, env, lp, &status);
 
-	if (inst->verbose >= 100) printf("\nbuild model succesfully.\n");
-	if (inst->verbose >= 100) printf("optimizing model...\n");
-
 	// compute cplex and calculate opt_time w.r.t. OS used
+	if (inst->verbose >= 100) printf("optimizing model...\n");
 	optimization(env, lp, inst, &status);
 	inst->opt_time = (double)(second() - init_opt_time);
-
-
 	if (inst->verbose >= 100) printf("optimization complete!\n");
 
-	if(inst->useCplex)
+	if(inst->useCplex) {
 		CPXsolution(env, lp, &status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
+		CPXfreeprob(env, &lp);
+		CPXcloseCPLEX(&env);
 
-	if (inst->verbose >= 100) printf("free instance object...\n");
-
-	// free and close cplex model
-	CPXfreeprob(env, &lp);
-	CPXcloseCPLEX(&env);
+		// free and close cplex model
+		if (inst->verbose >= 100) printf("free instance object...\n");
+	}
 
 	return 0; // status 0 is ok
 }
@@ -342,7 +355,7 @@ int asym_ypos(int i, int j, tspinstance* inst) {
 }
 
 
-// build_model methods add the constraints to OPTIMIZER structures
+// CPLEX: build_model methods add the constraints to OPTIMIZER structures
 void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 
 	switch (inst->model_type)
@@ -384,7 +397,6 @@ void build_model(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 
 void build_sym_std(tspinstance *inst, CPXENVptr env, CPXLPptr lp) {
 
-	// double zero = 0.0;
 	char xctype = CPX_BINARY;
 
 	char **cname = (char **) calloc(1, sizeof(char *));		// (char **) required by cplex...
@@ -858,6 +870,8 @@ void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* statu
 
 	switch (inst->warm_start) {
 
+		case -1:
+			break;
 		case 0:
 		break;
 
@@ -1020,7 +1034,7 @@ int* heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status
 
 int* heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
-	CPXsetintparam(env, CPX_PARAM_ADVIND, 1);
+	//CPXsetintparam(env, CPX_PARAM_ADVIND, 1);
 
 	double best_lb = CPX_INFBOUND;
 	double val = 1.0;
@@ -1117,7 +1131,7 @@ int* heur_grasp(tspinstance* inst, int* status){
 
 	if (inst->verbose >= 100) printf("Heuristic GRASP\n");
 
-	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
+	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));  // list index of selected edges (x_ij = 1)
 	// get first node, randomly selected
 	int* succ = (int*)malloc(inst->nnodes * sizeof(int));
 	for (int i = 0; i < inst->nnodes; i++) succ[i] = -1;
@@ -1503,6 +1517,8 @@ void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, doubl
 	int cnt = 0;  // from 0 to inst->nnodes = nedges
 
 	switch (inst->model_type) {
+		case -1:
+		  break;
 		case 0 :
 			for (int i = 0; i < inst->nnodes; i++) {
 				for (int j = i+1; j < inst->nnodes; j++) {
@@ -1524,15 +1540,9 @@ void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, doubl
 				}
 			}
 			if (cnt > inst->nnodes) print_error("unaspected value of cnt in fix_bound!");
-
 			*status = CPXchgbds(env, lp, cnt, indices, lu, bd);
 
 			break;
-
-		case 1:
-			print_error(" model type unknown!!");
-			break;
-
 		default:
 			print_error(" model type unknown!!");
 			break;
@@ -1561,7 +1571,7 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 
 	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, INT_MAX);
 
-	for (int h = 0; inst->timelimit - (second() - ini) > 0.0; h++) {
+	for (int h = 0; inst->timelimit - (second() - ini) > 0.001; h++) {
 
 		int nnz = 0;
 		for (int i = 0; i < inst->nnodes * (inst->nnodes - 1) / 2; i++) {
@@ -1690,7 +1700,7 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 		return 1;
 	}
 
-	CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit);
+	//CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit);
 	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
 	double best_lb = inst->best_lb;
 	double best_temp_lb = best_lb;
@@ -1998,7 +2008,7 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 		return 1;
 	}
 
-	CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit);
+	//CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit);
 	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
 	double best_lb = inst->best_lb;
 	double best_temp_lb = best_lb;
@@ -2207,7 +2217,7 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 		return 1;
 	}
 
-	CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit);
+	//CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit);
 
 	double* best_sol = (double*)calloc(inst->nedges, sizeof(double));
 	double* best_global_sol = (double*)calloc(inst->nedges, sizeof(double));
@@ -2333,7 +2343,7 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 		else
 			inst->best_sol[i] = 0.0;
 
-	write_list_lb(head_save);
+	if (inst->verbose > 100) write_list_lb(head_save);
 
 	if (inst->verbose > 100)
 		print_succ(succ, inst);
@@ -2450,7 +2460,7 @@ void init_population(tspinstance* inst, double** population, int nPop) {
 
 	for (int i = 0; i < nPop; i++) {
 		heur_grasp(inst, 1);
-		two_opt(inst);
+		best_two_opt(inst);
 		population[i] = (double*)calloc(inst->nedges, sizeof(double));
 		for (int j = 0; j < inst->nedges; j++) {
 			population[i][j] = inst->best_sol[j];
@@ -4423,24 +4433,21 @@ void switch_callback(tspinstance* inst, CPXENVptr env, CPXLPptr lp) {
 			CPXsetintparam(env, CPX_PARAM_MIPCBREDLP, CPX_ON);			// reset to allow CPX working on its (probably reduce) model
 			return;
 		}
-	}
-	else if (inst->callback == 2) {									// Generic Callback
+	} else if (inst->callback == 2) {									// Generic Callback
 		CPXsetintparam(env, CPX_PARAM_MIPCBREDLP, CPX_OFF);
 		if (CPXcallbacksetfunc(env, lp, CPX_CALLBACKCONTEXT_CANDIDATE, genericcallback, inst)) {
 			print_error(" Error in setGenericCallback2()\n");
 			CPXsetintparam(env, CPX_PARAM_MIPCBREDLP, CPX_ON);
 			return;
 		}
-	}
-	else if (inst->callback == 3) {
+	} else if (inst->callback == 3) {
 		CPXsetintparam(env, CPX_PARAM_MIPCBREDLP, CPX_OFF);
 		if (CPXcallbacksetfunc(env, lp, CPX_CALLBACKCONTEXT_CANDIDATE | CPX_CALLBACKCONTEXT_GLOBAL_PROGRESS, genericcallback, inst)) {
 			print_error(" Error in setGenericCallback3()\n");
 			CPXsetintparam(env, CPX_PARAM_MIPCBREDLP, CPX_ON);
 			return;
 		}
-	}
-	else {																// Callback not used
+	} else {																// Callback not used
 		return;
 	}
 
@@ -5069,6 +5076,9 @@ void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp) {
 
 	switch (inst->model_type)
 	{
+		case -1:
+		  break;
+
 		case 0 :		// basic model with asymmetric x and q
 			build_sol_sym(inst, succ, comp, ncomp);
 			break;
@@ -5722,6 +5732,7 @@ void free_instance(tspinstance *inst) {
 
 	free(inst->xcoord);
 	free(inst->ycoord);
+	free(inst->best_sol);
 	// free(inst->load_min);
 	// free(inst->load_max);
 }
@@ -5799,7 +5810,9 @@ void plot_instance(tspinstance *inst) {
 void setup_style(FILE *gnuplot, tspinstance *inst) {
 
 	switch (inst->model_type) {
-	case 17:
+		case -1:
+		  break;
+		case 17:
 		case 0:			// Line
 			setup_linestyle2(gnuplot);
 			break;
@@ -5860,6 +5873,8 @@ void plot_edges(FILE *gnuplot, char *pngname, tspinstance *inst) {
 	{
 
 		switch (inst->model_type) {
+		case -1:
+		  break;
 		case 17:
 		case 0:			// Line
 			plot_lines_sym(gnuplot, pngname, inst);
