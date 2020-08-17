@@ -24,17 +24,19 @@
 			- check all array and if free is used everytime is possible	(check all cname for example)
 
 			- Latex: how to use generic callback (if it's write good he can take the part for next year courses)
-			- User_cut di Concorde (difficile implementarle e non è possibile utilizzarle ogni volta bensì solo ogni tot..)		-> per la lode
+	PACCO	- User_cut di Concorde (difficile implementarle e non è possibile utilizzarle ogni volta bensì solo ogni tot..)		-> per la lode
 
 			13/07/2020
-			- Aggiungere limite di tempo in tutti i metodi che lo richiedono (io lo metterei in tutti se il timelimit viene settato)
+	RISOLTO	- Aggiungere limite di tempo in tutti i metodi che lo richiedono (io lo metterei in tutti se il timelimit viene settato)
 			  e dobbiamo stare attenti, dovremmo tenere un remaining_time globale in modo che se utilizziamo modelli con più metodi scalino tutti dallo stesso remaining_time
 
 			- Tabu search: we can add variable length of list and add the check also for tabu solution
 
-			- Errore nei modelli 19-20-21-22 da sistemare! RIGA : 883 => CPXaddmipstarts genera l'errore... l'euristica ritorna un tour unico, dopo aver fatto CPXaddmipstarts il tour viene diviso
+	RISOLTO - Errore nei modelli 19-20-21-22 da sistemare! RIGA : 883 => CPXaddmipstarts genera l'errore... l'euristica ritorna un tour unico, dopo aver fatto CPXaddmipstarts il tour viene diviso
 			  in più tour.. già provato a cambiare i parametri del metodo
 
+			17/08/2020
+			- modelli 19-20-21-22 aggiungiamo anche le callback o lasciamo senza?
 */
 
 char * model_name(int i) {
@@ -173,7 +175,7 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->model_type = 0;
 			inst->warm_start = 3;
 			inst->heuristic = 3;
-			return "grasp";				// GRASP + best_two_opt
+			return "grasp";								// GRASP + best_two_opt
 		case 15:
 			inst->model_type = 0;
 			inst->warm_start = 0;
@@ -247,8 +249,8 @@ int TSPopt(tspinstance *inst) {
 
 	// set all the parameters of model chosen
 	setup_model(inst);
-	CPXENVptr env;
-	CPXLPptr lp;
+	CPXENVptr env = NULL;
+	CPXLPptr lp = NULL;
 	int status;
 	double init_opt_time;
 
@@ -278,7 +280,7 @@ int TSPopt(tspinstance *inst) {
 
 	// setup struct to save solution
 	inst->nedges = inst->model_type == 0 ? inst->nnodes*(inst->nnodes -1)/2 : inst->nnodes*(inst->nnodes -1);
-	int best_sol_size;
+	int best_sol_size = 0;
 	if (inst->model_type == 0) {
 		best_sol_size = inst->nnodes*(inst->nnodes-1)/2;
 	} else if (inst->model_type == 1 || inst->model_type == 3) {
@@ -296,6 +298,7 @@ int TSPopt(tspinstance *inst) {
 
 	// set warm start if used
 	switch_warm_start(inst, env, lp, &status);
+
 
 	// compute cplex and calculate opt_time w.r.t. OS used
 	if (inst->verbose >= 100) printf("optimizing model...\n");
