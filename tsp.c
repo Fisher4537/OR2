@@ -900,9 +900,7 @@ void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* statu
 		break;
 	}
 	if (inst->useCplex) {
-
 		CPXsetintparam(env, CPX_PARAM_ADVIND, 1);
-
 		if (best_sol[0] == -1) {	// first element best_sol == -1 => error and return status at best_sol[1]
 			*status = best_sol[1];
 			return *status;
@@ -930,7 +928,6 @@ void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* statu
 		free(best_sol_complete);
 	}
 	free(best_sol);
-
 }
 
 int* heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
@@ -5955,7 +5952,7 @@ void plot_instance(tspinstance *inst) {
 
 	// show plot or save in file and close
 	fflush(gnuplot);
-	
+
 	#ifdef _WIN32
 		//Sleep(2000);		//Don't need in windows if gnuplot doesn't have -persist param
 		fclose(gnuplot);
