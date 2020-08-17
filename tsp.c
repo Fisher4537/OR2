@@ -5818,7 +5818,7 @@ void plot_instance(tspinstance *inst) {
 
 	// show plot or save in file and close
 	fflush(gnuplot);
-	
+
 	#ifdef _WIN32
 		//Sleep(2000);		//Don't need in windows if gnuplot doesn't have -persist param
 		fclose(gnuplot);

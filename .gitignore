@@ -61,3 +61,23 @@ Latex/img/patching2.0.gif
 .idea/
 
 plot/
+
+res_aTSP.csv
+
+res_cgal.csv
+
+res_constructive.csv
+
+res_exact_L.csv
+
+res_H.csv
+
+res_heuristic_LA.csv
+
+res_LA.csv
+
+res_lb.png
+
+res_time.png
+
+res/Lhardfix_lightaverage.csv
