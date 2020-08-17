@@ -905,30 +905,26 @@ void switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* statu
 			return *status;
 		}
 
-		int nocheck_warmstart = CPX_MIPSTART_NOCHECK;
-		// CPLEX attempts to repair the MIP start if it is infeasible, according to
-		// the parameter that sets the frequency to try to repair an infeasible MIP
-		// start
-		// number of attempts to repair infeasible MIP start = CPXPARAM_MIP_Limits_RepairTries. Default => CPLEX choose
-		// CPX_MIPSTART_SOLVEMIP;		// CPLEX solves a subMIP.
+		/*
+			CPX_MIPSTART_REPAIR;			CPLEX attempts to repair the MIP start if it is infeasible, according to
+											the parameter that sets the frequency to try to repair an infeasible MIP start
+											number of attempts to repair infeasible MIP start = CPXPARAM_MIP_Limits_RepairTries. Default => CPLEX choose
+			CPX_MIPSTART_SOLVEMIP;			CPLEX solves a subMIP.
+		*/
+		int nocheck_warmstart = CPX_MIPSTART_NOCHECK;		// CPLEX accepts the MIP start without any checks. The MIP start needs to be complete.
+
 		int* best_sol_complete = (int*)calloc(inst->nedges, sizeof(int));
-		double* best_sol_values = (double*)calloc(inst->nedges, sizeof(double));
-		
 		for (int i = 0; i < inst->nedges; i++) {
-			best_sol_values[i] = 0.0;
 			best_sol_complete[i] = i;
 		}
 
-		for (int i = 0; i < inst->nnodes; i++)
-			best_sol_values[best_sol[i]] = 1.0;
-
-		//double val = 1.0;
 		int izero = 0;
 
 		//if (*status = CPXaddmipstarts(env, lp, 1, inst->nnodes, &izero, best_sol, &val, &nocheck_warmstart, NULL)) {
-		if (*status = CPXaddmipstarts(env, lp, 1, inst->nedges, &izero, best_sol_complete, best_sol_values, &nocheck_warmstart, NULL)) {
+		if (*status = CPXaddmipstarts(env, lp, 1, inst->nedges, &izero, best_sol_complete, inst->best_sol, &nocheck_warmstart, NULL)) {
 			print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
 		}
+		free(best_sol_complete);
 	}
 	free(best_sol);
 
@@ -1048,8 +1044,6 @@ int* heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status
 }
 
 int* heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
-
-	//CPXsetintparam(env, CPX_PARAM_ADVIND, 1);
 
 	double best_lb = CPX_INFBOUND;
 	double val = 1.0;
@@ -1700,7 +1694,6 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 	}
 	return 0;
 }
-
 /*
 int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	// TODO resolve returning value
