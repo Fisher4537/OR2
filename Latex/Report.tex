@@ -152,7 +152,7 @@
 	\clearpage
 	
 	\begin{appendices}
-		\chapter{Test bed} \label{sec:testset}
+		\chapter{Test-bed} \label{sec:testset}
 		The TSPLIB \cite{TSPLIB} is a library that contain different instances of TSP problem and its best solution found. All the file described in this section are part of the TSPLIB. To test the developed algorithm three different set have been prepared, depending on the number of node ($=|V|$) in the graph: Data Light, Data Average and Data Heavy.\\
 		These are all intended as sTSP, however the same instance can be considered also for aTSP replacing each edge with two arches with opposite direction. This subdivision is justified by the different execution time of the algorithms: it is more interesting to compare the performance of different algorithms in similar instances.\\
 		
@@ -215,7 +215,7 @@
 		\end{multicols}
 		
 		
-		\textbf{Data Heavy ($ 300 < |V|$):}
+		\textbf{Data Heavy ($|V| > 300$):}
 		\begin{multicols}{4}
 			\begin{itemize}
 				\item ali535.tsp
@@ -292,7 +292,7 @@
 
 		\chapter{CGAL Library in Windows with VS2019} \label{sec:cagalOne}
 CGAL is a library that simplifies access reliably to computational geometry algorithms. it is written in C ++ and therefore it is compatible with this project. Here are the steps to follow to use the CGAL library in a Windows environment with the IDE Visual Studio 2019 version.\\ Unfortunately, porting from the Linux environment requires installing MPIR (a fork of GMP), MPFR and all boost header files. Furthermore, the possibility of compiling the library was also explained.
-\subsection{GMP in Windows}
+\subsection{GMP in Windows} \label{sec:cgalLib}
 \begin{itemize}
 \item Follow steps at: \href{https://doc.cgal.org/latest/Manual/windows.html}{https://doc.cgal.org/latest/Manual/windows.html}. For the x64 version of CGAL, instead of command:
 \begin{lstlisting}
@@ -302,7 +302,7 @@ CGAL is a library that simplifies access reliably to computational geometry algo
 \begin{lstlisting}
 ./vcpkg.exe install cgal:x64-windows   
 \end{lstlisting}
-\item If you want to compile library use CygWin follow this guide: \href{https://stackoverflow.com/questions/4711315/build-gmp-on-64bit-windows/52102540#52102540}{https://stackoverflow.com/questions/4711315/build-gmp-on-64bit-windows/52102540\#52102540} but replace command:
+\item (Not necessary) If you want to compile library use CygWin follow this guide: \\ \href{https://stackoverflow.com/questions/4711315/build-gmp-on-64bit-windows/52102540#52102540}{https://stackoverflow.com/questions/4711315/build-gmp-on-64bit-windows/52102540\#52102540} but replace command:
 \begin{lstlisting}
 ./config --disable-static --enable-shared
 \end{lstlisting}
@@ -320,150 +320,63 @@ Pay attention to the last command:
  lib /machine:i386 /def:cyggmp-10.dll 
 \end{lstlisting}
 It must be run next to cyggmp-10.dll and the compiled library probably is located in Cygwin\textbackslash bin folder.
-Lastly the option: \textit{/machine:i386} is for the 32bit version, \textit{/machine:x64} for the 64bit version).
+Lastly the option: \textit{/machine:i386} is for the 32bit version, \textit{/machine:x64} for the 64bit version. \\
+\newline
+Cygwin Package Information: The packages in the tab.\ref{tab:packages} should match the packages installed at the end of the procedure \ref{sec:cgalLib} if you choose to recompile the library on your machine.
+\begin{table}[h]
+\scriptsize
+	\begin{center}
+		\caption{Output of command: \textit{cygcheck --check-setup} ran into Cygwin console which corresponds to the list of its packages installed and related versions}
+		\label{tab:packages}
+		\begin{tabular}{ll|ll|ll}
+			Package & Version & Package & Version & Package & Version \\ \hline
+			&&&&& \\
+			\_autorebase & 001007-1 & 	libdb5.3 & 5.3.28-2 & 	libsasl2\_3 & 2.1.27-1 \\
+			alternatives & 1.3.30c-10 & 	libexpat1 & 2.2.6-1 & 	libsigsegv2 & 2.10-2 \\
+			base-cygwin & 3.8-1 & 	libfdisk1 & 2.33.1-2 & 	libsmartcols1 & 2.33.1-2 \\
+			base-files & 4.3-2 & 	libffi6 & 3.2.1-2 & 	libssh-common & 0.8.7-1 \\
+			bash & 4.4.12-3 & 	libgc1 & 8.0.4-1 & 	libssh4 & 0.8.7-1 \\
+			binutils & 2.34+1git.de9c1b7cfe-1 & 	libgcc1 & 9.3.0-2 & 	libssl1.1 & 1.1.1f-1 \\
+			bzip2 & 1.0.8-1 & 	libgdbm4 & 1.13-1 & 	libstdc++6 & 9.3.0-2 \\
+			ca-certificates & 2.40-1 & 	libgmp-devel & 6.2.0-2 & 	libtasn1\_6 & 4.14-1 \\
+			cmake & 3.14.5-1 & 	libgmp10 & 6.2.0-2 & 	libunistring2 & 0.9.10-1 \\
+			coreutils & 8.26-2 & 	libgmpxx4 & 6.2.0-2 & 	libuuid1 & 2.33.1-2 \\
+			crypto-policies & 20190218-1 & 	libgomp1 & 9.3.0-2 & 	libuv1 & 1.32.0-1 \\
+			cygutils & 1.4.16-2 & 	libgssapi\_krb5\_2 & 1.15.2-2 & 	libxml2 & 2.9.9-2 \\
+			cygwin & 3.1.4-1 & 	libguile2.2\_1 & 2.2.7-1 & 	login & 1.13-1 \\
+			cygwin-devel & 3.1.4-1 & 	libiconv & 1.14-3 & 	m4 & 1.4.18-1 \\
+			dash & 0.5.9.1-1 & 	libiconv2 & 1.14-3 & 	make & 4.3-1 \\
+			diffutils & 3.5-2 & 	libidn2\_0 & 2.2.0-1 & 	man-db & 2.7.6.1-1 \\
+			editrights & 1.03-1 & 	libintl8 & 0.19.8.1-2 & 	mintty & 3.1.4-1 \\
+			file & 5.32-1 & 	libisl22 & 0.22.1-2 & 	ncurses & 6.1-1.20190727 \\
+			findutils & 4.6.0-1 & 	libjsoncpp19 & 1.8.4-1 & 	openssl & 1.1.1f-1 \\
+			gawk & 5.1.0-1 & 	libk5crypto3 & 1.15.2-2 & 	p11-kit & 0.23.20-1 \\
+			gcc-core & 9.3.0-2 & 	libkrb5\_3 & 1.15.2-2 & 	p11-kit-trust & 0.23.20-1 \\
+			gcc-g++ & 9.3.0-2 & 	libkrb5support0 & 1.15.2-2 & 	pkg-config & 1.6.3-1 \\
+			getent & 2.18.90-4 & 	libltdl7 & 2.4.6-7 & 	pkgconf & 1.6.3-1 \\
+			grep & 3.0-2 & 	liblz4\_1 & 1.7.5-1 & 	publicsuffix-list-dafsa & 20200326-1 \\
+			groff & 1.22.4-1 & 	liblzma5 & 5.2.4-1 & 	rebase & 4.4.4-1 \\
+			gzip & 1.8-1 & 	libmpc3 & 1.1.0-1 & 	run & 1.3.4-2 \\
+			hostname & 3.13-1 & 	libmpfr6 & 4.0.2-2p6 & 	sed & 4.4-1 \\
+			info & 6.7-1 & 	libncursesw10 & 6.1-1.20190727 & 	tar & 1.29-1 \\
+			ipc-utils & 1.0-2 & 	libnettle6 & 3.4.1-1 & 	terminfo & 6.1-1.20190727 \\
+			less & 551-1 & 	libnghttp2\_14 & 1.37.0-1 & 	terminfo-extra & 6.1-1.20190727 \\
+			libarchive13 & 3.3.2-1 & 	libopenldap2\_4\_2 & 2.4.49-1 & 	tzcode & 2019c-1 \\
+			libargp & 20110921-3 & 	libp11-kit0 & 0.23.20-1 & 	tzdata & 2019c-1 \\
+			libatomic1 & 9.3.0-2 & 	libpcre1 & 8.44-1 & 	util-linux & 2.33.1-2 \\
+			libattr1 & 2.4.48-2 & 	libpipeline1 & 1.5.1-1 & 	vim-minimal & 8.2.0486-1 \\
+			libblkid1 & 2.33.1-2 & 	libpkgconf3 & 1.6.3-1 & 	w32api-headers & 7.0.0-1 \\
+			libbrotlicommon1 & 1.0.7-1 & 	libpopt-common & 1.16-2 & 	w32api-runtime & 7.0.0-1 \\
+			libbrotlidec1 & 1.0.7-1 & 	libpopt0 & 1.16-2 & 	which & 2.20-2 \\
+			libbz2\_1 & 1.0.8-1 & 	libpsl5 & 0.21.0-1 & 	windows-default-manifest & 6.4-1 \\
+			libcom\_err2 & 1.44.5-1 & 	libquadmath0 & 9.3.0-2 & 	xz & 5.2.4-1 \\
+			libcrypt2 & 4.4.4-1 & 	libreadline7 & 7.0.3-3 & 	zlib0 & 1.2.11-1 \\
+			libcurl4 & 7.66.0-1 & 	librhash0 & 1.3.9-1 & 	\\
+
+		\end{tabular}
+	\end{center}
+\end{table}
 \end{itemize}
-\subsubsection{Cygwin Package Information (installed)}
-These are the packages that should be installed at the end of the \ref {sec:cagalOne} procedure in case you choose to recompile the library on your machine.
-\begin{center}
-\begin{tabular}{|m{4cm}|m{4cm}|}
-Package & Version \\
-\hline
-\_autorebase & 001007-1 \\
-alternatives & 1.3.30c-10 \\
-base-cygwin & 3.8-1 \\
-base-files & 4.3-2 \\
-bash & 4.4.12-3 \\
-binutils & 2.34+1git.de9c1b7cfe-1 \\
-bzip2 & 1.0.8-1 \\
-ca-certificates & 2.40-1 \\
-cmake & 3.14.5-1 \\
-coreutils & 8.26-2 \\
-crypto-policies & 20190218-1 \\
-cygutils & 1.4.16-2 \\
-cygwin & 3.1.4-1 \\
-cygwin-devel & 3.1.4-1 \\
-dash & 0.5.9.1-1 \\
-diffutils & 3.5-2 \\
-editrights & 1.03-1 \\
-file & 5.32-1 \\
-findutils & 4.6.0-1 \\
-gawk & 5.1.0-1 \\
-gcc-core & 9.3.0-2 \\
-gcc-g++ & 9.3.0-2 \\
-getent & 2.18.90-4 \\
-grep & 3.0-2 \\
-groff & 1.22.4-1 \\
-gzip & 1.8-1 \\
-hostname & 3.13-1 \\
-info & 6.7-1 \\
-ipc-utils & 1.0-2 \\
-less & 551-1 \\
-libarchive13 & 3.3.2-1 \\
-libargp & 20110921-3 \\
-libatomic1 & 9.3.0-2 \\
-libattr1 & 2.4.48-2 \\
-libblkid1 & 2.33.1-2 \\
-libbrotlicommon1 & 1.0.7-1 \\
-libbrotlidec1 & 1.0.7-1 \\
-libbz2\_1 & 1.0.8-1 \\
-libcom\_err2 & 1.44.5-1 \\
-libcrypt2 & 4.4.4-1 \\
-libcurl4 & 7.66.0-1 \\
-\hline
-\end{tabular}
-\begin{tabular}{|m{3cm}|m{3cm}|}
-Package & Version \\
-\hline
-libdb5.3 & 5.3.28-2 \\
-libexpat1 & 2.2.6-1 \\
-libfdisk1 & 2.33.1-2 \\
-libffi6 & 3.2.1-2 \\
-libgc1 & 8.0.4-1 \\
-libgcc1 & 9.3.0-2 \\
-libgdbm4 & 1.13-1 \\
-libgmp-devel & 6.2.0-2 \\
-libgmp10 & 6.2.0-2 \\
-libgmpxx4 & 6.2.0-2 \\
-libgomp1 & 9.3.0-2 \\
-libgssapi\_krb5\_2 & 1.15.2-2 \\
-libguile2.2\_1 & 2.2.7-1 \\
-libiconv & 1.14-3 \\
-libiconv2 & 1.14-3 \\
-libidn2\_0 & 2.2.0-1 \\
-libintl8 & 0.19.8.1-2 \\
-libisl22 & 0.22.1-2 \\
-libjsoncpp19 & 1.8.4-1 \\
-libk5crypto3 & 1.15.2-2 \\
-libkrb5\_3 & 1.15.2-2 \\
-libkrb5support0 & 1.15.2-2 \\
-libltdl7 & 2.4.6-7 \\
-liblz4\_1 & 1.7.5-1 \\
-liblzma5 & 5.2.4-1 \\
-libmpc3 & 1.1.0-1 \\
-libmpfr6 & 4.0.2-2p6 \\
-libncursesw10 & 6.1-1.20190727 \\
-libnettle6 & 3.4.1-1 \\
-libnghttp2\_14 & 1.37.0-1 \\
-libopenldap2\_4\_2 & 2.4.49-1 \\
-libp11-kit0 & 0.23.20-1 \\
-libpcre1 & 8.44-1 \\
-libpipeline1 & 1.5.1-1 \\
-libpkgconf3 & 1.6.3-1 \\
-libpopt-common & 1.16-2 \\
-libpopt0 & 1.16-2 \\
-libpsl5 & 0.21.0-1 \\
-libquadmath0 & 9.3.0-2 \\
-\hline
-\end{tabular}
-\newpage
-\begin{tabular}{|m{3cm}|m{3cm}|}
-Package & Version \\
-\hline
-libreadline7 & 7.0.3-3 \\
-librhash0 & 1.3.9-1 \\
-libsasl2\_3 & 2.1.27-1 \\
-libsigsegv2 & 2.10-2 \\
-libsmartcols1 & 2.33.1-2 \\
-libssh-common & 0.8.7-1 \\
-libssh4 & 0.8.7-1 \\
-libssl1.1 & 1.1.1f-1 \\
-libstdc++6 & 9.3.0-2 \\
-libtasn1\_6 & 4.14-1 \\
-libunistring2 & 0.9.10-1 \\
-libuuid1 & 2.33.1-2 \\
-libuv1 & 1.32.0-1 \\
-libxml2 & 2.9.9-2 \\
-login & 1.13-1 \\
-m4 & 1.4.18-1 \\
-make & 4.3-1 \\
-man-db & 2.7.6.1-1 \\
-mintty & 3.1.4-1 \\
-ncurses & 6.1-1.20190727 \\
-openssl & 1.1.1f-1 \\
-p11-kit & 0.23.20-1 \\
-p11-kit-trust & 0.23.20-1 \\
-pkg-config & 1.6.3-1 \\
-pkgconf & 1.6.3-1 \\
-publicsuffix-list-dafsa & 20200326-1 \\
-rebase & 4.4.4-1 \\
-run & 1.3.4-2 \\
-sed & 4.4-1 \\
-tar & 1.29-1 \\
-terminfo & 6.1-1.20190727 \\
-terminfo-extra & 6.1-1.20190727 \\
-tzcode & 2019c-1 \\
-tzdata & 2019c-1 \\
-util-linux & 2.33.1-2 \\
-vim-minimal & 8.2.0486-1 \\
-w32api-headers & 7.0.0-1 \\
-w32api-runtime & 7.0.0-1 \\
-which & 2.20-2 \\
-windows-default-manifest & 6.4-1 \\
-xz & 5.2.4-1 \\
-zlib0 & 1.2.11-1 \\
-\hline
-\end{tabular}
-\end{center}
 
 \subsection{Include GMP in Windows (if MPIR is not enough)}
 MPIR is a highly optimised library for bignum arithmetic forked from the GMP bignum library. It is written in assembly language and C. It offers many features but in order to use the CGAL library correctly it is not enough, it is necessary to include GMP in the Visual Studio IDE.
@@ -483,10 +396,10 @@ Install-Package NuGet.CommandLine
 \end{lstlisting}
 		
 
-\item Go on project folder (where packages.config is located) $\rightarrow$ open CMD :
+\item Go on project folder (where \textit{<nome\_progetto>.sln} file is located, there should be "packages" folder) $\rightarrow$ open CMD :
 
 \begin{lstlisting}
-.\..\packages\NuGet.CommandLine.5.5.1\tools\NuGet.exe Install -NonInteractive -OutputDirectory packages packages.config
+.\packages\NuGet.CommandLine.5.5.1\tools\NuGet.exe Install -NonInteractive -OutputDirectory packages packages.config
 \end{lstlisting}
 	
 \item Close and reopen VS.
@@ -564,7 +477,7 @@ It can be possible to change used Framework directy on VS settings :
 \end{enumerate}
 (reference: \href{https://docs.microsoft.com/it-it/cpp/build/how-to-modify-the-target-framework-and-platform-toolset?view=vs-2019}{https://docs.microsoft.com/it-it/cpp/build/how-to-modify-the-target-framework-and-platform-toolset?view=vs-2019})
 \begin{itemize}
-\item do a Close, Restart VS
+\item then, close and restart VS
 \end{itemize}
 
 \subsection{Relative Links}

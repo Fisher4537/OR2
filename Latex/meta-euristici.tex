@@ -41,7 +41,7 @@ The slight probability of taking a step that gives higher energy is what allows 
 \begin{figure}[h]
 	\centering
 	\includegraphics[width=.6\columnwidth]{../res/fl1400_23.png}
-	\caption{Performance profile considering the execution time of 1400 nodes file with timelimit of 10000}
+	\caption{Performance profile considering the execution time of 1400 nodes file (fl1400.tsp) with time limit of 10000}
 	\label{fig:simultaing_annealing_perform_time}
 \end{figure}
 
@@ -149,6 +149,7 @@ The pseudocode of the EAX\_SINGLE method is identical to that explained in Algor
 
 \subsection{Evaluate AB-Cycles}
 This method was completely designed by us from scratch. It refers to how to find a cycle that respects the conditions of the EAX\_SINGLE procedure inside the nodes and edges traced so far by the current AB-Cycle. An explanation of this procedure is not given in the papers \cite{Nagata2013, Honda2013} and it is not even that simple. We initially thought of using a greedy graph search algorithm, such as Depth First Traversal (DFT) or Breadth First Search (BFS), but these algorithms do not include the presence of double edges between two nodes and are based on visiting the nodes and not edges and also once found any cycle they stop and do not provide the possibility to continue the search if the cycle does not meet certain conditions. So we have developed an ad hoc algorithm for this type of search that transforms the graph into a tree considering double edges and the possibility to continue the search if a cycle is found that does not respect the conditions required by the EAX\_SINGLE. This algorithm has a recursive structure and uses linked lists that allow a dynamic allocation to save all the necessary information, it was also built trying to free up memory as much as possible in order to avoid overflow as the generations increase. Furthermore, the possibility of finding all the cycles within the graph and not only one is managed, but, as required by the EAX, when an acceptable solution is found, the search ends.
+% spiegare un attimo come funziona? quindi le diramazioni rappresentano ognuna un percorso possibile, in questo modo vengono considerati tutti i possibili cammini all'interno del grafo.
 
 \subsection{SURVIVAL\_SELECTION}
 For the survival selection method, some parameters are defined: 

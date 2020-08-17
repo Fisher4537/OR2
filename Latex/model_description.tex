@@ -75,7 +75,7 @@ Considering the example in fig. \ref{fig:symTSP}, the value of the solution is r
 Given a complete graph $ G = (V,A) $, a distance funciton  $ d $ where:
 \begin{itemize}
 	\item $ V:= \{1, 2, .., n\} $ is the set of nodes;
-	\item $ A := $ the set arches between each nodes $ i,j \in V, i \ne j$ represented as $ (i,j) $, note that in the aTSP $ (i,j) \ne (j,i) $ and the number of arches is $ |A| = n*(n-1) $ which is double of the sTSP;
+	\item $ A := $ the set arches between each nodes $ i,j \in V, i \ne j$ represented as $ (i,j) $, note that in the aTSP $ (i,j) \ne (j,i) $ and the number of arches is $ |A| = n \ast (n-1) $ which is double of the sTSP;
 	\item $ d: (i,j) \rightarrow d(i,j) = c_{ij} $ where $ c_{ij} $ is the cost associated to the arch $ (i,j) $.
 \end{itemize}
 As in the sTSP, it is defined the decision variable $ x_{ij} $ which tell if the arch $ (i,j) $ is in the tour:
@@ -150,7 +150,7 @@ The number of decision variables instead is more than the double $ n(n-1) + n = 
 \end{figure}
 
 The Flow1 model impose the "subtour elimination" constraints with a decision variable $ y_{ij} $ which is associated to each arch $ (i,j) \in V $ and represent a flow that decrease from $ n-1 $ to $ 0 $ for each node of the tour and is $ 0 $ if it is not in the tour. As shown in fig \ref{fig:asymTSP_F1} starting from the node $ 1 $ the flow $ y_{15} = 4 $ than decrease each step by $ 1 $ unit until the last arch of the tour where $ y_{31} = 0 $. Note that the last arch $ y_{31} $ has the same value of the unselected one, this is because the last arch of the tour is implicit. \\
-The proposed LP model is in eq \ref{eq:aTSP_F1}. The outer flow of $ 1 $ is the first constraint, than to make the flow decrease it is imposed the "flow equilibrium" where each inner flow must be equal to the outer flow $ +1 $ and, in the end, the \textit{coupling constraints} imposed that only the arches in the tour ($ x_{ij} > 0 $) can have $ y_{ij} > 0 $ otherwise must be equal to $ 0 $. The last set of constraint force the flow to move along the tour and decrease each step. 
+The proposed LP model is in the system of equations \ref{eq:aTSP_F1}. The outer flow of $ 1 $ is the first constraint, than to make the flow decrease it is imposed the "flow equilibrium" where each inner flow must be equal to the outer flow $ +1 $ and, in the end, the \textit{coupling constraints} imposed that only the arches in the tour ($ x_{ij} > 0 $) can have $ y_{ij} > 0 $ otherwise must be equal to $ 0 $. The last set of constraint force the flow to move along the tour and decrease each step. 
 
 \begin{equation}
 \begin{cases}
@@ -170,7 +170,7 @@ y_{ij} - x_{ij}(n-1) \le 0, \forall i \in V, \forall j \in V \backslash \{1\}  &
 \end{equation}
 
 
-The number of F1 constraint equals to $ O(1) + O(n-1) + O(n^2) = O(n^2) $. The tables of variable are shown in tab \ref{tab:asymTSP_F1_solution} with the associated solution example in fig \ref{fig:asymTSP_F1}. It's easy to see that the number of variable is $ 2n(n-1) = O(n^2) $\\
+The number of F1 constraint is equal to $ O(1) + O(n-1) + O(n^2) = O(n^2) $. The tables of variable are shown in tab \ref{tab:asymTSP_F1_solution} with the associated solution example in fig \ref{fig:asymTSP_F1}. It's easy to see that the number of variable is $ 2n(n-1) = O(n^2) $\\
 
 
 \begin{table}[h!]
