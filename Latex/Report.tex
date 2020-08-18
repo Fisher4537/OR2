@@ -322,11 +322,11 @@ Pay attention to the last command:
 It must be run next to cyggmp-10.dll and the compiled library probably is located in Cygwin\textbackslash bin folder.
 Lastly the option: \textit{/machine:i386} is for the 32bit version, \textit{/machine:x64} for the 64bit version. \\
 \newline
-Cygwin Package Information: The packages in the tab.\ref{tab:packages} should match the packages installed at the end of the procedure \ref{sec:cgalLib} if you choose to recompile the library on your machine.
+Cygwin Package Information: To be more specific, in the tab.\ref{tab:packages} there are the packages and relative versions used to compile the CGAL library.
 \begin{table}[h]
 \scriptsize
 	\begin{center}
-		\caption{Output of command: \textit{cygcheck --check-setup} ran into Cygwin console which corresponds to the list of its packages installed and related versions}
+		\caption{Output of command: \textit{cygcheck --check-setup} ran into Cygwin console which corresponds to the list of its installed packages and related versions}
 		\label{tab:packages}
 		\begin{tabular}{ll|ll|ll}
 			Package & Version & Package & Version & Package & Version \\ \hline
@@ -419,7 +419,7 @@ Complete guide explained in \href{https://stackoverflow.com/a/33505176/2161332}{
 
 \subsection{Add Library file}
 \begin{enumerate}
-\item \textit{VS} $\rightarrow$ \textit{Esplora Soluzione} $\rightarrow$ \textit{<nome\_progetto>} $\rightarrow$ \textit{right click} $\rightarrow$ \textit{Proprietà}:
+\item \textit{VS} $\rightarrow$ \textit{Esplora Soluzione} $\rightarrow$ \textit{<nome\_progetto>} $\rightarrow$ right click $\rightarrow$ \textit{Proprietà}:
 
 \item \textit{C/C++} $\rightarrow$ \textit{Generale} $\rightarrow$ \textit{Directory inclusioni aggiuntive} $\rightarrow$ \textit{add}:
 

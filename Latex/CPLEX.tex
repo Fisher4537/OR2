@@ -59,8 +59,8 @@ Computational evaluation can be found in the next chapter.
 \section{Flow1}
 The F1 model has been implemented in two alternatives:
 \begin{enumerate}
-	\item \texttt{flow1\_n-1}: this is exactly the model defined in the previous chapter and "$ n-1 $" is relative to the constraint  $ y_{ij} \leq x_{ij} \ast (n-1), \forall i \in V, \forall j \in V \backslash \{1\} $, which is the only difference with \texttt{flow1\_n-2}. 
-	\item \texttt{flow1\_n-2}: a little improvement is introduced: $ y_{1j} \leq x_{1j} \ast (n-1), \forall j \in V $ but $ y_{ij} \leq x_{ij} \ast (n-2), \forall i \in V, \forall j \in V \backslash \{1\} $. Indeed these constraints are deeper than the previous because they restrict the possible values to assign. Howeve, it is not possible to predict the effectiveness of the improvement.
+	\item \texttt{flow1\_n-1}: this is exactly the model defined in the previous chapter and "$ n-1 $" is relative to the constraint  $ y_{ij} \leq x_{ij} (n-1), \forall i \in V, \forall j \in V \backslash \{1\} $, which is the only difference with \texttt{flow1\_n-2}. 
+	\item \texttt{flow1\_n-2}: a little improvement is introduced: $ y_{1j} \leq x_{1j}  (n-1), \forall j \in V $ but $ y_{ij} \leq x_{ij} (n-2), \forall i \in V, \forall j \in V \backslash \{1\} $. Indeed these constraints are deeper than the previous because they restrict the possible values to assign. Howeve, it is not possible to predict the effectiveness of the improvement.
 \end{enumerate}
 In either the two implementation all the constraints are added in the model definition with \texttt{CPXnewrows} and \texttt{CPXchgcoef}.
 

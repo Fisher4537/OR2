@@ -69,6 +69,8 @@ char * model_name(int i) {
 		case 24: return "genetic_algorithm";				// Genetic Algorithm
 		case 25: return "greedy_best_two_opt";
 		case 26: return "insertion_best_two_opt";
+		case 27: return "greedy_single";					// Greedy of a single tour
+		case 28: return "grasp_n_times_best_two_opt";		// GRASP N_TIMES 
 		default: return "not_supported";
 	}
 }
@@ -151,7 +153,7 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->callback = 2;
 			inst->mip_opt = 2;
 			inst->useCplex = 1;
-			return "local_branching";				// Soft-Fixing => Local Branching
+			return "local_branching";					// Soft-Fixing => Local Branching
 		case 10:
 			inst->model_type = 0;
 			inst->warm_start = 1;
@@ -239,7 +241,17 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->model_type = 0;
 			inst->warm_start = 4;
 			inst->heuristic = 3;
-			return "insertion_best_two_opt";				// Insertion + best_two_opt
+			return "insertion_best_two_opt";			// Insertion + best_two_opt
+		case 27:
+			inst->model_type = 0;
+			inst->warm_start = 5;
+			inst->mip_opt = 3;
+			return "greedy_single";						// Heuristic Greedy SINGLE 
+		case 28:
+			inst->model_type = 0;
+			inst->warm_start = 6;
+			inst->mip_opt = 3;
+			return "grasp_n_times";						// Heuristic GRASP N_TIMES
 		default: return "not_supported";
 	}
 }
@@ -890,8 +902,16 @@ int switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* status
 			heur_grasp(inst, status);
 		break;
 
-		case 4:
-			heur_insertion(env, lp, inst, status);	// Heuristic Insertion
+		case 4:													// Heuristic Insertion
+			heur_insertion(env, lp, inst, status);				
+		break;
+
+		case 5:													// Heuristic Greedy Single + best_two_opt
+			heur_greedy_single(env, lp, inst, status);
+		break;
+
+		case 6:													// Heuristic GRASP N_TIMES
+			heur_grasp_n(inst, status, (inst->nnodes < 1000) ? 10 : (inst->nnodes > 10000) ? 2 : 5);			// nnodes: < 1000 = 10 times - 1000:5000 = 5 times - >5000 = 2 times 
 		break;
 
 		default:
@@ -1102,6 +1122,59 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	}
 	return *status;
 }
+int heur_greedy_single(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
+
+	double best_lb = CPX_INFBOUND;
+	double val = 1.0;
+	inst->best_lb = CPX_INFBOUND;
+	int izero = 0;
+
+	int start = rand() % inst->nnodes;
+
+	int* sol = (int*)calloc(inst->nnodes, sizeof(int));
+	for (int k = 0; k < inst->nnodes; k++) {
+		sol[k] = -1;
+	}
+
+	int succ = succ_not_contained(start, sol, inst);
+	sol[0] = start;
+	sol[1] = succ;
+	if (inst->verbose > 1000)
+		printf("%d\n%d\n", sol[0], sol[1]);
+	int idx_pred = succ;
+
+	for (int j = 2; j < inst->nnodes; j++) {
+		succ = succ_not_contained(idx_pred, sol, inst);
+		sol[j] = succ;
+		idx_pred = succ;
+		if (inst->verbose > 1000)
+			printf("%d\n", sol[j]);
+
+	}
+
+	best_lb = 0.0;
+	for (int j = 0; j < inst->nnodes - 1; j++) {
+		if (inst->verbose > 100)
+			printf("%d,%d\n", sol[j], sol[j + 1]);
+		best_lb += dist(sol[j], sol[j + 1], inst);
+		sol[j] = xpos(sol[j], sol[j + 1], inst);
+
+	}
+	if (inst->verbose > 100)
+		printf("%d,%d\n\n", sol[inst->nnodes - 1], start);
+	best_lb += dist(sol[inst->nnodes - 1], start, inst);
+	sol[inst->nnodes - 1] = xpos(sol[inst->nnodes - 1], start, inst);
+
+	inst->best_lb = best_lb;
+	for (int k = 0; k < inst->nnodes; k++)
+		inst->best_sol[sol[k]] = 1.0;
+	free(sol);
+
+	if (inst->verbose >= 100)
+		printf("BEST_LB Greedy Heuristic Single found: [%f]\n", inst->best_lb);
+
+	return 0;
+}
 int succ_not_contained(int node, int* sol, tspinstance* inst) {
 	double d = INT_MAX;
 	int succ = -1;
@@ -1208,6 +1281,104 @@ int heur_grasp(tspinstance* inst, int* status){
 	inst->best_lb = best_lb;
 	if (inst->verbose >= 100) printf("GRASP BEST_LB: %lf\n", inst->best_lb);
 	fflush(stdout);
+
+	return 0;
+}
+int heur_grasp_n(tspinstance* inst, int* status, int times) {
+
+	if (inst->verbose >= 100) printf("Heuristic GRASP %d_TIMES\n", times);
+
+	int  temp_node = -1;
+	inst->best_lb = MAXINT;
+
+	for (int i = 0; i < times; i++) {
+
+		int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));  // list index of selected edges (x_ij = 1)
+		// get first node, randomly selected
+		int* succ = (int*)malloc(inst->nnodes * sizeof(int));
+		for (int i = 0; i < inst->nnodes; i++) succ[i] = -1;
+
+		//int cur_node = round(((double)rand() / RAND_MAX) * (inst->nnodes - 1.0));
+		srand(i);
+		int cur_node = rand() % inst->nnodes;
+		if (inst->verbose >= 100)
+			printf("\n%d - Starting Nodes: %d", i + 1, cur_node);
+
+		int first_node = cur_node;
+
+		// find the three nearest node of each node
+		int cur_nearest[3];  		// index of the nearest from current node
+		double cur_dist[3];  		// distance from current node
+		double best_lb = 0.0;  		// the cost of the solution
+
+		for (int tour_length = 0; tour_length < inst->nnodes; tour_length++) {
+
+			// initialization
+			for (int k = 0; k < 3; k++) {
+				cur_dist[k] = INT_MAX; cur_nearest[k] = -1;
+			}
+
+			// get the three nearest node
+			for (int j = 0; j < inst->nnodes; j++) {	// for each other node
+				if (cur_node == j) continue;  					// except cur_node == j
+				if (succ[j] != -1) continue;						// the node is in the tour
+
+				// get distances of last added node and j
+				double d_ij = dist(cur_node, j, inst);
+
+				// check insertion condition
+				for (int k = 0; k < 3; k++) {
+					if (d_ij < cur_dist[k]) {
+						// insert the new candidate in the vector
+						for (int l = k; l < 3 - 1; l++) {
+							cur_dist[l + 1] = cur_dist[l];
+							cur_nearest[l + 1] = cur_nearest[l];
+						}
+						cur_dist[k] = d_ij;
+						cur_nearest[k] = j;
+						break;
+					}
+				}
+
+			}
+
+			// select succ randomly
+			srand(time(0));
+			int rand_node = rand() % 3;
+			int next_node;
+			double next_dist;
+
+			if (cur_nearest[0] != -1) {
+				next_node = cur_nearest[rand_node] != -1 ? cur_nearest[rand_node] : cur_nearest[0];
+				next_dist = cur_nearest[rand_node] != -1 ? cur_dist[rand_node] : cur_dist[0];
+			}
+			else {  // last node, close the tour
+				next_node = first_node;
+				next_dist = dist(cur_node, first_node, inst);
+			}
+			succ[cur_node] = next_node;
+			best_sol[tour_length] = xpos(cur_node, next_node, inst);
+			best_lb += next_dist;
+			cur_node = next_node;
+		}
+
+		// save the tour and the cost
+		if (inst->verbose >= 100) print_succ(succ, inst);
+		
+		free(succ);
+		if (best_lb < inst->best_lb) {
+			clear_sol(inst);
+			for (int i = 0; i < inst->nnodes; i++) {
+				inst->best_sol[best_sol[i]] = 1.0;
+			}
+			inst->best_lb = best_lb;
+		}
+		free(best_sol);
+
+		if (inst->verbose >= 100) printf("GRASP %d_TIMES BEST_LB: %lf\n", times, inst->best_lb);
+		fflush(stdout);
+
+	}
 
 	return *status;
 }
