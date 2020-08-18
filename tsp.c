@@ -60,7 +60,7 @@ char * model_name(int i) {
 		case 15: return "patching";							// Patching
 		case 16: return "vns";
 		case 17: return "tabu_search";						// Greedy + TABU' SEARCH (linked list version)
-		case 18: return "tabu:search_array";				// Greedy + TABU' SEARCH (array version)
+		case 18: return "tabu_search_array";				// Greedy + TABU' SEARCH (array version)
 		case 19: return "heuristic_greedy_cplex";			// Greedy (Warm Start for CPLEX)
 		case 20: return "heuristic_greedy_cgal_cplex";		// Greedy (Warm Start for CPLEX)
 		case 21: return "heuristic_grasp_cplex";			// GRASP (Warm Start for CPLEX)
@@ -69,8 +69,8 @@ char * model_name(int i) {
 		case 24: return "genetic_algorithm";				// Genetic Algorithm
 		case 25: return "greedy_best_two_opt";
 		case 26: return "insertion_best_two_opt";
-		case 27: return "greedy_single";					// Greedy of a single tour
-		case 28: return "grasp_n_times_best_two_opt";		// GRASP N_TIMES 
+		case 27: return "n_greedy";					// Greedy of a single tour
+		case 28: return "n_grasp";		// GRASP N_TIMES
 		default: return "not_supported";
 	}
 }
@@ -157,22 +157,18 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 		case 10:
 			inst->model_type = 0;
 			inst->warm_start = 1;
-			inst->mip_opt = 3;
 			return "heuristic_greedy";					// Heuristic Greedy (no CPLEX)
 		case 11:
 			inst->model_type = 0;
 			inst->warm_start = 2;
-			inst->mip_opt = 3;
 			return "heuristic_greedy_cgal";				// Heuristic Greedy CGAL (no CPLEX)
 		case 12:
 			inst->model_type = 0;
 			inst->warm_start = 3;
-			inst->mip_opt = 3;
 			return "heuristic_grasp";					// Heuristic GRASP (no CPLEX)
 		case 13:
 			inst->model_type = 0;
 			inst->warm_start = 4;
-			inst->mip_opt = 3;
 			return "heuristic_insertion";				// Heuristic Insertion (no CPLEX)
 		case 14:
 			inst->model_type = 0;
@@ -245,13 +241,11 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 		case 27:
 			inst->model_type = 0;
 			inst->warm_start = 5;
-			inst->mip_opt = 3;
-			return "greedy_single";						// Heuristic Greedy SINGLE 
+			return "n_greedy";						// Heuristic Greedy N_TIMES
 		case 28:
 			inst->model_type = 0;
 			inst->warm_start = 6;
-			inst->mip_opt = 3;
-			return "grasp_n_times";						// Heuristic GRASP N_TIMES
+			return "n_grasp";						// Heuristic GRASP N_TIMES
 		default: return "not_supported";
 	}
 }
@@ -266,6 +260,7 @@ int TSPopt(tspinstance *inst) {
 	CPXLPptr lp = NULL;
 	int status;
 	double init_opt_time;
+	srand(inst->randomseed);
 
 	// open cplex model
 	if (inst->useCplex) {
@@ -903,15 +898,15 @@ int switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* status
 		break;
 
 		case 4:													// Heuristic Insertion
-			heur_insertion(env, lp, inst, status);				
+			heur_insertion(env, lp, inst, status);
 		break;
 
 		case 5:													// Heuristic Greedy Single + best_two_opt
-			heur_greedy_single(env, lp, inst, status);
+			n_greedy(env, lp, inst, status);
 		break;
 
 		case 6:													// Heuristic GRASP N_TIMES
-			heur_grasp_n(inst, status, (inst->nnodes < 1000) ? 10 : (inst->nnodes > 10000) ? 2 : 5);			// nnodes: < 1000 = 10 times - 1000:5000 = 5 times - >5000 = 2 times 
+			n_grasp(inst, status, (inst->nnodes < 1000) ? 10 : (inst->nnodes > 10000) ? 2 : 5, .8, .1);			// nnodes: < 1000 = 10 times - 1000:5000 = 5 times - >5000 = 2 times
 		break;
 
 		default:
@@ -976,7 +971,7 @@ int switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* status
 
 		*/
 		int nocheck_warmstart = CPX_MIPSTART_NOCHECK;		// CPLEX accepts the MIP start without any checks. The MIP start needs to be complete.
-			
+
 		int* best_sol_complete = (int*)calloc(inst->nedges, sizeof(int));
 		for (int i = 0; i < inst->nedges; i++) {
 			best_sol_complete[i] = i;
@@ -1122,7 +1117,7 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	}
 	return *status;
 }
-int heur_greedy_single(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
+int n_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
 	double best_lb = CPX_INFBOUND;
 	double val = 1.0;
@@ -1212,7 +1207,7 @@ int heur_grasp(tspinstance* inst, int* status){
 	int* succ = (int*)malloc(inst->nnodes * sizeof(int));
 	for (int i = 0; i < inst->nnodes; i++) succ[i] = -1;
 
-	srand(time(0));
+
 	int cur_node = round(((double)rand() / RAND_MAX) * (inst->nnodes - 1.0));
 	int first_node = cur_node;
 
@@ -1254,7 +1249,7 @@ int heur_grasp(tspinstance* inst, int* status){
 		}
 
 		// select succ randomly
-		srand(time(0));
+
 		int rand_node = rand() % 3;
 		int next_node;
 		double next_dist;
@@ -1284,39 +1279,50 @@ int heur_grasp(tspinstance* inst, int* status){
 
 	return 0;
 }
-int heur_grasp_n(tspinstance* inst, int* status, int times) {
+int n_grasp(tspinstance* inst, int* status, int times, double x1, double x2) {
+	/**
+
+		x1: percentage of the times that select the closer node (from 0.0 to 1.0)
+		x2: percentage of times that select the second closer node (from 0.0 to 1.0)
+		1-x1-x2 = percentage of time that select the third closer node.
+	*/
+
+	if (x1 > 1. || x1 < 0. || x2 > 1. || x2 < 0.) print_error("bad input: n_grasp");
 
 	if (inst->verbose >= 100) printf("Heuristic GRASP %d_TIMES\n", times);
 
 	int  temp_node = -1;
-	inst->best_lb = MAXINT;
+	double best_lb = INT_MAX;  		// the cost of the solution
+	int* succ = (int*)malloc(inst->nnodes * sizeof(int));
+	int cur_node;
+	int first_node;
+	int cur_nearest[3];  		// index of the nearest from current node
+	double cur_dist[3];  		// distance from current node
+	double d_ij;
+	int rand_node;
+	double rand_double;
+	int next_node;
+	double next_dist;
 
 	for (int i = 0; i < times; i++) {
 
 		int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));  // list index of selected edges (x_ij = 1)
 		// get first node, randomly selected
-		int* succ = (int*)malloc(inst->nnodes * sizeof(int));
 		for (int i = 0; i < inst->nnodes; i++) succ[i] = -1;
 
 		//int cur_node = round(((double)rand() / RAND_MAX) * (inst->nnodes - 1.0));
-		srand(i);
-		int cur_node = rand() % inst->nnodes;
+		cur_node = rand() % inst->nnodes;
 		if (inst->verbose >= 100)
 			printf("\n%d - Starting Nodes: %d", i + 1, cur_node);
 
-		int first_node = cur_node;
+		first_node = cur_node;
 
 		// find the three nearest node of each node
-		int cur_nearest[3];  		// index of the nearest from current node
-		double cur_dist[3];  		// distance from current node
-		double best_lb = 0.0;  		// the cost of the solution
-
+		best_lb = 0.0;
 		for (int tour_length = 0; tour_length < inst->nnodes; tour_length++) {
 
 			// initialization
-			for (int k = 0; k < 3; k++) {
-				cur_dist[k] = INT_MAX; cur_nearest[k] = -1;
-			}
+			for (int k = 0; k < 3; k++) { cur_dist[k] = INT_MAX; cur_nearest[k] = -1; }
 
 			// get the three nearest node
 			for (int j = 0; j < inst->nnodes; j++) {	// for each other node
@@ -1324,7 +1330,7 @@ int heur_grasp_n(tspinstance* inst, int* status, int times) {
 				if (succ[j] != -1) continue;						// the node is in the tour
 
 				// get distances of last added node and j
-				double d_ij = dist(cur_node, j, inst);
+				d_ij = dist(cur_node, j, inst);
 
 				// check insertion condition
 				for (int k = 0; k < 3; k++) {
@@ -1343,10 +1349,11 @@ int heur_grasp_n(tspinstance* inst, int* status, int times) {
 			}
 
 			// select succ randomly
-			srand(time(0));
-			int rand_node = rand() % 3;
-			int next_node;
-			double next_dist;
+			rand_node = -1; // initialization
+			rand_double = (double)rand()/RAND_MAX;
+			if (rand_double <= x1) rand_node = 0;
+			else if (rand_double <= x2) rand_node = 1;
+			else rand_node = 2;
 
 			if (cur_nearest[0] != -1) {
 				next_node = cur_nearest[rand_node] != -1 ? cur_nearest[rand_node] : cur_nearest[0];
@@ -1364,8 +1371,7 @@ int heur_grasp_n(tspinstance* inst, int* status, int times) {
 
 		// save the tour and the cost
 		if (inst->verbose >= 100) print_succ(succ, inst);
-		
-		free(succ);
+
 		if (best_lb < inst->best_lb) {
 			clear_sol(inst);
 			for (int i = 0; i < inst->nnodes; i++) {
@@ -1379,6 +1385,7 @@ int heur_grasp_n(tspinstance* inst, int* status, int times) {
 		fflush(stdout);
 
 	}
+	free(succ);
 
 	return *status;
 }
@@ -1389,12 +1396,10 @@ int heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		best_sol[k] = -1;
 	inst->best_lb = 0.0;
 
-	srand(inst->randomseed);
-
 	// Creare a random 3-vertex circuit
 	int rand1 = -1, rand2 = -1, rand3 = -1;
+
 	while (rand1 == -1 || rand2 == -1 || rand3 == -1) {
-		srand(time(0));
 
 		if (rand1 == -1) {
 			rand1 = rand() % (inst->nnodes - 1);
@@ -1698,7 +1703,7 @@ void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, doubl
 				for (int j = i+1; j < inst->nnodes; j++) {
 					k = xpos(i, j, inst);
 					if (inst->best_sol[k] > 0.5) {
-						srand(time(0));
+
 						random = (double) rand()/RAND_MAX;
 						if (random <= fixing_ratio) { 	// fix bound to 1.0
 							indices[cnt] = k;
@@ -1747,10 +1752,10 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, INT_MAX);
 
 	for (int h = 0; remaining_time > 0.0; h++) {
-		
+
 		if( h != 0)
 			ini = second();
-		
+
 		int nnz = 0;
 		for (int i = 0; i < inst->nnodes * (inst->nnodes - 1) / 2; i++) {
 			if (inst->best_sol[i] > 0.5) {
@@ -1820,7 +1825,7 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 
 		free(index);
 		free(value);
-		
+
 		if (mip_optimization(env, lp, inst, status)) {
 			printf("Error in CPXmipopt\n");
 		}
@@ -2074,7 +2079,7 @@ int pop_first(tabu_list** head) {
 	retval = (*head)->arc;
 	free(*head);
 	*head = next_node;
-	
+
 	//printf("---- REMOVE element %d to Tabu List\n", retval);
 	return retval;
 }
@@ -2470,7 +2475,7 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 
 		if (delta > 0.0)  {
 			delta_perc = delta / max_dist;																	// Can accept bad move
-			srand(time(0));
+
 			prob = (double)rand() / (double)RAND_MAX;
 
 			// Used to print some results during run
@@ -2677,7 +2682,7 @@ void shuffle_individuals(tspinstance* inst, double** population, int nPop) {
 	for (int i = nPop - 1; i > 0; i--)
 	{
 		// Pick a random index from 0 to i
-		srand(time(0));
+
 		int j = rand() % (i + 1);
 
 		// Swap arr[i] with the element at random index
@@ -3104,7 +3109,7 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 	while (EdgeInGAB) {
 
 		if (init_rand_vertex == -1) {
-			srand(time(0));
+
 			init_rand_vertex = rand() % inst->nnodes;
 		}
 
@@ -3121,7 +3126,7 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 				init_rand_vertex = -1;
 			}
 			else if (graph_AB[nextEdgeL] == 2.0 && graph_AB[nextEdgeR] == 2.0) {
-				srand(time(0));
+
 				if (rand() % 2 == 0) {
 					graph_AB[nextEdgeL]--;
 					traced_AB[nextEdgeL]++;
@@ -3193,7 +3198,7 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 				init_rand_vertex = -1;
 			}
 			else if (graph_AB[nextEdgeL] == 2.0 && graph_AB[nextEdgeR] == 2.0) {
-				srand(time(0));
+
 				if (rand() % 2 == 0) {
 					graph_AB[nextEdgeL]--;
 					traced_AB[nextEdgeL]++;
@@ -3279,7 +3284,7 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 
 				if (idx_nodes > 0) {
 					//init_rand_vertex = nodes[idx_nodes-1];
-					srand(time(0));
+
 					init_rand_vertex = idx_nodes - 1 == 0? 0 : nodes[rand() % (idx_nodes - 1)];
 					printf("Node choosen: %d\n", init_rand_vertex);
 				}
@@ -3777,7 +3782,7 @@ void evaluate_traced_ABcycle(tspinstance* inst, double* traced_AB, double** ABcy
 		*tourFound = 1;
 
 		int size_tours = print_list_of_list(tours);
-		srand(time(0));
+
 		int rand_tour = rand() % size_tours;
 
 		int idx_k = 0;
@@ -4389,6 +4394,8 @@ int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status)
 
 	switch (inst->mip_opt)
 	{
+		case -1: // Empty. Used to evaluate heuristic alone
+			break;
 
 		case 0:			// subtour_iter_opt, symmetric, without callback
 			*status = subtour_iter_opt(env, lp, inst, status);
@@ -4400,9 +4407,6 @@ int mip_optimization(CPXENVptr env, CPXLPptr lp, tspinstance *inst, int *status)
 
 		case 2:			// Simply CPLEX optimization
 			*status = CPXmipopt(env,lp);
-			break;
-
-		case 3:			// Empty. Used to evaluate heuristic alone
 			break;
 
 		default:
@@ -4957,7 +4961,7 @@ void random_two_opt(tspinstance* inst) {
 	if (*ncomp != 1) print_error("call random_two_opt with best_sol with multiple tour");
 
 	// random solution in 2opt
-	srand(time(0));
+
 	int i = rand() % inst->nnodes;
 	int j = rand() % inst->nnodes;
 	while (j == i || j == succ[i]) {
@@ -5026,7 +5030,7 @@ void random_n_opt(tspinstance* inst, int n) {
 	// 	initialization to -1
 	for (int i = 0; i < n; i++) {c_1[i] = -1; c_2[i] = -1;}
 
-	srand(time(0));	// set random seed
+		// set random seed
 	int i;  // tour iterator, assume index nodes value
 	int c_iter = 0;		// iterate over n pairs, each time a random index is selected
 	int already_selected;  // tell if i has already been added in the c_2 struct
@@ -5055,7 +5059,7 @@ void random_n_opt(tspinstance* inst, int n) {
 	}
 
 	// for n times, merge a random node with random successor. (no need to reverse the orientation)
-	srand(time(0));
+
 	int i_1 = rand() % n;
 	int first_node = c_1[i_1];
 	int i_2 = -1;
@@ -5117,7 +5121,7 @@ void single_patch(tspinstance* inst, int* succ, int* comp, int* ncomp) {
 	// single patch merge the isolated nodes or tours,
 	// if already merged, exit the method
 	if (*ncomp == 1) return;
-	srand(time(0));
+
 	int initial_i = rand() % inst->nnodes;  // randomize the first node
 
 	// get the closer node which is in another tour
@@ -5734,6 +5738,7 @@ void read_input(tspinstance *inst) { // simplified CVRP parser, not all SECTIONs
 
 	inst->nnodes = -1;
 	inst->nedges = -1;
+	inst->best_lb = INT_MAX;
 
 	char line[180];
 	char *par_name;
