@@ -2036,7 +2036,7 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 			}
 		}
 
-		push(&head_save, best_lb, 0);
+		//push(&head_save, best_lb, 0);
 
 		remaining_time -= second() - ini;
 	}
@@ -2045,6 +2045,7 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 	free(succ);
 	free(comp);
 	free(ncomp);
+	free(best_sol);
 	if (inst->verbose >= 100) printf("BEST FINAL GLOBAL LB found: [%f]\n", inst->best_lb);
 
 	if (inst->verbose >= 100) write_list_lb(head_save);
@@ -2377,7 +2378,7 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 			}
 		}
 
-		push(&head_save, best_lb, 0);
+		//push(&head_save, best_lb, 0);
 
 		remaining_time -= second() - ini;
 	}
@@ -2386,6 +2387,7 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 	free(succ);
 	free(comp);
 	free(ncomp);
+	free(best_sol);
 	if (inst->verbose >= 100) printf("BEST FINAL GLOBAL LB found: [%f]\n", inst->best_lb);
 
 	if (inst->verbose >= 10000) write_list_lb(head_save);
