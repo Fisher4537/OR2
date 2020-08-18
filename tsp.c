@@ -1059,51 +1059,53 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	inst->best_lb = CPX_INFBOUND;
 	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
 	int izero = 0;
+	int start = -1;
+	int succ, idx_pred;
+	double distance;
 
 	for (int i = 0; i < inst->nnodes; i++) {
+
+		start = rand() % inst->nnodes;
+		if (inst->verbose >= 100)
+			printf("\n%d - Starting Nodes: %d", i + 1, start);
 
 		int* sol = (int*)calloc(inst->nnodes, sizeof(int));
 		for (int k = 0; k < inst->nnodes; k++) {
 			sol[k] = -1;
 		}
 
-		int succ = succ_not_contained(i, sol, inst);
-		sol[0] = i;
+		best_lb = 0.0;
+
+		succ = succ_not_contained(start, sol, inst, &distance);
+		sol[0] = start;
 		sol[1] = succ;
-		if(inst->verbose > 1000)
+		best_lb += distance;
+		if (inst->verbose > 1000)
 			printf("%d\n%d\n", sol[0], sol[1]);
-		int idx_pred = succ;
+		idx_pred = succ;
 
 		for (int j = 2; j < inst->nnodes; j++) {
-			succ = succ_not_contained(idx_pred, sol, inst);
+			succ = succ_not_contained(idx_pred, sol, inst, &distance);
 			sol[j] = succ;
 			idx_pred = succ;
+			best_lb += distance;
 			if (inst->verbose > 1000)
 				printf("%d\n", sol[j]);
 
 		}
+		best_lb += dist(sol[inst->nnodes - 1], start, inst);
 
-		best_lb = 0.0;
-		for (int j = 0; j < inst->nnodes - 1; j++) {
-			if (inst->verbose > 100)
-				printf("%d,%d\n", sol[j], sol[j + 1]);
-			best_lb += dist(sol[j], sol[j + 1], inst);
-			sol[j] = xpos(sol[j], sol[j + 1], inst);
-
-		}
-		if (inst->verbose > 100)
-			printf("%d,%d\n\n", sol[inst->nnodes - 1], i);
-		best_lb += dist(sol[inst->nnodes - 1], i, inst);
-		sol[inst->nnodes - 1] = xpos(sol[inst->nnodes - 1], i, inst);
-
-		if (inst->verbose >= 100)
-			printf("Solution: %d\tBEST_LB found: [%f]\n",i, best_lb);
 		if (best_lb < inst->best_lb) {
-			if (inst->verbose >= 100)
-				printf("BEST_LB update from -> to : [%f] -> [%f]\n", inst->best_lb, best_lb);
+
 			inst->best_lb = best_lb;
-			for (int k = 0; k < inst->nnodes; k++)
-				best_sol[k] = sol[k];
+			clear_sol(inst);
+
+			for (int j = 0; j < inst->nnodes; j++) {
+				if (inst->verbose > 100)
+					printf("%d,%d\n", sol[j], sol[(j + 1) % inst->nnodes]);
+				inst->best_sol[xpos(sol[j], sol[(j + 1) % inst->nnodes], inst)] = 1.0;
+			}
+
 		}
 		free(sol);
 	}
@@ -1125,61 +1127,61 @@ int n_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, int tim
 	int izero = 0;
 	int start = -1;
 	int succ, idx_pred;
+	double distance;
 
 	for (int i = 0; i < times; i++) {
-		int start = rand() % inst->nnodes;
+		start = rand() % inst->nnodes;
 		if (inst->verbose >= 100)
-			printf("\n%d - Starting Nodes: %d", i + 1, cur_node);
+			printf("\n%d - Starting Nodes: %d", i + 1, start);
 
 		int* sol = (int*)calloc(inst->nnodes, sizeof(int));
 		for (int k = 0; k < inst->nnodes; k++) {
 			sol[k] = -1;
 		}
 
-		succ = succ_not_contained(start, sol, inst);
+		best_lb = 0.0;
+
+		succ = succ_not_contained(start, sol, inst, &distance);
 		sol[0] = start;
 		sol[1] = succ;
+		best_lb += distance;
 		if (inst->verbose > 1000)
 			printf("%d\n%d\n", sol[0], sol[1]);
 		idx_pred = succ;
 
 		for (int j = 2; j < inst->nnodes; j++) {
-			succ = succ_not_contained(idx_pred, sol, inst);
+			succ = succ_not_contained(idx_pred, sol, inst, &distance);
 			sol[j] = succ;
 			idx_pred = succ;
+			best_lb += distance;
 			if (inst->verbose > 1000)
 				printf("%d\n", sol[j]);
 
 		}
-
-		best_lb = 0.0;
-		for (int j = 0; j < inst->nnodes - 1; j++) {
-			if (inst->verbose > 100)
-				printf("%d,%d\n", sol[j], sol[j + 1]);
-			best_lb += dist(sol[j], sol[j + 1], inst);
-			sol[j] = xpos(sol[j], sol[j + 1], inst);
-
-		}
-		if (inst->verbose > 100)
-			printf("%d,%d\n\n", sol[inst->nnodes - 1], start);
 		best_lb += dist(sol[inst->nnodes - 1], start, inst);
-		sol[inst->nnodes - 1] = xpos(sol[inst->nnodes - 1], start, inst);
-
+		
 		if (best_lb < inst->best_lb) {
+
 			inst->best_lb = best_lb;
 			clear_sol(inst);
-			for (int k = 0; k < inst->nnodes; k++)
-				inst->best_sol[sol[k]] = 1.0;
+			
+			for (int j = 0; j < inst->nnodes; j++) {
+				if (inst->verbose > 100)
+					printf("%d,%d\n", sol[j], sol[(j + 1) % inst->nnodes]);
+				inst->best_sol[xpos(sol[j], sol[(j + 1) % inst->nnodes] , inst)] = 1.0;
+			}
+
 		}
 		free(sol);
 
 		if (inst->verbose >= 100)
 			printf("BEST_LB Greedy Heuristic %d_TIMES found: [%f]\n", times, inst->best_lb);
 	}
+
 	return 0;
 }
-int succ_not_contained(int node, int* sol, tspinstance* inst) {
-	double d = INT_MAX;
+int succ_not_contained(int node, int* sol, tspinstance* inst, double* distance) {
+	*distance = INT_MAX;
 	int succ = -1;
 	int contained;
 
@@ -1196,8 +1198,8 @@ int succ_not_contained(int node, int* sol, tspinstance* inst) {
 				}
 			}
 			if (!contained) {
-				if (d > dist(node, i, inst)) {
-					d = dist(node, i, inst);
+				if (*distance > dist(node, i, inst)) {
+					*distance = dist(node, i, inst);
 					succ = i;
 				}
 			}
