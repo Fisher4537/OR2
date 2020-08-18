@@ -906,7 +906,7 @@ int switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* status
 		break;
 
 		case 6:													// Heuristic GRASP N_TIMES
-			n_grasp(inst, status, (inst->nnodes < 1000) ? 10 : (inst->nnodes > 10000) ? 2 : 5, .8, .1);			// nnodes: < 1000 = 10 times - 1000:5000 = 5 times - >5000 = 2 times
+			n_grasp(inst, status, (inst->nnodes < 1000) ? 10 : (inst->nnodes > 10000) ? 2 : 5, .95, .03);			// nnodes: < 1000 = 10 times - 1000:5000 = 5 times - >5000 = 2 times
 		break;
 
 		default:
