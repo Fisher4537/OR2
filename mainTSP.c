@@ -18,7 +18,7 @@ int main(int argc, char **argv)
 
 #ifdef _WIN32
 	
-	if (0) {
+	if (1) {
 		// TEST CODE for Windows:
 
 		int folders = 3;

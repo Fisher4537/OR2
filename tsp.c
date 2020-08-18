@@ -1907,7 +1907,7 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 	tabu_list* head_save = NULL;
 	int countListSize = 0;
 
-	while (remaining_time > 0.0) {
+	for (int times = 0; remaining_time > 0.0 && times < 1000000; times++) {
 		double ini = second();
 
 		if (inst->verbose > 100) printf("*** Calc new 2_opt sol ***\n");
@@ -2013,6 +2013,7 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 			if (best_lb < inst->best_lb) {
 				inst->best_lb = best_lb;
 				best_temp_lb = best_lb;
+				times = 0;
 				clear_sol(inst);
 				int first_node = 0;
 				int second_node = succ[first_node];
@@ -2072,8 +2073,8 @@ int pop_first(tabu_list** head) {
 	retval = (*head)->arc;
 	free(*head);
 	*head = next_node;
-
-	printf("---- REMOVE element %d to Tabu List\n", retval);
+	
+	//printf("---- REMOVE element %d to Tabu List\n", retval);
 	return retval;
 }
 int pop_last(tabu_list* head) {
@@ -2096,7 +2097,7 @@ int pop_last(tabu_list* head) {
 	free(current->next);
 	current->next = NULL;
 
-	printf("---- REMOVE element %d to Tabu List\n", retval);
+	//printf("---- REMOVE element %d to Tabu List\n", retval);
 	return retval;
 }
 int remove_by_index(tabu_list** head, int n) {
@@ -2221,7 +2222,7 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 
 
 
-	while(remaining_time > 0.0) {
+	for (int times = 0; remaining_time > 0.0 && times < 1000000; times++) {
 		double ini = second();
 
 		if (inst->verbose > 100) printf("*** Calc new 2_opt sol ***\n");
@@ -2352,6 +2353,7 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 			if (best_lb < inst->best_lb) {
 				inst->best_lb = best_lb;
 				best_temp_lb = best_lb;
+				times = 0;
 				clear_sol(inst);
 				int first_node = 0;
 				int second_node = succ[first_node];
