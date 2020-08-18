@@ -28,7 +28,7 @@ def get_testset(file_path, v_shift=5., time_limit=600., model_filter=None):
             # correct time
             if 0.000001 < opt_time < time_limit - 1.:
                 opt_time = opt_time + v_shift
-            elif time_limit - 1. <= opt_time <= time_limit + 2.:
+            elif time_limit - 1. <= opt_time <= time_limit + 4.:
                 opt_time = opt_time * random.uniform(1., 20.)
             else:  # invalid parameter: opt_time <= 0
                 continue
@@ -131,7 +131,7 @@ def performance_profile(file_path, v_shift=3., time_limit=600., model_filter=Non
 
 def plot_pp(models_ratio, domain='time', name='res'):
     colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k']
-    style = ['-', '--', '-.', 'o', '*', '+', 'x']
+    style = ['-', '--', '-.', ':', 'o', '*', '+', 'x']
 
     fig, ax = plt.subplots(1)
     

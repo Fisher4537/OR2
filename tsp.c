@@ -71,6 +71,10 @@ char * model_name(int i) {
 		case 26: return "insertion_best_two_opt";
 		case 27: return "n_greedy";					// Greedy of a single tour
 		case 28: return "n_grasp";		// GRASP N_TIMES
+		case 29: return "n_grasp_best_two_opt";
+		case 30: return "n_greedy_best_two_opt";
+		case 31: return "vns_n_greedy";
+		case 32: return "vns_n_grasp";
 		default: return "not_supported";
 	}
 }
@@ -246,6 +250,26 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->model_type = 0;
 			inst->warm_start = 6;
 			return "n_grasp";						// Heuristic GRASP N_TIMES
+		case 29:
+			inst->model_type = 0;
+			inst->warm_start = 6;
+			inst->heuristic = 3;
+			return "n_grasp_best_two_opt";  // n_grasp_best_two_opt
+		case 30:
+			inst->model_type = 0;
+			inst->warm_start = 5;
+			inst->heuristic = 3;
+			return "n_greedy_best_two_opt";  // n_greedy_best_two_opt
+		case 31:
+			inst->model_type = 0;
+			inst->warm_start = 5;
+			inst->heuristic = 5;
+			return "vns_n_greedy";	 							// VSN: n_greedy + 2opt and random_n_opt
+		case 32:
+			inst->model_type = 0;
+			inst->warm_start = 6;
+			inst->heuristic = 5;
+			return "vns_n_grasp";	 							// VSN: n_grasp + 2opt and random_n_opt
 		default: return "not_supported";
 	}
 }
@@ -1120,65 +1144,84 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	return *status;
 }
 int n_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, int times) {
+	if (inst->verbose >= 100) printf("Heuristic GREEDY %d_TIMES\n", times);
 
-	double best_lb = CPX_INFBOUND;
-	double val = 1.0;
-	inst->best_lb = CPX_INFBOUND;
-	int izero = 0;
-	int start = -1;
-	int succ, idx_pred;
-	double distance;
+	double best_lb = 0.0;  		// the cost of the solution
+	int* succ = (int*)malloc(inst->nnodes * sizeof(int));
+	int cur_node;
+	int first_node;
+	int cur_nearest;  		// index of the nearest from current node
+	double cur_dist;  		// distance from current node
+	double d_ij;
 
 	for (int i = 0; i < times; i++) {
-		start = rand() % inst->nnodes;
+
+		int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));  // list index of selected edges (x_ij = 1)
+		// get first node, randomly selected
+		for (int i = 0; i < inst->nnodes; i++) succ[i] = -1;
+
+		//int cur_node = round(((double)rand() / RAND_MAX) * (inst->nnodes - 1.0));
+		cur_node = rand() % inst->nnodes;
 		if (inst->verbose >= 100)
-			printf("\n%d - Starting Nodes: %d", i + 1, start);
+			printf("\n%d - Starting Nodes: %d", i + 1, cur_node);
 
-		int* sol = (int*)calloc(inst->nnodes, sizeof(int));
-		for (int k = 0; k < inst->nnodes; k++) {
-			sol[k] = -1;
-		}
+		first_node = cur_node;
 
+		// find the closer node
 		best_lb = 0.0;
+		for (int tour_length = 0; tour_length < inst->nnodes; tour_length++) {
 
-		succ = succ_not_contained(start, sol, inst, &distance);
-		sol[0] = start;
-		sol[1] = succ;
-		best_lb += distance;
-		if (inst->verbose > 1000)
-			printf("%d\n%d\n", sol[0], sol[1]);
-		idx_pred = succ;
+			if (tour_length != inst->nnodes-1) {
 
-		for (int j = 2; j < inst->nnodes; j++) {
-			succ = succ_not_contained(idx_pred, sol, inst, &distance);
-			sol[j] = succ;
-			idx_pred = succ;
-			best_lb += distance;
-			if (inst->verbose > 1000)
-				printf("%d\n", sol[j]);
+				// initialization
+				cur_dist = INT_MAX; cur_nearest = -1;
 
-		}
-		best_lb += dist(sol[inst->nnodes - 1], start, inst);
-		
-		if (best_lb < inst->best_lb) {
+				// get the closer node
+				for (int j = 0; j < inst->nnodes; j++) {	// for each other node
+					if (cur_node == j) continue;  					// except cur_node == j
+					if (succ[j] != -1) continue;						// the node is in the tour
 
-			inst->best_lb = best_lb;
-			clear_sol(inst);
-			
-			for (int j = 0; j < inst->nnodes; j++) {
-				if (inst->verbose > 100)
-					printf("%d,%d\n", sol[j], sol[(j + 1) % inst->nnodes]);
-				inst->best_sol[xpos(sol[j], sol[(j + 1) % inst->nnodes] , inst)] = 1.0;
+					// get distances from last added node and j
+					d_ij = dist(cur_node, j, inst);
+
+					// check insertion condition
+					if (d_ij < cur_dist) {
+						cur_dist = d_ij;
+						cur_nearest = j;
+					}
+				}
+
+			} else {   // add the last node
+				cur_dist = dist(cur_node, first_node, inst);
+				cur_nearest = first_node;
 			}
 
+			// set succ
+			succ[cur_node] = cur_nearest;
+			best_sol[tour_length] = xpos(cur_node, cur_nearest, inst);
+			best_lb += cur_dist;
+			cur_node = cur_nearest;
 		}
-		free(sol);
 
-		if (inst->verbose >= 100)
-			printf("BEST_LB Greedy Heuristic %d_TIMES found: [%f]\n", times, inst->best_lb);
+		// save the tour and the cost
+		if (inst->verbose >= 101) print_succ(succ, inst);
+
+		if (best_lb < inst->best_lb) {
+			clear_sol(inst);
+			for (int i = 0; i < inst->nnodes; i++) {
+				inst->best_sol[best_sol[i]] = 1.0;
+			}
+			inst->best_lb = best_lb;
+		}
+		free(best_sol);
+
+		if (inst->verbose >= 100) printf("GREEDY %d_TIMES BEST_LB: %lf\n", times, inst->best_lb);
+		fflush(stdout);
+
 	}
+	free(succ);
 
-	return 0;
+	return *status;
 }
 int succ_not_contained(int node, int* sol, tspinstance* inst, double* distance) {
 	*distance = INT_MAX;
@@ -1278,7 +1321,7 @@ int heur_grasp(tspinstance* inst, int* status){
 	}
 
 	// save the tour and the cost
-	if (inst->verbose >= 100) print_succ(succ, inst);
+	if (inst->verbose >= 101) print_succ(succ, inst);
 	free(succ);
 	for (int i = 0; i < inst->nnodes; i++) {
 		inst->best_sol[best_sol[i]] = 1.0;
@@ -1381,7 +1424,7 @@ int n_grasp(tspinstance* inst, int* status, int times, double x1, double x2) {
 		}
 
 		// save the tour and the cost
-		if (inst->verbose >= 100) print_succ(succ, inst);
+		if (inst->verbose >= 101) print_succ(succ, inst);
 
 		if (best_lb < inst->best_lb) {
 			clear_sol(inst);
@@ -1564,6 +1607,12 @@ int vns(tspinstance* inst) {
 	// stop condition: time_limit, number of iteration (i)
 	int i = 0;  // number of iteration
 	int max_iteration = 100;	// max number of iteration before stop
+	int n;
+	if (inst->nnodes < 100) n = 5;
+	else if (inst->nnodes < 1000) n = 7;
+	else if (inst->nnodes < 10000) n = 10;
+	else if (inst->nnodes < 100000) n = 15;
+	else n = 20;
 	// int* succ = (int*)calloc(inst->nnodes, sizeof(int));
 	// int* comp = (int*)calloc(inst->nnodes, sizeof(int));
 	// int* ncomp = (int*)calloc(1, sizeof(int));
@@ -1583,7 +1632,7 @@ int vns(tspinstance* inst) {
 		} else if (inst->verbose >= 90)
 			printf("VNS: iteration = %7d, cur best_lb = %10.2lf, time = %10.2lf\n", i, inst->best_lb, second() - inst->init_time);
 		// move to a random 5 opt solution
-		random_n_opt(inst, 5);
+		random_n_opt(inst, n);
 		i++;  // one iteration compleate
 	}
 

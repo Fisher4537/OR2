@@ -170,8 +170,8 @@ void free_ga(double** population, int* frequency_table, int nPop);
 
 int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
-int n_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
-int succ_not_contained(int node, int* sol, tspinstance* inst);
+int n_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, int times);
+int succ_not_contained(int node, int* sol, tspinstance* inst, double* distance);
 int heur_grasp(tspinstance* inst, int* status);
 int n_grasp(tspinstance* inst, int* status, int times, double x1, double x2);
 int heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
