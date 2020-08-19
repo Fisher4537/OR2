@@ -196,7 +196,7 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			return "tabu_search";						// Greedy + TABU' SEARCH (Linked List version)
 		case 18:
 			inst->model_type = 0;
-			inst->warm_start = 5; //GREEDY_N_TIMES //6; // GRASP N_TIMES //1 Heuristic_Greedy; //GREEDY_N_TIMES
+			inst->warm_start = 5; //GREEDY_N_TIMES //6; // GRASP N_TIMES //1 Heuristic_Greedy;
 			inst->heuristic = 7;
 			return "tabu_search_array";					// Greedy + TABU' SEARCH (Array version)
 		case 19:
