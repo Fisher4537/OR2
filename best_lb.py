@@ -13,6 +13,9 @@ def best_lb_vs_time(file_path):
             if line_count == 0:
                 line_count += 1
                 continue
+            if '...' in line:
+                break
+
             line = line.split(',')
             best_lb.append(float(line[0]))
             #time_domain.append(float(line[1][:-2]))

@@ -4,7 +4,7 @@ In this chapter are discussed the heuristic that starting from an initial soluti
 \section{2-opt} \label{sec:best_2_opt}
 
 This heuristic is a simple and effective local search algorithm for TSP problem.\\
-A pseudo-code is proposed in alg. \ref{alg:2opt} to describe how it works. The input parameter $ T $ is an ordered list of edges that define a tour and each edge is represented with an ordered pair of nodes. The \texttt{swap\_edges()} method remove the two input edges from the tour $ T $ and add the new edges as show in fig \ref{fig:2_opt_graph}.
+A pseudo-code is proposed in alg. \ref{alg:2opt} to describe how it works. The input parameter $ T $ is an ordered list of edges that define a tour and each edge is represented with an ordered pair of nodes. The \texttt{swap\_edges} method remove the two input edges from the tour $ T $ and add the new edges as show in fig. \ref{fig:2_opt_graph}.
 
 \begin{algorithm}
 	\caption{}\label{alg:2opt}
@@ -31,48 +31,48 @@ A pseudo-code is proposed in alg. \ref{alg:2opt} to describe how it works. The i
 	\end{algorithmic}
 \end{algorithm}
 
-In the example in fig \ref{fig:2_opt_graph} the pair that has the best improvement is $ (1,4) $ and $ (5,2) $. Note that although $ (5,2) = (2,5) $ for the model, to be coherent with $ \delta_{cost} $ annotation, an orientation of the tour must be choose, and each edge must be represented with consequent ordered node pair: if $ (1,4) $ is the first considered edge, it impose the orientation of the tour.
+In the example in fig. \ref{fig:2_opt_graph} the pair that has the best improvement is $ (1,4) $ and $ (5,2) $. Note that although $ (5,2) = (2,5) $ for the model, to be coherent with $ \delta_{cost} $ annotation, an orientation of the tour must be choose, and each edge must be represented with consequent ordered node pair: if $ (1,4) $ is the first considered edge, it impose the orientation of the tour.
 
 \begin{figure}[h]
 	\centering
 	\includegraphics[width=.3\columnwidth]{img/2_opt_graph.png}
-	\caption{Example graph to explain \texttt{2\_opt()} method. The input graph is that with continuous edges. \texttt{2\_opt()} would remove $ (1,4) $ and $ (2,5) $ from the tour and replace them with $ (1,5) $ and $  (2,4) $}
+	\caption{Example graph to explain \texttt{2\_opt} method. The input graph is that with continuous edges. \texttt{2\_opt} would remove $ (1,4) $ and $ (2,5) $ from the tour and replace them with $ (1,5) $ and $  (2,4) $}
 	\label{fig:2_opt_graph}
 \end{figure}
-As can be seen in fig \ref{fig:lb_time_grasp_best_two_opt_d2103} multiple execution of \texttt{2\_opt()} can improve more than 50\% the cost of the solution before to find a local minimum. This method in the report is called \texttt{best\_two\_opt()}.
+As can be seen in fig. \ref{fig:lb_time_grasp_best_two_opt_d2103} multiple execution of \texttt{2\_opt} can improve more than 50\% the cost of the solution before to find a local minimum. This method in the report is called \texttt{best\_two\_opt}.
 \begin{figure}[!h]
 \centering
 \includegraphics[width=.6\columnwidth]{../res/lb_time_grasp_best_two_opt_d2103.png}
-\caption{Solution cost profile of \texttt{best\_two\_opt()}. \texttt{GRASP} has been used to find the first available solution.}
+\caption{Solution cost profile of \texttt{best\_two\_opt}. \texttt{GRASP} has been used to find the first available solution.}
 \label{fig:lb_time_grasp_best_two_opt_d2103}
 \end{figure}
 
-It is interesting to see the solution cost profile of \texttt{best\_two\_opt()} (fig \ref{fig:a280_25}) applied to the best of the Greedy solutions (called \texttt{greedy\_best\_two\_opt()}). The improve of the cost solution is considerable even if it stop on a local minimum.  Note that, the best tour is calculated in about $ 8 $s with \texttt{subtour\_callback\_general()}, \texttt{Greedy()} take about $ 5 $s to find the \texttt{Greedy} tours and \texttt{best\_two\_opt()} find a local minimum in $0.07$s. Moreover is important to consider that \texttt{Greedy()} method can be easily modify to execute each Greedy tour in parallel and than apply \texttt{best\_two\_opt()}.\\
-In fig.s \ref{fig:a280_10} and \ref{fig:a280_25} can be compared the \texttt{Greedy()}, \texttt{greedy\_best\_two\_opt()} and \texttt{subtour\_callback\_general()} tours, solutions cost and execution time.\\
+It is interesting to see the solution cost profile of \texttt{best\_two\_opt} (fig. \ref{fig:a280_25}) applied to the best of the Greedy solutions (called \texttt{greedy\_best\_two\_opt}). The improve of the cost solution is considerable even if it stop on a local minimum.  Note that, the best tour is calculated in about $ 8 $s with \texttt{subtour\_callback\_general}, \texttt{Greedy} take about $ 5 $s to find the \texttt{Greedy} tours and \texttt{best\_two\_opt} find a local minimum in $0.07$s. Moreover is important to consider that \texttt{Greedy} method can be easily modify to execute each Greedy tour in parallel and than apply \texttt{best\_two\_opt}.\\
+In fig.s \ref{fig:a280_10} and \ref{fig:a280_25} can be compared the \texttt{Greedy}, \texttt{greedy\_best\_two\_opt} and \texttt{subtour\_callback\_general} tours, solutions cost and execution time.\\
 
 \begin{figure}[!h]
 	\begin{subfigure}{.5\columnwidth}
 		\centering
 		\includegraphics[width=0.9\columnwidth]{../res/a280_10.png}
-		\caption{\texttt{Greedy()}: cost = 2975, time = 4s}
+		\caption{\texttt{Greedy}: cost = 2975, time = 4s}
 		\label{fig:a280_10}
 	\end{subfigure}
 	\begin{subfigure}{.5\columnwidth}
 		\centering
 		\includegraphics[width=0.9\columnwidth]{../res/a280_25.png}
-		\caption{\texttt{greedy\_best\_two\_opt()}: cost = 2685, time = 4s.}
+		\caption{\texttt{greedy\_best\_two\_opt}: cost = 2685, time = 4s.}
 		\label{fig:a280_25}
 	\end{subfigure}
 	\begin{subfigure}{.5\columnwidth}
 		\centering
 		\includegraphics[width=0.9\columnwidth]{../res/lb_greedy_best_two_opt_a280.png}
-		\caption{The profile of the solution cost over time of the \texttt{best\_two\_opt()} optimization.}
+		\caption{The profile of the solution cost over time of the \texttt{best\_two\_opt} optimization.}
 		\label{fig:lb_greedy_best_two_opt_a280}
 	\end{subfigure}
 	\begin{subfigure}{.5\columnwidth}
 		\centering
 		\includegraphics[width=0.9\columnwidth]{../res/a280_0.png}
-		\caption{\texttt{subtour\_callback\_general()}: cost = 2579, time = 8s.}
+		\caption{\texttt{subtour\_callback\_general}: cost = 2579, time = 8s.}
 		\label{fig:a280_0}
 	\end{subfigure}
 \end{figure}

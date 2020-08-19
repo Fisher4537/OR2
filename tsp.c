@@ -59,8 +59,8 @@ char * model_name(int i) {
 		case 14: return "grasp";							// GRASP + best_two_opt
 		case 15: return "patching";							// Patching
 		case 16: return "vns";
-		case 17: return "tabu_search";						// Greedy + TABU' SEARCH (linked list version)
-		case 18: return "tabu_search_array";				// Greedy + TABU' SEARCH (array version)
+		case 17: return "n_greedy_tabu_search";				// Greedy + TABU' SEARCH (linked list version)
+		case 18: return "n_greedy_tabu_search_array";		// Greedy + TABU' SEARCH (array version)
 		case 19: return "heuristic_greedy_cplex";			// Greedy (Warm Start for CPLEX)
 		case 20: return "heuristic_greedy_cgal_cplex";		// Greedy (Warm Start for CPLEX)
 		case 21: return "heuristic_grasp_cplex";			// GRASP (Warm Start for CPLEX)
@@ -69,8 +69,8 @@ char * model_name(int i) {
 		case 24: return "genetic_algorithm";				// Genetic Algorithm
 		case 25: return "greedy_best_two_opt";
 		case 26: return "insertion_best_two_opt";
-		case 27: return "n_greedy";					// Greedy of a single tour
-		case 28: return "n_grasp";		// GRASP N_TIMES
+		case 27: return "n_greedy";							// Greedy of a single tour
+		case 28: return "n_grasp";							// GRASP N_TIMES
 		case 29: return "n_grasp_best_two_opt";
 		case 30: return "n_greedy_best_two_opt";
 		case 31: return "vns_n_greedy";
@@ -178,7 +178,7 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->model_type = 0;
 			inst->warm_start = 3;
 			inst->heuristic = 3;
-			return "grasp";								// GRASP + best_two_opt
+			return "grasp_best_two_opt";								// GRASP + best_two_opt
 		case 15:
 			inst->model_type = 0;
 			inst->warm_start = 0;
@@ -191,38 +191,38 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			return "vns";	 							// VSN: GRASP + 2opt and random5opt
 		case 17:
 			inst->model_type = 0;
-			inst->warm_start = 1;
+			inst->warm_start = 5;
 			inst->heuristic = 6;
-			return "tabu_search";						// Greedy + TABU' SEARCH (Linked List version)
+			return "n_greedy_tabu_search";				// Greedy + TABU' SEARCH (Linked List version)
 		case 18:
 			inst->model_type = 0;
-			inst->warm_start = 5; //GREEDY_N_TIMES //6; // GRASP N_TIMES //1 Heuristic_Greedy;
+			inst->warm_start = 5;
 			inst->heuristic = 7;
-			return "tabu_search_array";					// Greedy + TABU' SEARCH (Array version)
+			return "n_greedy_tabu_search_array";		// Greedy + TABU' SEARCH (Array version)
 		case 19:
 			inst->model_type = 0;
 			inst->warm_start = 1;
 			inst->mip_opt = 0;
 			inst->useCplex = 1;
-			return "heuristic_greedy";					// Heuristic Greedy (Warm Start for CPLEX)
+			return "heuristic_greedy_cplex";					// Heuristic Greedy (Warm Start for CPLEX)
 		case 20:
 			inst->model_type = 0;
 			inst->warm_start = 2;
 			inst->mip_opt = 0;
 			inst->useCplex = 1;
-			return "heuristic_greedy_cgal";				// Heuristic Greedy CGAL (Warm Start for CPLEX)
+			return "heuristic_greedy_cgal_cplex";				// Heuristic Greedy CGAL (Warm Start for CPLEX)
 		case 21:
 			inst->model_type = 0;
 			inst->warm_start = 3;
 			inst->mip_opt = 0;
 			inst->useCplex = 1;
-			return "heuristic_grasp";					// Heuristic GRASP (Warm Start for CPLEX)
+			return "heuristic_grasp_cplex";					// Heuristic GRASP (Warm Start for CPLEX)
 		case 22:
 			inst->model_type = 0;
 			inst->warm_start = 4;
 			inst->mip_opt = 0;
 			inst->useCplex = 1;
-			return "heuristic_insertion";				// Heuristic Insertion (Warm Start for CPLEX)
+			return "heuristic_insertion_cplex";				// Heuristic Insertion (Warm Start for CPLEX)
 		case 23:
 			inst->model_type = 0;
 			inst->warm_start = 1;
@@ -1085,7 +1085,7 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	int izero = 0;
 
 	for (int i = 0; i < inst->nnodes; i++) {
-	
+
 		int* sol = (int*)calloc(inst->nnodes, sizeof(int));
 		for (int k = 0; k < inst->nnodes; k++) {
 			sol[k] = -1;
@@ -1106,7 +1106,7 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 				printf("%d\n", sol[j]);
 
 		}
-		
+
 		best_lb = 0.0;
 		for (int j = 0; j < inst->nnodes - 1; j++) {
 			best_lb += dist(sol[j], sol[j + 1], inst);
@@ -2485,7 +2485,7 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 	double temperature = INT_MAX;
 	double temperature_perc = 1.0;
 	double maxTemp = (double)INT_MAX + 1e8;
-	double decrease = -1;
+	double decrease = 229496729;
 	double delta = -1;
 	double delta_perc = 1.0;
 	double K = 1.0;					// Boltzmann constant
@@ -2515,8 +2515,6 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 			else
 				best_sol[i] = 0.0;
 
-		random_two_opt(inst);
-
 		if (decrease != -1) {
 			if (decrease >= temperature)
 				temperature = 0;
@@ -2524,6 +2522,8 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 				temperature -= decrease;
 		}
 		temperature_perc = temperature / INT_MAX;
+		random_two_opt(inst);
+
 
 		delta = inst->best_lb - best_lb;
 
@@ -2552,14 +2552,16 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 					printf("LB reset from -> to : [%f] -> [%f]\n", inst->best_lb, best_lb);
 				}
 				inst->best_lb = best_lb;
-				push(&head_save, inst->best_lb, 0);
+				//push(&head_save, inst->best_lb, 0);
+				if (inst->verbose >= 1) printf("%.1lf,%lf\n", best_lb, second() - inst->init_time);
 			}else {
 				if (inst->verbose > 100) {
 					printf("BAD Moves found and Accepted\n");													// Accepted bad move
 					printf("LB update from -> to : [%f] -> [%f]\n", best_lb, inst->best_lb);
 				}
 				best_lb = inst->best_lb;
-				push(&head_save, best_lb, 0);
+				//push(&head_save, best_lb, 0);
+				if (inst->verbose >= 1) printf("%.1lf,%lf\n", best_lb, second() - inst->init_time);
 			}
 		}else {																								// good move always accepted
 			if (inst->verbose > 100) {
@@ -2567,7 +2569,8 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 				printf("LB update from -> to : [%f] -> [%f]\n", best_lb, inst->best_lb);
 			}
 			best_lb = inst->best_lb;
-			push(&head_save, best_lb, 0);
+			//push(&head_save, best_lb, 0);
+			if (inst->verbose >= 1) printf("%.1lf,%lf\n", best_lb, second() - inst->init_time);
 
 			if (inst->best_lb < best_global_lb) {
 				if (inst->verbose >= 100) printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_global_lb, inst->best_lb);
@@ -5004,14 +5007,14 @@ void random_two_opt(tspinstance* inst) {
 	// return random solution in inst->best_sol
 	// the improvement of best_lb is already applied to inst->best_lb
 
-	if (inst->verbose > 100) printf("Random two_opt\n");
+	if (inst->verbose > 110) printf("Random two_opt\n");
 
 	// check if current solution has only one tour
 	int* succ = (int*)calloc(inst->nnodes, sizeof(int));
 	int* comp = (int*)calloc(inst->nnodes, sizeof(int));
 	int* ncomp = (int*)calloc(1, sizeof(int));
 	build_sol(inst, succ, comp, ncomp);
-	if (inst->verbose > 100) print_succ(succ, inst);
+	if (inst->verbose > 110) print_succ(succ, inst);
 	if (*ncomp != 1) print_error("call random_two_opt with best_sol with multiple tour");
 
 	// random solution in 2opt
@@ -5043,7 +5046,7 @@ void random_two_opt(tspinstance* inst) {
 			cur_node = pre_node;
 			pre_node = succ[pre_node];
 			succ[cur_node] = suc_node;
-			if (inst->verbose > 100) print_succ(succ, inst);
+			if (inst->verbose > 110) print_succ(succ, inst);
 		}
 	}
 	inst->best_lb -= cur_improve;  // update best_lb
@@ -5058,7 +5061,7 @@ void random_two_opt(tspinstance* inst) {
 		second_node = succ[second_node];
 	}
 
-	if (inst->verbose > 100) print_succ(succ, inst);
+	if (inst->verbose > 110) print_succ(succ, inst);
 	free(succ);
 	free(comp);
 	free(ncomp);
@@ -5066,7 +5069,7 @@ void random_two_opt(tspinstance* inst) {
 
 void random_n_opt(tspinstance* inst, int n) {
 
-	if (inst->verbose >= 100) printf("RANDOM_N_OPT\n");
+	if (inst->verbose >= 110) printf("RANDOM_N_OPT\n");
 	if (inst->nnodes < n) print_error("n should be lower than the number of nodes of the problem.");
 	fflush(stdout);
 	// check if current solution has only one tour
@@ -5074,7 +5077,7 @@ void random_n_opt(tspinstance* inst, int n) {
 	int *comp = (int*) calloc(inst->nnodes, sizeof(int));
 	int *ncomp = (int*) calloc(1, sizeof(int));
 	build_sol(inst, succ, comp, ncomp);
-	if (inst->verbose >= 100) print_succ(succ, inst);
+	if (inst->verbose >= 110) print_succ(succ, inst);
 	if (*ncomp != 1) print_error("call random_n_opt with best_sol with multiple tour");
 
 	// ramdoly select n nodes and save n successor
@@ -5158,7 +5161,7 @@ void random_n_opt(tspinstance* inst, int n) {
 		}
 	}
 
-	if (inst->verbose >= 100) print_succ(succ, inst);
+	if (inst->verbose >= 110) print_succ(succ, inst);
 	fflush(stdout);
 	free(succ);
 	free(comp);
@@ -5426,7 +5429,7 @@ void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// bui
 	}
 
 	// print succ, comp and ncomp
-	if (inst->verbose >= 100) {
+	if (inst->verbose >= 2000) {
 		printf("\ni:    "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", i);
 		printf("\nsucc: "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", succ[i]);
 		printf("\ncomp: "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
