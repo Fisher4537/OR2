@@ -1076,67 +1076,6 @@ int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status)
 	return *status;
 }
 
-/*
-
-	double best_lb = CPX_INFBOUND;
-	double val = 1.0;
-	inst->best_lb = CPX_INFBOUND;
-	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
-	int izero = 0;
-
-	for (int i = 0; i < inst->nnodes; i++) {
-
-		int* sol = (int*)calloc(inst->nnodes, sizeof(int));
-		for (int k = 0; k < inst->nnodes; k++) {
-			sol[k] = -1;
-		}
-
-		int succ = succ_not_contained(i, sol, inst);
-		sol[0] = i;
-		sol[1] = succ;
-		if (inst->verbose > 1000)
-			printf("%d\n%d\n", sol[0], sol[1]);
-		int idx_pred = succ;
-
-		for (int j = 2; j < inst->nnodes; j++) {
-			succ = succ_not_contained(idx_pred, sol, inst);
-			sol[j] = succ;
-			idx_pred = succ;
-			if (inst->verbose > 1000)
-				printf("%d\n", sol[j]);
-
-		}
-
-		best_lb = 0.0;
-		for (int j = 0; j < inst->nnodes - 1; j++) {
-			best_lb += dist(sol[j], sol[j + 1], inst);
-			sol[j] = xpos(sol[j], sol[j + 1], inst);
-		}
-
-		best_lb += dist(sol[inst->nnodes - 1], i, inst);
-		sol[inst->nnodes - 1] = xpos(sol[inst->nnodes - 1], i, inst);
-
-		if (best_lb < inst->best_lb) {
-
-			inst->best_lb = best_lb;
-			for (int k = 0; k < inst->nnodes; k++)
-				best_sol[k] = sol[k];
-
-		}
-		free(sol);
-	}
-
-	if (inst->verbose >= 100)
-		printf("BEST_LB Greedy Heuristic found: [%f]\n", inst->best_lb);
-
-	// Copy and convert to double sol in best_sol
-	for (int i = 0; i < inst->nnodes; i++) {
-		inst->best_sol[best_sol[i]] = 1.0;
-	}
-	free(best_sol);
-
-	return *status;
-*/
 int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
 	double best_lb = CPX_INFBOUND;
