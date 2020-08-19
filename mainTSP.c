@@ -52,7 +52,7 @@ int main(int argc, char **argv)
 		// END code for testing
 
 		for (int i = 0; i < idx; i++) {
-			for (int j = 0; j < 5; j++) {
+			//for (int j = 0; j < 5; j++) {
 
 				if (i == 47 || i == 50 || i == 56 || i == 58 || i == 64 || i == 72 || i == 76 || i == 77 || i == 85 || i == 81 || i == 82 || i == 67)			// dataset over 3000 nodes
 					continue;
@@ -62,9 +62,10 @@ int main(int argc, char **argv)
 				// parse input args
 				parse_command_line(argc, argv, &inst);
 
-				(&inst)->randomseed = seed[j];
+				//(&inst)->randomseed = seed[j];
+				(&inst)->randomseed = 0;
 
-				printf("\n____ FILE: %s ____ SEED: %d ____\n", files[i], seed[j]);
+				printf("\n____ FILE: %s ____ SEED: %d ____\n", files[i]);//, seed[j]);
 				strcpy((&inst)->input_file, files[i]);
 
 
@@ -82,7 +83,7 @@ int main(int argc, char **argv)
 				free_instance(&inst);
 
 				// getchar(); // pause execution
-			}
+			//}
 		}
 	}
 	else {

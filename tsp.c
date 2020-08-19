@@ -69,8 +69,8 @@ char * model_name(int i) {
 		case 24: return "genetic_algorithm";				// Genetic Algorithm
 		case 25: return "greedy_best_two_opt";
 		case 26: return "insertion_best_two_opt";
-		case 27: return "n_greedy";					// Greedy of a single tour
-		case 28: return "n_grasp";		// GRASP N_TIMES
+		case 27: return "n_greedy";							// Greedy N_TIMES
+		case 28: return "n_grasp";							// GRASP N_TIMES
 		default: return "not_supported";
 	}
 }
@@ -192,7 +192,7 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			return "tabu_search";						// Greedy + TABU' SEARCH (Linked List version)
 		case 18:
 			inst->model_type = 0;
-			inst->warm_start = 1;
+			inst->warm_start = 5; //GREEDY_N_TIMES //6; // GRASP N_TIMES //1 Heuristic_Greedy; //GREEDY_N_TIMES
 			inst->heuristic = 7;
 			return "tabu_search_array";					// Greedy + TABU' SEARCH (Array version)
 		case 19:
@@ -1052,59 +1052,51 @@ int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status)
 	return *status;
 }
 
-int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
+/*
 
 	double best_lb = CPX_INFBOUND;
 	double val = 1.0;
 	inst->best_lb = CPX_INFBOUND;
 	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
 	int izero = 0;
-	int start = -1;
-	int succ, idx_pred;
-	double distance;
 
 	for (int i = 0; i < inst->nnodes; i++) {
-
-		start = rand() % inst->nnodes;
-		if (inst->verbose >= 100)
-			printf("\n%d - Starting Nodes: %d", i + 1, start);
 
 		int* sol = (int*)calloc(inst->nnodes, sizeof(int));
 		for (int k = 0; k < inst->nnodes; k++) {
 			sol[k] = -1;
 		}
 
-		best_lb = 0.0;
-
-		succ = succ_not_contained(start, sol, inst, &distance);
-		sol[0] = start;
+		int succ = succ_not_contained(i, sol, inst);
+		sol[0] = i;
 		sol[1] = succ;
-		best_lb += distance;
 		if (inst->verbose > 1000)
 			printf("%d\n%d\n", sol[0], sol[1]);
-		idx_pred = succ;
+		int idx_pred = succ;
 
 		for (int j = 2; j < inst->nnodes; j++) {
-			succ = succ_not_contained(idx_pred, sol, inst, &distance);
+			succ = succ_not_contained(idx_pred, sol, inst);
 			sol[j] = succ;
 			idx_pred = succ;
-			best_lb += distance;
 			if (inst->verbose > 1000)
 				printf("%d\n", sol[j]);
 
 		}
-		best_lb += dist(sol[inst->nnodes - 1], start, inst);
+
+		best_lb = 0.0;
+		for (int j = 0; j < inst->nnodes - 1; j++) {
+			best_lb += dist(sol[j], sol[j + 1], inst);
+			sol[j] = xpos(sol[j], sol[j + 1], inst);
+		}
+
+		best_lb += dist(sol[inst->nnodes - 1], i, inst);
+		sol[inst->nnodes - 1] = xpos(sol[inst->nnodes - 1], i, inst);
 
 		if (best_lb < inst->best_lb) {
 
 			inst->best_lb = best_lb;
-			clear_sol(inst);
-
-			for (int j = 0; j < inst->nnodes; j++) {
-				if (inst->verbose > 100)
-					printf("%d,%d\n", sol[j], sol[(j + 1) % inst->nnodes]);
-				inst->best_sol[xpos(sol[j], sol[(j + 1) % inst->nnodes], inst)] = 1.0;
-			}
+			for (int k = 0; k < inst->nnodes; k++)
+				best_sol[k] = sol[k];
 
 		}
 		free(sol);
@@ -1117,10 +1109,72 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	for (int i = 0; i < inst->nnodes; i++) {
 		inst->best_sol[best_sol[i]] = 1.0;
 	}
+	free(best_sol);
+
+	return *status;
+*/
+int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
+
+	double best_lb = CPX_INFBOUND;
+	double val = 1.0;
+	inst->best_lb = CPX_INFBOUND;
+	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
+	int izero = 0;
+
+	for (int i = 0; i < inst->nnodes; i++) {
+	
+		int* sol = (int*)calloc(inst->nnodes, sizeof(int));
+		for (int k = 0; k < inst->nnodes; k++) {
+			sol[k] = -1;
+		}
+
+		int succ = succ_not_contained(i, sol, inst);
+		sol[0] = i;
+		sol[1] = succ;
+		if (inst->verbose > 1000)
+			printf("%d\n%d\n", sol[0], sol[1]);
+		int idx_pred = succ;
+
+		for (int j = 2; j < inst->nnodes; j++) {
+			succ = succ_not_contained(idx_pred, sol, inst);
+			sol[j] = succ;
+			idx_pred = succ;
+			if (inst->verbose > 1000)
+				printf("%d\n", sol[j]);
+
+		}
+		
+		best_lb = 0.0;
+		for (int j = 0; j < inst->nnodes - 1; j++) {
+			best_lb += dist(sol[j], sol[j + 1], inst);
+			sol[j] = xpos(sol[j], sol[j + 1], inst);
+		}
+
+		best_lb += dist(sol[inst->nnodes - 1], i, inst);
+		sol[inst->nnodes - 1] = xpos(sol[inst->nnodes - 1], i, inst);
+
+		if (best_lb < inst->best_lb) {
+
+			inst->best_lb = best_lb;
+			for (int k = 0; k < inst->nnodes; k++)
+				best_sol[k] = sol[k];
+
+		}
+		free(sol);
+	}
+
+	if (inst->verbose >= 100)
+		printf("BEST_LB Greedy Heuristic found: [%f]\n", inst->best_lb);
+
+	// Copy and convert to double sol in best_sol
+	for (int i = 0; i < inst->nnodes; i++) {
+		inst->best_sol[best_sol[i]] = 1.0;
+	}
+	free(best_sol);
+
 	return *status;
 }
 int n_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, int times) {
-
 	double best_lb = CPX_INFBOUND;
 	double val = 1.0;
 	inst->best_lb = CPX_INFBOUND;
@@ -1176,12 +1230,12 @@ int n_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, int tim
 
 		if (inst->verbose >= 100)
 			printf("BEST_LB Greedy Heuristic %d_TIMES found: [%f]\n", times, inst->best_lb);
+	
+		return *status;
 	}
-
-	return 0;
 }
-int succ_not_contained(int node, int* sol, tspinstance* inst, double* distance) {
-	*distance = INT_MAX;
+int succ_not_contained(int node, int* sol, tspinstance* inst) {
+	double d = INT_MAX;
 	int succ = -1;
 	int contained;
 
@@ -1198,8 +1252,8 @@ int succ_not_contained(int node, int* sol, tspinstance* inst, double* distance) 
 				}
 			}
 			if (!contained) {
-				if (*distance > dist(node, i, inst)) {
-					*distance = dist(node, i, inst);
+				if (d > dist(node, i, inst)) {
+					d = dist(node, i, inst);
 					succ = i;
 				}
 			}
