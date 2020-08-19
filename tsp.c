@@ -59,8 +59,8 @@ char * model_name(int i) {
 		case 14: return "grasp";							// GRASP + best_two_opt
 		case 15: return "patching";							// Patching
 		case 16: return "vns";
-		case 17: return "tabu_search";						// Greedy + TABU' SEARCH (linked list version)
-		case 18: return "tabu_search_array";				// Greedy + TABU' SEARCH (array version)
+		case 17: return "n_greedy_tabu_search";				// Greedy + TABU' SEARCH (linked list version)
+		case 18: return "n_greedy_tabu_search_array";		// Greedy + TABU' SEARCH (array version)
 		case 19: return "heuristic_greedy_cplex";			// Greedy (Warm Start for CPLEX)
 		case 20: return "heuristic_greedy_cgal_cplex";		// Greedy (Warm Start for CPLEX)
 		case 21: return "heuristic_grasp_cplex";			// GRASP (Warm Start for CPLEX)
@@ -69,8 +69,8 @@ char * model_name(int i) {
 		case 24: return "genetic_algorithm";				// Genetic Algorithm
 		case 25: return "greedy_best_two_opt";
 		case 26: return "insertion_best_two_opt";
-		case 27: return "n_greedy";					// Greedy of a single tour
-		case 28: return "n_grasp";		// GRASP N_TIMES
+		case 27: return "n_greedy";							// Greedy of a single tour
+		case 28: return "n_grasp";							// GRASP N_TIMES
 		case 29: return "n_grasp_best_two_opt";
 		case 30: return "n_greedy_best_two_opt";
 		case 31: return "vns_n_greedy";
@@ -191,14 +191,14 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			return "vns";	 							// VSN: GRASP + 2opt and random5opt
 		case 17:
 			inst->model_type = 0;
-			inst->warm_start = 1;
+			inst->warm_start = 5;
 			inst->heuristic = 6;
-			return "tabu_search";						// Greedy + TABU' SEARCH (Linked List version)
+			return "n_greedy_tabu_search";				// Greedy + TABU' SEARCH (Linked List version)
 		case 18:
 			inst->model_type = 0;
-			inst->warm_start = 5; //GREEDY_N_TIMES //6; // GRASP N_TIMES //1 Heuristic_Greedy;
+			inst->warm_start = 5;
 			inst->heuristic = 7;
-			return "tabu_search_array";					// Greedy + TABU' SEARCH (Array version)
+			return "n_greedy_tabu_search_array";		// Greedy + TABU' SEARCH (Array version)
 		case 19:
 			inst->model_type = 0;
 			inst->warm_start = 1;
