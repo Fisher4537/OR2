@@ -16,14 +16,26 @@ Looking at the implementation details there are many aspects that must be carefu
 
 First of all, the type of structure used for the tabu list. We have decided to propose two different solutions, as each of them has its potential and its defects. The first, more classic, involves the use of a fixed-size array to store prohibited moves (so for each Best-2-opt move, the two relative edges are inserted into the array). The second, however, uses a linked list in which each element is formed by a variable for the edge and a pointer \textit{next} to the next element.
 One of the main differences is the allocation of memory, as the linked list dynamically manages its size and therefore aims to optimize space but, on the other hand, the removal of the oldest inserted element requires complete scrolling of the list. Instead the array optimizes the operations on the elements contained but on the other hand it cannot have a dynamic dimension except through the creation and the copy in a new array (probably with an excellent knowledge of low-level memory and an ad hoc solution is possible to manage dynamic dimension of an array). For the management of the elements in the array it was decided to add one more element than the value of the chosen dimension, assigning it a static value of -1 that will never be changed. In this way, replacing an element when the list is full is very simple as it is sufficient to assign the new edge instead of -1 and replace the next element with -1. This causes the array to be cyclical and, through a single index variable, does not require any research for this type of operation.\\
+Fig.s \ref{fig:tabu_search_diff_perform_time} and \ref{fig:tabu_search_diff_perform_lb} show the performance profiles related to the tabu search with the two different data structures (tabu\_search names is related to linked list version). As anticipated, the version with array proves to be the fastest in terms of time, maintaining almost the same quality as the lower bound. \\
+%TODO miglioramento della memoria di LL rispetto array in via teorica
 Another aspect to consider is the size of the tabu list. An "infinite" dimension would risk bringing the algorithm to a standstill in which it can no longer make any move since all those around two optimality have been prohibited. Conversely, too small a size could cause a return to the local minimum from which one was running away. A lot of studies and research have been done for this specific aspect \cite{Nababan_2019, Tsubakitani1998} and a better overall result than others has not been found, changing the typology of the problem also varies the best size of the list. An average list size with respect to the problem proved to be the best choice as a balance between computational time and the optimal markspace value. Thus a size equal to half the number of problem nodes was set.\\
 Finally, the termination criterion can be based on a maximum number of iterations of the algorithm or on a fixed number of iterations in which the solution no longer improves or, as in our case, on a timelimit.
 
 \begin{figure}[h]
 	\centering
 	\includegraphics[width=1.0\columnwidth]{../res/gr666_17.png}
-	\caption{Performance profile considering the execution time}
+	\caption{Performance profile considering the execution time *** DA RIFARE IL GRAFICOOO ***}
 	\label{fig:tabu_search_perform_time}
+\end{figure}
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.7\columnwidth]{../res/Ltabu_LA_time.png}
+	\caption{Performance profile considering the execution time}
+	\label{fig:tabu_search_diff_perform_time}
+
+	\includegraphics[width=0.7\columnwidth]{../res/Ltabu_LA_lb.png}
+	\caption{Performance profile considering the execution time}
+	\label{fig:tabu_search_diff_perform_lb}
 \end{figure}
 
 \section{Simulated-Annealing}
@@ -40,7 +52,20 @@ The slight probability of taking a step that gives higher energy is what allows 
 
 \begin{figure}[h]
 	\centering
+	\includegraphics[width=.6\columnwidth]{../res/lb_simulating_annealing_att48.png}
+	\caption{Performance profile considering the execution time of 280 nodes file (a280.tsp) with time limit of 1000}
+	\label{fig:simultaing_annealing_perform_time}
+\end{figure}
+\begin{figure}[h]
 	\includegraphics[width=.6\columnwidth]{../res/lb_simulating_annealing_a280.png}
+	\caption{Performance profile considering the execution time of 280 nodes file (a280.tsp) with time limit of 1000}
+	\label{fig:simultaing_annealing_perform_time}
+
+	\includegraphics[width=.6\columnwidth]{../res/lb_simulating_annealing_a280_500.png}
+	\caption{Performance profile considering the execution time of 280 nodes file (a280.tsp) with time limit of 1000}
+	\label{fig:simultaing_annealing_perform_time}
+
+	\includegraphics[width=.6\columnwidth]{../res/lb_simulating_annealing_50_a280_500.png}
 	\caption{Performance profile considering the execution time of 280 nodes file (a280.tsp) with time limit of 1000}
 	\label{fig:simultaing_annealing_perform_time}
 \end{figure}
