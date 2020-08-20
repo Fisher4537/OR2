@@ -2475,6 +2475,8 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 
 	//CPXsetdblparam(env, CPX_PARAM_TILIM, inst->timelimit);
 
+	inst->timelimit -= second() - inst->init_time;
+
 	double* best_sol = (double*)calloc(inst->nedges, sizeof(double));
 	double* best_global_sol = (double*)calloc(inst->nedges, sizeof(double));
 	double best_lb = inst->best_lb;
@@ -2482,10 +2484,12 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 	double extra_time = inst->timelimit * 5 / 100;
 	double remaining_time = inst->timelimit;
 	double temp_time = remaining_time;
+	
 	double temperature = INT_MAX;
 	double temperature_perc = 1.0;
-	double maxTemp = (double)INT_MAX + 1e8;
-	double decrease = 229496729;
+	double decrease = temperature * 90 / 100;	// -1 = 100%
+	double maxTemp = decrease == -1 ? (double)INT_MAX + 1e8 : temperature - decrease;
+	
 	double delta = -1;
 	double delta_perc = 1.0;
 	double K = 1.0;					// Boltzmann constant
@@ -2553,7 +2557,7 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 				}
 				inst->best_lb = best_lb;
 				//push(&head_save, inst->best_lb, 0);
-				if (inst->verbose >= 1) printf("%.1lf,%lf\n", best_lb, second() - inst->init_time);
+				//if (inst->verbose >= 1) printf("%.1lf,%lf\n", best_lb, second() - inst->init_time);
 			}else {
 				if (inst->verbose > 100) {
 					printf("BAD Moves found and Accepted\n");													// Accepted bad move
@@ -2561,7 +2565,7 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 				}
 				best_lb = inst->best_lb;
 				//push(&head_save, best_lb, 0);
-				if (inst->verbose >= 1) printf("%.1lf,%lf\n", best_lb, second() - inst->init_time);
+				//if (inst->verbose >= 1) printf("%.1lf,%lf\n", best_lb, second() - inst->init_time);
 			}
 		}else {																								// good move always accepted
 			if (inst->verbose > 100) {
@@ -2570,7 +2574,7 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 			}
 			best_lb = inst->best_lb;
 			//push(&head_save, best_lb, 0);
-			if (inst->verbose >= 1) printf("%.1lf,%lf\n", best_lb, second() - inst->init_time);
+			//if (inst->verbose >= 1) printf("%.1lf,%lf\n", best_lb, second() - inst->init_time);
 
 			if (inst->best_lb < best_global_lb) {
 				if (inst->verbose >= 100) printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_global_lb, inst->best_lb);
