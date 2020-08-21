@@ -2,7 +2,7 @@
 
 \section{Greedy}\label{sec:greedy}
 Greedy heuristic for TSP start by choosing a random element and add always the closer node, one node at a time, making the local optimal choice. This create good path in the first part of the tour, however the last added edges create different crosses. Therefore this heuristic can be applied in combination with refining heuristics such as: \texttt{local\_branch}, \texttt{hard\_fixing}, \texttt{best\_two\_opt} and other ones that try to improve a tour.\\
-The algorithm computational time is $ O(n^2) $ where $ n = |V| $, therefore is pretty fast, however depending on the first selected node, the cost of the tour can differ more than 100 \% one another. The implemented algorithm (from now only \texttt{Greedy}), at cost of execution time, perform the described greedy using all the nodes as starting node, returning the shortest tour. The time complexity for the implemented algorithm raise to $ O(n^3) $.\\
+The algorithm computational time is $ O(n^2) $ where $ n = |V| $, therefore is pretty fast, however depending on the first selected node, the cost of the tour can differ more than 10 \% one another. The implemented algorithm (from now only \texttt{Greedy} or \texttt{heuristic\_greedy}), at cost of execution time, perform the described greedy using all the nodes as starting node, returning the shortest tour. The time complexity for the implemented algorithm raise to $ O(n^3) $.\\
 In fig \ref{fig:a280_10_} an example of tour calculated with the implemented algorithm.
 
 \begin{figure}[h]
@@ -45,8 +45,8 @@ vector<int>::iterator it = find_if(neigh_sol_idx[succ].begin(), neigh_sol_idx[su
 the resulting matrix will have a number of lines equal to the number of nodes and each of them will be a tour built starting from a node and always choosing the closest from the current node, exactly as \texttt{Greedy}.
 
 \section{Greedy Randomize Adaptive Search Path (GRASP)}\label{sec:grasp}
-GRASP metaheuristic, as the name anticipate, is a Greedy constructive heuristic with some randomization. Indeed, for the TSP problem, instead of bring the closer isolated node as next, it's chose a random node between the $ G $ closest isolated nodes, where $ G = 3 $ in the tested implementation.
-The idea is that in TSP it's not always the closer to be the next node on the optimum tour. Moreover, in other metaheuristics that start from a solution and optimize it, a percentage of randomness is appreciated.
+GRASP heuristic, as the name anticipate, is a Greedy constructive heuristic with some randomization. Indeed, for the TSP problem, instead of bring the closer isolated node as next, it's chose a random node between the $ G $ closest isolated nodes, where $ G = 3 $ in the tested implementation.
+The idea is that in TSP it's not always the closer to be the next node on the optimum tour. Moreover, in other metaheuristics that start from a solution and optimize it, a percentage of randomness could appreciated.
 
 \begin{figure}[!h]
 	\centering
@@ -113,9 +113,8 @@ Te idea of this constructive heuristic is to create an initial simple tour of 3 
 The complexity of the algorithm is $ O(n^2) $.
 
 
-\textbf{Construction heuristic comparison.} The performance profile in fig \ref{fig:pp_Lconstructives} show the three constructive presented in this chapter and plus \texttt{greedy\_best\_two\_opt} and \texttt{insertion\_best\_two\_opt}. These last two algorithm combine the constructive heuristic with the iteration of \texttt{2\_opt()} to quickly improve the cost of the solution. Between the three constructive \texttt{heristic\_insertion} is clearly better in term of time domain and optimum tour, however with the help of 
-\texttt{best\_two\_opt}, \texttt{greedy} perform better than the \texttt{insertion}.\\
-Another consideration is about execution time of \texttt{heuristic\_insertion} which perform better as \texttt{GRASP} (as expected) but in term of solution cost reaches the improved version \texttt{insertion\_best\_two\_opt}, therefore for this algorithm the \texttt{best\_two\_opt} improvement is not so effective as for \texttt{Greedy}.
+\textbf{Construction heuristic comparison.} The performance profile in fig \ref{fig:pp_Lconstructives} show the three constructive presented in this chapter. In particular \texttt{heristic\_insertion} is comparable with \texttt{heuristic\_greedy} in execution time however it usually find shorter tours of all the other constructive.\\
+Other consideration about the constructive heuristics in chapter \ref{chapter:refining}.
 
 \begin{figure}[!h]
 	\centering
