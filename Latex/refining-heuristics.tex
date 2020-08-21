@@ -48,7 +48,8 @@ As can be seen in fig. \ref{fig:lb_time_grasp_best_two_opt_d2103} multiple execu
 \label{fig:lb_time_grasp_best_two_opt_d2103}
 \end{figure}
 
-It is interesting to see the solution cost profile of \texttt{best\_two\_opt} (fig. \ref{fig:a280_25}) applied to the best of the Greedy solutions (called \texttt{greedy\_best\_two\_opt}). The improve of the cost solution is considerable even if it stop on a local minimum.  Note that, the best tour is calculated in about $ 8 $s with \texttt{subtour\_callback\_general}, \texttt{n\_greedy} take about $ 0.0045 $s to find the \texttt{Greedy} tours and \texttt{best\_two\_opt} find a local minimum in $0.07$s. Moreover is important to consider that \texttt{Greedy} method can be easily modify to execute each Greedy tour in parallel and than apply \texttt{best\_two\_opt}.\\
+It is interesting to see the solution cost profile of \texttt{best\_two\_opt} (fig. \ref{fig:a280_25}) applied to the best of the Greedy solutions (called \texttt{greedy\_best\_two\_opt}). The improve of the cost solution is considerable even if it stop on a local minimum.  Note that, the best tour is calculated in about $ 8 $s with \texttt{subtour\_callback\_general}, \texttt{n\_greedy} take about $ 0.0045 $s to find the best tour and \texttt{best\_two\_opt} find a local minimum in $0.07$s. Moreover is important to consider that greedy method can be easily modify to execute each greedy tour in parallel and than apply \texttt{best\_two\_opt}.
+
 In fig.s \ref{fig:a280_10} and \ref{fig:a280_25} can be compared the \texttt{Greedy}, \texttt{greedy\_best\_two\_opt} and \texttt{subtour\_callback\_general} tours, solutions cost and execution time.\\
 
 \begin{figure}[!h]
@@ -97,7 +98,7 @@ In fig.s \ref{fig:a280_10} and \ref{fig:a280_25} can be compared the \texttt{Gre
 \label{fig:pp_Lconstructives_refining}
 \end{figure}
 
-The performance profile in fig. \ref{fig:pp_Lgreedy_refining} compare greedy algorithms with them \texttt{best\_two\_opt} optimization. It is clear that most of the execution time is required for the constructive heuristic, however the difference in term of cost optimization is done by the \texttt{best\_two\_opt}. In fig. \ref{fig:Lgreedy_refining_LA_lb} \texttt{n\_greedy\_best\_two\_opt} gain the solution of \texttt{greedy\_best\_two\_opt}, proving that it is not necessary to find the best tour created from the greedy, but is enough to compute ten random tour and than apply \texttt{best\_two\_opt} to find similar solution cost.
+The performance profile in fig. \ref{fig:pp_Lgreedy_refining} compare greedy algorithms with them \texttt{best\_two\_opt} optimization. It is clear that most of the execution time is required for the constructive heuristic, however the difference in term of cost optimization is done by the \texttt{best\_two\_opt}. In fig. \ref{fig:Lgreedy_refining_LA_lb} \texttt{n\_greedy\_best\_two\_opt} gain the solution of \texttt{greedy\_best\_two\_opt}, proving that it is not necessary to find the best tour created from the greedy, but is enough to compute ten random tour and than apply \texttt{best\_two\_opt} to find similar solutions.
 
 \begin{figure}
 	\centering
