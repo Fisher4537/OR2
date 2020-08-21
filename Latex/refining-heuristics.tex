@@ -43,7 +43,7 @@ As can be seen in fig. \ref{fig:lb_time_grasp_best_two_opt_d2103} multiple execu
 \begin{figure}[!h]
 \centering
 \includegraphics[width=.6\columnwidth]{../res/lb_time_grasp_best_two_opt_d2103.png}
-\caption{Solution cost profile of \texttt{best\_two\_opt}. \texttt{GRASP} has been used to find the first available solution.}
+\caption{Solution cost profile of \texttt{best\_two\_opt}. \texttt{GRASP} solution is used as warm start.}
 \label{fig:lb_time_grasp_best_two_opt_d2103}
 \end{figure}
 
@@ -53,26 +53,26 @@ In fig.s \ref{fig:a280_10} and \ref{fig:a280_25} can be compared the \texttt{Gre
 \begin{figure}[!h]
 	\begin{subfigure}{.5\columnwidth}
 		\centering
-		\includegraphics[width=\columnwidth]{../res/a280_10.png}
-		\caption{\texttt{Greedy}: cost=2975, time=4s}
+		\includegraphics[width=\columnwidth]{../res/a280_28.png}
+		\caption{\texttt{n\_greedy\_10}: cost=3078, time=0.45s}
 		\label{fig:a280_10}
 	\end{subfigure}
 	\begin{subfigure}{.5\columnwidth}
 		\centering
 		\includegraphics[width=\columnwidth]{../res/a280_25.png}
-		\caption{\texttt{greedy\_best\_two\_opt}: cost=2685, time=4s.}
+		\caption{\texttt{n\_greedy\_best\_two\_opt}: cost=2683, time=0.06s}
 		\label{fig:a280_25}
 	\end{subfigure}
 	\begin{subfigure}{.5\columnwidth}
 		\centering
 		\includegraphics[width=\columnwidth]{../res/lb_greedy_best_two_opt_a280.png}
-		\caption{The profile of the solution cost over time of the \texttt{best\_two\_opt} optimization.}
+		\caption{The profile of the solution cost over time of the \texttt{best\_two\_opt} optimization phase.}
 		\label{fig:lb_greedy_best_two_opt_a280}
 	\end{subfigure}
 	\begin{subfigure}{.5\columnwidth}
 		\centering
 		\includegraphics[width=\columnwidth]{../res/a280_0.png}
-		\caption{\texttt{subtour\_callback\_general}: cost=2579, time=8s.}
+		\caption{\texttt{subtour\_callback\_general}: cost=2579, time=8s}
 		\label{fig:a280_0}
 	\end{subfigure}
 \end{figure}
@@ -92,7 +92,7 @@ In fig.s \ref{fig:a280_10} and \ref{fig:a280_25} can be compared the \texttt{Gre
 		\caption{Performance profile in solution cost domain.}
 		\label{fig:Lconstructives_refining_lb}
 	\end{subfigure}
-\caption{Performance profile of constructive heuristic}
+\caption{Performance profile of refining heuristic}
 \label{fig:pp_Lconstructives_refining}
 \end{figure}
 
@@ -112,7 +112,7 @@ The performance profile in fig. \ref{fig:pp_Lgreedy_refining} compare greedy alg
 		\caption{Performance profile in solution cost domain.}
 		\label{fig:Lgreedy_refining_LA_lb}
 	\end{subfigure}
-	\caption{Performance profile of constructive heuristic}
+	\caption{Comparison of constructive vs refining heuristics of greedy methods.}
 	\label{fig:pp_Lgreedy_refining}
 \end{figure}
 
@@ -133,7 +133,8 @@ The effectiveness of the refining heuristic depend from the warm start solution.
 	\caption{Performance profile in solution cost domain.}
 	\label{fig:Lgrasp_insertion_refining_LA_lb}
 \end{subfigure}
-\caption{Performance profile of constructive heuristic}
+\caption{Comparison of constructive vs refining heuristics of grasp and insertion methods.}
 \label{fig:pp_Lgrasp_insertion_refining}
 \end{figure}
 
+In conclusion, \texttt{best\_two\_opt} is a really useful refining heuristic for its time efficiency and cost effectiveness, however its effectiveness depend from how many cross edges has the warm start solution.

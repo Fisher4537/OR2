@@ -153,115 +153,105 @@
 	
 	\begin{appendices}
 		\chapter{Test-bed} \label{sec:testset}
-		The TSPLIB \cite{TSPLIB} is a library that contain different instances of TSP problem and its best solution found. All the file described in this section are part of the TSPLIB. To test the developed algorithm three different set have been prepared, depending on the number of node ($=|V|$) in the graph: Data Light, Data Average and Data Heavy.\\
-		These are all intended as sTSP, however the same instance can be considered also for aTSP replacing each edge with two arches with opposite direction. This subdivision is justified by the different execution time of the algorithms: it is more interesting to compare the performance of different algorithms in similar instances.\\
+		The TSPLIB \cite{TSPLIB} is a library that contain different instances of TSP problem and its best solution found. All the file described in this section are part of the TSPLIB. To test the developed algorithm three different set have been prepared, depending on the number of node ($|V|$) in the graph: Data Light, Data Average and Data Heavy.\\
+		These are all intended as sTSP, however the same instance can be considered also for aTSP replacing each edge with two arches with opposite direction. This subdivision is justified by the different execution time of the algorithms: it is more interesting to compare the performance of different algorithms in similar instances.
 		
 		\textbf{Data Light ($ |V| \le 150 $):}
-		\begin{multicols}{4}
-			\begin{itemize}
-				\item att48.tsp
-				\item berlin52.tsp
-				\item bier127.tsp
-				\item burma14.tsp
-				\item ch130.tsp
-				\item ch150.tsp
-				\item eil101.tsp
-				\item eil51.tsp
-				\item eil76.tsp
-				\item gr137.tsp
-				\item gr96.tsp
-				\item kroA100.tsp
-				\item kroA150.tsp
-				\item kroB100.tsp
-				\item kroB150.tsp
-				\item kroC100.tsp
-				\item kroD100.tsp
-				\item kroE100.tsp
-				\item lin105.tsp
-				\item pr107.tsp
-				\item pr124.tsp
-				\item pr136.tsp
-				\item pr144.tsp
-				\item pr76.tsp
-				\item rat99.tsp
-				\item rd100.tsp
-				\item st70.tsp
-				\item ulysses16.tsp
-				\item ulysses22.tsp
-			\end{itemize}
+		\begin{multicols}{5}
+			att48.tsp \\
+			berlin52.tsp \\
+			bier127.tsp \\
+			burma14.tsp \\
+			ch130.tsp \\
+			ch150.tsp \\
+			eil101.tsp \\
+			eil51.tsp \\
+			eil76.tsp \\
+			gr137.tsp \\
+			gr96.tsp \\
+			kroA100.tsp \\
+			kroA150.tsp \\
+			kroB100.tsp \\
+			kroB150.tsp \\
+			kroC100.tsp \\
+			kroD100.tsp \\
+			kroE100.tsp \\
+			lin105.tsp \\
+			pr107.tsp \\
+			pr124.tsp \\
+			pr136.tsp \\
+			pr144.tsp \\
+			pr76.tsp \\
+			rat99.tsp \\
+			rd100.tsp \\
+			st70.tsp \\
+			ulysses16.tsp \\
+			ulysses22.tsp \\
 		\end{multicols}
-		
-		
 		\textbf{Data Average ($ 150 < |V| \le 300 $):}
-		\begin{multicols}{4}
-			\begin{itemize}
-				\item a280.tsp
-				\item d198.tsp
-				\item gil262.tsp
-				\item gr202.tsp
-				\item gr229.tsp
-				\item kroA200.tsp
-				\item kroB200.tsp
-				\item pr152.tsp
-				\item pr226.tsp
-				\item pr264.tsp
-				\item pr299.tsp
-				\item rat195.tsp
-				\item rkoA200.tsp
-				\item ts225.tsp
-				\item tsp225.tsp
-				\item u159.tsp
-			\end{itemize}
+		\begin{multicols}{5}
+				a280.tsp \\
+				d198.tsp \\
+				gil262.tsp \\
+				gr202.tsp \\
+				gr229.tsp \\
+				kroA200.tsp \\
+				kroB200.tsp \\
+				pr152.tsp \\
+				pr226.tsp \\
+				pr264.tsp \\
+				pr299.tsp \\
+				rat195.tsp \\
+				rkoA200.tsp \\
+				ts225.tsp \\
+				tsp225.tsp \\
+				u159.tsp \\
 		\end{multicols}
-		
-		
 		\textbf{Data Heavy ($|V| > 300$):}
-		\begin{multicols}{4}
-			\begin{itemize}
-				\item ali535.tsp
-				\item att532.tsp
-				\item brd14051.tsp
-				\item d1291.tsp
-				\item d1655.tsp
-				\item d18512.tsp
-				\item d2103.tsp
-				\item d493.tsp
-				\item d657.tsp
-				\item fl1400.tsp
-				\item fl1577.tsp
-				\item fl3795.tsp
-				\item fl417.tsp
-				\item fnl4461.tsp
-				\item gr431.tsp
-				\item gr666.tsp
-				\item nrw1379.tsp
-				\item p654.tsp
-				\item pcb1173.tsp
-				\item pcb3038.tsp
-				\item pcb442.tsp
-				\item pr1002.tsp
-				\item pr2392.tsp
-				\item pr439.tsp
-				\item rat575.tsp
-				\item rat783.tsp
-				\item rd400.tsp
-				\item rl11849.tsp
-				\item rl1304.tsp
-				\item rl1323.tsp
-				\item rl1889.tsp
-				\item rl5915.tsp
-				\item rl5934.tsp
-				\item u1060.tsp
-				\item u1432.tsp
-				\item u1817.tsp
-				\item u2152.tsp
-				\item u2319.tsp
-				\item u574.tsp
-				\item u724.tsp
-				\item usa13509.tsp
-				\item vm1084.tsp
-				\item vm1748.tsp
-			\end{itemize}
+		\begin{multicols}{5}
+			ali535.tsp \\
+			att532.tsp \\
+			brd14051.tsp \\
+			d1291.tsp \\
+			d1655.tsp \\
+			d18512.tsp \\
+			d2103.tsp \\
+			d493.tsp \\
+			d657.tsp \\
+			fl1400.tsp \\
+			fl1577.tsp \\
+			fl3795.tsp \\
+			fl417.tsp \\
+			fnl4461.tsp \\
+			gr431.tsp \\
+			gr666.tsp \\
+			nrw1379.tsp \\
+			p654.tsp \\
+			pcb1173.tsp \\
+			pcb3038.tsp \\
+			pcb442.tsp \\
+			pr1002.tsp \\
+			pr2392.tsp \\
+			pr439.tsp \\
+			rat575.tsp \\
+			rat783.tsp \\
+			rd400.tsp \\
+			rl11849.tsp \\
+			rl1304.tsp \\
+			rl1323.tsp \\
+			rl1889.tsp \\
+			rl5915.tsp \\
+			rl5934.tsp \\
+			u1060.tsp \\
+			u1432.tsp \\
+			u1817.tsp \\
+			u2152.tsp \\
+			u2319.tsp \\
+			u574.tsp \\
+			u724.tsp \\
+			usa13509.tsp \\
+			vm1084.tsp \\
+			vm1748.tsp
 		\end{multicols}
 		
 		\chapter{Performance measure} \label{sec:performance_meausure}

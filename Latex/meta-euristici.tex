@@ -27,15 +27,21 @@ Finally, the termination criterion can be based on a maximum number of iteration
 	\caption{Performance profile considering the execution time *** DA RIFARE IL GRAFICOOO ***}
 	\label{fig:tabu_search_perform_time}
 \end{figure}
-\begin{figure}[h]
+\begin{figure}[!h]
 	\centering
-	\includegraphics[width=0.7\columnwidth]{../res/Ltabu_LA_time.png}
-	\caption{Performance profile considering the execution time}
-	\label{fig:tabu_search_diff_perform_time}
-
-	\includegraphics[width=0.7\columnwidth]{../res/Ltabu_LA_lb.png}
-	\caption{Performance profile considering the execution time}
-	\label{fig:tabu_search_diff_perform_lb}
+	\begin{subfigure}{0.49\columnwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/Ltabu_LA_time.png}
+		\caption{Performance profile considering the execution time}
+		\label{fig:tabu_search_diff_perform_time}
+	\end{subfigure}
+\hfill
+	\begin{subfigure}{0.49\columnwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/Ltabu_LA_lb.png}
+		\caption{Performance profile considering the solution cost}
+		\label{fig:tabu_search_diff_perform_lb}
+	\end{subfigure}
 \end{figure}
 
 \section{Simulated-Annealing}

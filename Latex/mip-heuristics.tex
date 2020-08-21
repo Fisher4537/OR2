@@ -13,25 +13,32 @@ The algorithm can be divided in step:
 	\item check end condition: if the time limit is reached, or $ f_r = 0.0 $ and the solution is not improved in the last iteration then the solution is returned. Note that in the second case, the best solution is found. In case that no ending condition is satisfy, the algorithm continue with point 3.
 \end{enumerate}
 
-The performance profile as shown in fig \ref{fig:Lsubtours_hardfixing_lightaverage_time}. Hard fixing has performance comparable with the exact model.
-
-\begin{figure}[h]
-	\centering
-	\includegraphics[width=\columnwidth]{../res/Lsubtours_hardfixing_lightaverage_time.png}
-	\caption{Performance profile to compare subtours methods with \textit{hard\_fixing}. The name of \textit{hard\_fix} model contain in order: $ max\_f_r, incr_fr, decr\_f_r, good\_gap, optimal\_gap $. The test set is the composition of data\_light and data\_average.}
-	\label{fig:Lsubtours_hardfixing_lightaverage_time}
-\end{figure}
-
-
 \section{Local-Branching}
 The Local Branching is a relatively recent algorithm developed by Matteo Fischetti and Andrea Lodi, who wanted to propose an alternative method to Hard-Fixing. The Hard Fixing method, as stated above, fix randomly a percentage of edges and optimize the problem, Local Branching, instead, let the MIP model to fix the same percentage of edges automatically and than optimize. \\
 Consider $ x^H $ as non optimal tour and $ \chi $ the fraction of edges to fix, Local Branching add $ \sum_{ e\in E: x_e^H = 1 } x_e \ge \chi n $ to automatically fix the desired number of edges. \\ 
 In this paper, the structure of the algorithm is very similar to that of Hard-Fixing. Initialization is analogous to Point 1 (\ref{hard-fix-step})
 In the CPLEX optimization with time limit (Point 3), the time limit is a little higher and is set to 300 according to the choice of the fixing rate update. Thus, the fixing rate is an array consisting of 5 values {3.0, 5.0, 10.0, 15.0, 20.0}. It starts from the first value of 3.0 which is kept until better solutions are found. It is updated to the next value as soon as the algorithm returns a non-improving solution. \\
 This choice is motivated by the idea that keeping a low fixing rate allows you to find a solution in a short time and therefore not reach the time limit, which instead is set with a higher value to allow a longer search when the degrees of freedom increase.
-In this way, searches with high fixed\_rate are carried out only to find a new improvement solution in a larger neighborhood and are more successful with higher time limits. But as soon as a solution is found, it returns to the low and therefore fast fixed\_rate.\\
+In this way, searches with high fixed\_rate are carried out only to find a new improvement solution in a larger neighborhood and are more successful with higher time limits. But as soon as a solution is found, it returns to the lower and therefore faster fixed\_rate.\\
 Finally the check end condition: \\
 For a detailed explanation of the reasons for this algorithm refer to \cite{article}.
+
+
+\begin{figure}[h]
+	\centering
+	\begin{subfigure}{\columnwidth}
+		\includegraphics[width=\columnwidth]{../res/Lmip_meta_LA_time.png}
+		\caption{}
+		\label{fig:Lmip_meta_LA_time}
+	\end{subfigure}
+	\begin{subfigure}{\columnwidth}
+		\includegraphics[width=\columnwidth]{../res/Lmip_meta_LA_lb.png}
+		\caption{}
+		\label{fig:Lmip_meta_LA_lb}
+	\end{subfigure}
+\caption{Comparison of mip heuristics and meta heuristics. \texttt{n\_greedy\_best\_two\_opt} is the first part of \texttt{vns} therefore it is faster, however the last one introduce a little improvement in the solutions cost. Most of the times \texttt{hard\_fixing} can find the best solution of sTSP indeed it find the shorter tours of the analyzed heuristics. }
+\label{fig:Lmip_meta_LA}
+\end{figure}
 
 %\section{RINS}
 %\section{Feasibility Pump}

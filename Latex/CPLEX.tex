@@ -29,20 +29,20 @@ The subtour elimination model described above enhance an exponential number of c
 \begin{figure}[h]
 	\begin{subfigure}{.5\textwidth}
 		\centering
-		\includegraphics[width=\columnwidth]{../res/Lsubtours_average_time.png}
-		\caption{Performance profile of \textit{subtour} models on Data Average}
+		\includegraphics[width=\columnwidth]{../res/Lsubtours_lightaverage_time.png}
+		\caption{Performance profile of \textit{subtour} models on Data Average and Data Light}
 		\label{fig:res_subtour_av}
 	\end{subfigure}
 	\begin{subfigure}{.5\textwidth}
 	\centering
-	\includegraphics[width=\columnwidth]{../res/Lsubtours_light_time.png}
-	\caption{Performance profile of \textit{subtour} models on Data Light}
-	\label{fig:res_subtour_li}
+	\includegraphics[width=\columnwidth]{../res/Lsubtours_lightaverage_lb.png}
+	\caption{Solution cost profile of \textit{subtour} models on Data Average and Data Light.}
+	\label{fig:res_subtour_li}f
 	\end{subfigure}
 \end{figure}
 
 The performance profile in figure \ref{fig:res_subtour_av} is obtained by executing each subtour method in each Data Average instance for 5 different random seed generator. \\
-In this set of instances the \texttt{subtour\_callback\_lazy} perform better as expected. In Data Light set no significant evidence is enhance. This is because $ t_{exec} $ is near 10s ($ T_{min} $) and for little differences of $ t_{exec} $ the ratio $ r $ is near 1 (check appendix \ref{sec:performance_meausure} for more details.
+In this set of instances the \texttt{subtour\_callback\_lazy} perform better as expected. In Data Light set no significant evidence is enhance. This is because $ t_{exec} $ is near 10s ($ T_{min} $) and for little differences of $ t_{exec} $ the ratio $ r $ is near 1 (check appendix \ref{sec:performance_meausure} for more details).
 Morover it show that in the $ 80\%  $  of the instances the \texttt{subtour\_callback\_general} perform better than the other 3 alternatives.\\
 \texttt{subtour\_heur\_iter\_opt} seems to be faster than \texttt{subtour\_iter\_opt} for the discussed optimization. 
 
