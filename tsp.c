@@ -225,7 +225,7 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			return "heuristic_insertion_cplex";				// Heuristic Insertion (Warm Start for CPLEX)
 		case 23:
 			inst->model_type = 0;
-			inst->warm_start = 1;
+			inst->warm_start = 5;
 			inst->heuristic = 8;
 			return "simulating_annealing";				// greedy + Simulating Annealing
 		case 24:
@@ -2484,12 +2484,12 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 	double extra_time = inst->timelimit * 5 / 100;
 	double remaining_time = inst->timelimit;
 	double temp_time = remaining_time;
-	
+
 	double temperature = INT_MAX;
 	double temperature_perc = 1.0;
-	double decrease = temperature * 90 / 100;	// -1 = 100%
+	double decrease = temperature * 99 / 100;	// -1 = 100%
 	double maxTemp = decrease == -1 ? (double)INT_MAX + 1e8 : temperature - decrease;
-	
+
 	double delta = -1;
 	double delta_perc = 1.0;
 	double K = 1.0;					// Boltzmann constant
@@ -2557,7 +2557,7 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 				}
 				inst->best_lb = best_lb;
 				//push(&head_save, inst->best_lb, 0);
-				//if (inst->verbose >= 1) printf("%.1lf,%lf\n", best_lb, second() - inst->init_time);
+				if (inst->verbose >= 1) printf("%.1lf,%lf\n", best_lb, second() - inst->init_time);
 			}else {
 				if (inst->verbose > 100) {
 					printf("BAD Moves found and Accepted\n");													// Accepted bad move
@@ -2565,16 +2565,16 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 				}
 				best_lb = inst->best_lb;
 				//push(&head_save, best_lb, 0);
-				//if (inst->verbose >= 1) printf("%.1lf,%lf\n", best_lb, second() - inst->init_time);
+				if (inst->verbose >= 1) printf("%.1lf,%lf\n", best_lb, second() - inst->init_time);
 			}
-		}else {																								// good move always accepted
+		}else {	 // good move always accepted
 			if (inst->verbose > 100) {
 				printf("GOOD Moves found and Accepted\n");
 				printf("LB update from -> to : [%f] -> [%f]\n", best_lb, inst->best_lb);
 			}
 			best_lb = inst->best_lb;
 			//push(&head_save, best_lb, 0);
-			//if (inst->verbose >= 1) printf("%.1lf,%lf\n", best_lb, second() - inst->init_time);
+			if (inst->verbose >= 1) printf("%.1lf,%lf\n", best_lb, second() - inst->init_time);
 
 			if (inst->best_lb < best_global_lb) {
 				if (inst->verbose >= 100) printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_global_lb, inst->best_lb);
@@ -2586,8 +2586,6 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 						best_global_sol[i] = 0.0;
 			}
 		}
-
-
 
 		single_step = (temp_time - remaining_time) / (inst->timelimit);
 		decrease = maxTemp * single_step;

@@ -53,26 +53,26 @@ In fig.s \ref{fig:a280_10} and \ref{fig:a280_25} can be compared the \texttt{Gre
 \begin{figure}[!h]
 	\begin{subfigure}{.5\columnwidth}
 		\centering
-		\includegraphics[width=0.9\columnwidth]{../res/a280_10.png}
-		\caption{\texttt{Greedy}: cost = 2975, time = 4s}
+		\includegraphics[width=\columnwidth]{../res/a280_10.png}
+		\caption{\texttt{Greedy}: cost=2975, time=4s}
 		\label{fig:a280_10}
 	\end{subfigure}
 	\begin{subfigure}{.5\columnwidth}
 		\centering
-		\includegraphics[width=0.9\columnwidth]{../res/a280_25.png}
-		\caption{\texttt{greedy\_best\_two\_opt}: cost = 2685, time = 4s.}
+		\includegraphics[width=\columnwidth]{../res/a280_25.png}
+		\caption{\texttt{greedy\_best\_two\_opt}: cost=2685, time=4s.}
 		\label{fig:a280_25}
 	\end{subfigure}
 	\begin{subfigure}{.5\columnwidth}
 		\centering
-		\includegraphics[width=0.9\columnwidth]{../res/lb_greedy_best_two_opt_a280.png}
+		\includegraphics[width=\columnwidth]{../res/lb_greedy_best_two_opt_a280.png}
 		\caption{The profile of the solution cost over time of the \texttt{best\_two\_opt} optimization.}
 		\label{fig:lb_greedy_best_two_opt_a280}
 	\end{subfigure}
 	\begin{subfigure}{.5\columnwidth}
 		\centering
-		\includegraphics[width=0.9\columnwidth]{../res/a280_0.png}
-		\caption{\texttt{subtour\_callback\_general}: cost = 2579, time = 8s.}
+		\includegraphics[width=\columnwidth]{../res/a280_0.png}
+		\caption{\texttt{subtour\_callback\_general}: cost=2579, time=8s.}
 		\label{fig:a280_0}
 	\end{subfigure}
 \end{figure}
@@ -80,19 +80,60 @@ In fig.s \ref{fig:a280_10} and \ref{fig:a280_25} can be compared the \texttt{Gre
 
 \begin{figure}[!h]
 	\centering
-	\begin{subfigure}{.9\textwidth}
+	\begin{subfigure}{.7\textwidth}
 		\centering
 		\includegraphics[width=\columnwidth]{../res/Lconstructives_refining_LA_time.png}
 		\caption{Performance profile in time domain.}
 		\label{fig:Lconstructives_refining_time}
 	\end{subfigure}
-	\begin{subfigure}{.9\textwidth}
+	\begin{subfigure}{.7\textwidth}
 		\centering
 		\includegraphics[width=\columnwidth]{../res/Lconstructives_refining_LA_lb.png}
 		\caption{Performance profile in solution cost domain.}
 		\label{fig:Lconstructives_refining_lb}
 	\end{subfigure}
+\caption{Performance profile of constructive heuristic}
+\label{fig:pp_Lconstructives_refining}
+\end{figure}
+
+The performance profile in fig. \ref{fig:pp_Lgreedy_refining} compare greedy algorithms with them \texttt{best\_two\_opt} optimization. It is clear that most of the execution time is required for the constructive heuristic, however the difference in term of cost optimization is done by the \texttt{best\_two\_opt}. In fig. \ref{fig:Lgreedy_refining_LA_lb} \texttt{n\_greedy\_best\_two\_opt} gain the solution of \texttt{greedy\_best\_two\_opt}, proving that it is not necessary to find the best tour created from the greedy, but is enough to compute ten random tour and than apply \texttt{best\_two\_opt} to find similar solution cost.
+
+\begin{figure}
+	\centering
+	\begin{subfigure}{.7\textwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/Lgreedy_refining_LA_time.png}
+		\caption{Performance profile in solution cost domain.}
+		\label{fig:Lgreedy_refining_LA_time}
+	\end{subfigure}
+	\begin{subfigure}{.7\textwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/Lgreedy_refining_LA_lb.png}
+		\caption{Performance profile in solution cost domain.}
+		\label{fig:Lgreedy_refining_LA_lb}
+	\end{subfigure}
 	\caption{Performance profile of constructive heuristic}
-	\label{fig:pp_Lconstructives_refining}
+	\label{fig:pp_Lgreedy_refining}
+\end{figure}
+
+
+The effectiveness of the refining heuristic depend from the warm start solution. In fig. \ref{fig:Lgrasp_insertion_refining_LA_lb} it is show that even if \texttt{heuristic\_insertion} generate shorter tour than \texttt{n\_grasp}, \texttt{n\_grasp\_best\_two\_opt} is better than \texttt{insertion\_best\_two\_opt}.
+
+\begin{figure}
+\centering
+\begin{subfigure}{.7\textwidth}
+	\centering
+	\includegraphics[width=\columnwidth]{../res/Lgrasp_insertion_refining_LA_time.png}
+	\caption{Performance profile in solution cost domain.}
+	\label{fig:Lgrasp_insertion_refining_LA_time}
+\end{subfigure}
+\begin{subfigure}{.7\textwidth}
+	\centering
+	\includegraphics[width=\columnwidth]{../res/Lgrasp_insertion_refining_LA_lb.png}
+	\caption{Performance profile in solution cost domain.}
+	\label{fig:Lgrasp_insertion_refining_LA_lb}
+\end{subfigure}
+\caption{Performance profile of constructive heuristic}
+\label{fig:pp_Lgrasp_insertion_refining}
 \end{figure}
 

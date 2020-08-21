@@ -48,43 +48,43 @@ the resulting matrix will have a number of lines equal to the number of nodes an
 GRASP metaheuristic, as the name anticipate, is a Greedy constructive heuristic with some randomization. Indeed, for the TSP problem, instead of bring the closer isolated node as next, it's chose a random node between the $ G $ closest isolated nodes, where $ G = 3 $ in the tested implementation.
 The idea is that in TSP it's not always the closer to be the next node on the optimum tour. Moreover, in other metaheuristics that start from a solution and optimize it, a percentage of randomness is appreciated.
 
-In figure \ref{fig:att48_diff} can be compared of the optimum tour, \texttt{Greedy} and 4 different instances of \texttt{GRASP}. It's nice to see that the \texttt{Greedy} (fig \ref{fig:att48_GREEDY}) is pretty close to the optimal solution and also some instance of \texttt{GRASP} like \ref{fig:att48_GRASP2} and \ref{fig:att48_GRASP4}.
+In figure \ref{fig:att48_diff} can be compared of the optimum tour, \texttt{Greedy}, 3 different instances of \texttt{GRASP} and \texttt{heuristic\_insertion}. It's nice to see that the \texttt{Greedy} (fig \ref{fig:att48_GREEDY}) is pretty close to the optimal solution and also some instance of \texttt{GRASP} like \ref{fig:att48_GRASP2}. \texttt{heuristic\_insertion} in this example has no cross edges and as will be show in fig. \ref{fig:Lgrasp_insertion_refining_LA_lb} the refining phase of this solutions does not improve so much the tour cost.
 \begin{figure}[!h]
-	\begin{subfigure}{.5\textwidth}
+	\begin{subfigure}{.49\textwidth}
 		\centering
 		\includegraphics[width=\columnwidth]{../res/att48_0.png}
-		\caption{Optimal subtour: cost $ = 10628 $, time = $ 0.76 $ s}
+		\caption{Optimal subtour: cost=10628, time=0.76s}
 		\label{fig:att48_best}
 	\end{subfigure}
-	\begin{subfigure}{.5\textwidth}
+	\begin{subfigure}{.49\textwidth}
 		\centering
 		\includegraphics[width=\columnwidth]{../res/att48_10.png}
-		\caption{\texttt{Greedy}: cost $ = 12012 $, time = $ 10^{-6} $s}
+		\caption{\texttt{Greedy}: cost=12012, time=0.005s}
 		\label{fig:att48_GREEDY}
 	\end{subfigure}
-	\begin{subfigure}{.5\textwidth}
+	\begin{subfigure}{.49\textwidth}
 	\centering
 	\includegraphics[width=\columnwidth]{../res/att48_12_1.png}
-	\caption{\texttt{GRASP}: cost = 21824, time = $ 10^{-6} $s}
+	\caption{\texttt{GRASP}: cost=21824, time=0.001s}
 	\label{fig:att48_GRASP1}
 	\end{subfigure}
-	\begin{subfigure}{.5\textwidth}
+	\begin{subfigure}{.49\textwidth}
 	\centering
 	\includegraphics[width=\columnwidth]{../res/att48_12_2.png}
-	\caption{\texttt{GRASP}: cost = 12576, time = $ 10^{-6} $s}
+	\caption{\texttt{GRASP}: cost=12576, time=0.001s}
 	\label{fig:att48_GRASP2}
 	\end{subfigure}
-	\begin{subfigure}{.5\textwidth}
+	\begin{subfigure}{.49\textwidth}
 	\centering
 	\includegraphics[width=\columnwidth]{../res/att48_12_3.png}
-	\caption{\texttt{GRASP}: cost = 22179, time = $ 10^{-6} $s}
+	\caption{\texttt{GRASP}: cost=22179, time=0.001s}
 	\label{fig:att48_GRASP3}
 	\end{subfigure}
-	\begin{subfigure}{.5\textwidth}
+	\begin{subfigure}{.49\textwidth}
 	\centering
-	\includegraphics[width=\columnwidth]{../res/att48_12_4.png}
-	\caption{\texttt{GRASP}: cost = 13198, time = $ 10^{-6} $s}
-	\label{fig:att48_GRASP4}
+	\includegraphics[width=\columnwidth]{../res/att48_13.png}
+	\caption{\texttt{heuristic\_insertion}: cost=11197, time=0.0028s}
+	\label{fig:att48_insertion}
 	\end{subfigure}
 	\caption{Differences of \texttt{Greedy} and \texttt{GRASP} tour for att48.tsp instace.}
 	\label{fig:att48_diff}
