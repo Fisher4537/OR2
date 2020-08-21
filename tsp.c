@@ -225,9 +225,9 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			return "heuristic_insertion_cplex";				// Heuristic Insertion (Warm Start for CPLEX)
 		case 23:
 			inst->model_type = 0;
-			inst->warm_start = 5;
+			inst->warm_start = 6;
 			inst->heuristic = 8;
-			return "simulating_annealing";				// greedy + Simulating Annealing
+			return "simulating_annealing";				// n_greedy + Simulating Annealing
 		case 24:
 			inst->model_type = 0;
 			inst->heuristic = 9;
@@ -2586,6 +2586,7 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 						best_global_sol[i] = 0.0;
 			}
 		}
+		fflush(stdout);
 
 		single_step = (temp_time - remaining_time) / (inst->timelimit);
 		decrease = maxTemp * single_step;
@@ -2604,7 +2605,9 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 		else
 			inst->best_sol[i] = 0.0;
 
-	if (inst->verbose > 100) write_list_lb(head_save);
+	//if (inst->verbose > 100) write_list_lb(head_save);
+
+	best_two_opt(inst);
 
 	if (inst->verbose > 100)
 		print_succ(succ, inst);

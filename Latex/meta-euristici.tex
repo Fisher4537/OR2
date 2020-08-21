@@ -56,24 +56,29 @@ The cooling schedule chosen is based on the timelimit given to the algorithm, at
 Furthermore, if the temperature decreases sufficiently slowly, the probability of finding the global minimum tends to 1, thanks to all simulated annealing proofs of convergence in the literature which is based on homogeneous Markov chain theory and the condition of reversibility \cite{Henderson}. Since only improvement steps are accepted at zero temperature, various \texttt{Random-2-opt} are performed before concluding the algorithm in order to optimize the achieved solution as much as possible.\\
 The slight probability of taking a step that gives higher energy is what allows simulated annealing to frequently get out of local minima.
 
-\begin{figure}[h]
+\begin{figure}[!h
+	\begin{subfigure}{.5\columnwidth}
 	\centering
-	\includegraphics[width=.6\columnwidth]{../res/lb_simulating_annealing_att48.png}
-	\caption{Performance profile considering the execution time of 280 nodes file (a280.tsp) with time limit of 1000}
+	\includegraphics[width=\columnwidth]{../res/lb_simulating_annealing_att48.png}
+	\caption{TODO}
 	\label{fig:simultaing_annealing_perform_time}
-\end{figure}
-\begin{figure}[h]
-	\includegraphics[width=.6\columnwidth]{../res/lb_simulating_annealing_a280.png}
-	\caption{Performance profile considering the execution time of 280 nodes file (a280.tsp) with time limit of 1000}
+	\end{subfigure}
+	\begin{subfigure}{.5\columnwidth}
+	\includegraphics[width=\columnwidth]{../res/lb_simulating_annealing_a280.png}
+	\caption{TODO}
 	\label{fig:simultaing_annealing_perform_time}
-
-	\includegraphics[width=.6\columnwidth]{../res/lb_simulating_annealing_a280_500.png}
-	\caption{Performance profile considering the execution time of 280 nodes file (a280.tsp) with time limit of 1000}
+	\end{subfigure}
+	\begin{subfigure}{.5\columnwidth}
+	\includegraphics[width=\columnwidth]{../res/lb_simulating_annealing_a280_500.png}
+	\caption{TODO}
+	\label{fig:simultaing_annealing_perform_time}	
+	\end{subfigure}
+	\begin{subfigure}{.5\columnwidth}
+	\centering
+	\includegraphics[width=\columnwidth]{../res/lb_simulating_annealing_50_a280_500.png}
+	\caption{TODO}
 	\label{fig:simultaing_annealing_perform_time}
-
-	\includegraphics[width=.6\columnwidth]{../res/lb_simulating_annealing_50_a280_500.png}
-	\caption{Performance profile considering the execution time of 280 nodes file (a280.tsp) with time limit of 1000}
-	\label{fig:simultaing_annealing_perform_time}
+	\end{subfigure}
 \end{figure}
 
 \section{Variable Neighborhood Search (VNS)}
