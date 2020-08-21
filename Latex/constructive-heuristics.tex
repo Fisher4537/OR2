@@ -48,6 +48,23 @@ the resulting matrix will have a number of lines equal to the number of nodes an
 GRASP metaheuristic, as the name anticipate, is a Greedy constructive heuristic with some randomization. Indeed, for the TSP problem, instead of bring the closer isolated node as next, it's chose a random node between the $ G $ closest isolated nodes, where $ G = 3 $ in the tested implementation.
 The idea is that in TSP it's not always the closer to be the next node on the optimum tour. Moreover, in other metaheuristics that start from a solution and optimize it, a percentage of randomness is appreciated.
 
+\begin{figure}[!h]
+	\centering
+	\begin{subfigure}{.75\textwidth}
+		\includegraphics[width=\columnwidth]{../res/Lgrasp_greedy_time.png}
+		\caption{}
+		\label{fig:Lgrasp_greedy_time}
+	\end{subfigure}
+	\begin{subfigure}{.75\textwidth}
+		\includegraphics[width=\columnwidth]{../res/Lgrasp_greedy_lb.png}
+		\caption{}
+		\label{fig:Lgrasp_greedy_lb}
+	\end{subfigure}
+\caption{The first parameter in the name of \texttt{n\_greedy} and \texttt{n\_grasp} is the number of different tour evaluated. In \texttt{n\_grasp} name the other parameter represent the probability to chose in order the first, the second and the third closer node.  }
+\label{fig:Lgrasp_greedy}
+\end{figure}
+In fig. \ref{fig:Lgrasp_greedy} the result of the test with different $ n $ values for \texttt{n\_greedy} and \texttt{n\_grasp} and for different probability of choice of the next node in \texttt{n\_grasp}. There can be see the differences in execution time of \texttt{heuristic\_greedy} from the other and the gradual decrease of the cost of the \texttt{n\_grasp} by increasing the probability to select the closer node until \texttt{n\_greedy\_10}    
+
 In figure \ref{fig:att48_diff} can be compared of the optimum tour, \texttt{Greedy}, 3 different instances of \texttt{GRASP} and \texttt{heuristic\_insertion}. It's nice to see that the \texttt{Greedy} (fig \ref{fig:att48_GREEDY}) is pretty close to the optimal solution and also some instance of \texttt{GRASP} like \ref{fig:att48_GRASP2}. \texttt{heuristic\_insertion} in this example has no cross edges and as will be show in fig. \ref{fig:Lgrasp_insertion_refining_LA_lb} the refining phase of this solutions does not improve so much the tour cost.
 \begin{figure}[!h]
 	\begin{subfigure}{.49\textwidth}
