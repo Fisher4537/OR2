@@ -17,6 +17,24 @@ Looking at the implementation details there are many aspects that must be carefu
 First of all, the type of structure used for the tabu list. We have decided to propose two different solutions, as each of them has its potential and its defects. The first, more classic, involves the use of a fixed-size array to store prohibited moves (so for each Best-2-opt move, the two relative edges are inserted into the array). The second, however, uses a linked list in which each element is formed by a variable for the edge and a pointer \textit{next} to the next element.
 One of the main differences is the allocation of memory, as the linked list dynamically manages its size and therefore aims to optimize space but, on the other hand, the removal of the oldest inserted element requires complete scrolling of the list. Instead the array optimizes the operations on the elements contained but on the other hand it cannot have a dynamic dimension except through the creation and the copy in a new array (probably with an excellent knowledge of low-level memory and an ad hoc solution is possible to manage dynamic dimension of an array). For the management of the elements in the array it was decided to add one more element than the value of the chosen dimension, assigning it a static value of -1 that will never be changed. In this way, replacing an element when the list is full is very simple as it is sufficient to assign the new edge instead of -1 and replace the next element with -1. This causes the array to be cyclical and, through a single index variable, does not require any research for this type of operation.\\
 Fig.s \ref{fig:tabu_search_diff_perform_time} and \ref{fig:tabu_search_diff_perform_lb} show the performance profiles related to the tabu search with the two different data structures (tabu\_search names is related to linked list version). As anticipated, the version with array proves to be the fastest in terms of time, maintaining almost the same quality as the lower bound. \\
+\begin{figure}[!h]
+	\centering
+	\begin{subfigure}{0.49\columnwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/Ltabu_LA_time.png}
+		\caption{Performance profile considering the execution time}
+		\label{fig:tabu_search_diff_perform_time}
+	\end{subfigure}
+	\hfill
+	\begin{subfigure}{0.49\columnwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/Ltabu_LA_lb.png}
+		\caption{Performance profile considering the solution cost}
+		\label{fig:tabu_search_diff_perform_lb}
+	\end{subfigure}
+\caption{}
+\label{fig:tabu_search_diff_perform}
+\end{figure}
 %TODO miglioramento della memoria di LL rispetto array in via teorica
 Another aspect to consider is the size of the tabu list. An "infinite" dimension would risk bringing the algorithm to a standstill in which it can no longer make any move since all those around two optimality have been prohibited. Conversely, too small a size could cause a return to the local minimum from which one was running away. A lot of studies and research have been done for this specific aspect \cite{Nababan_2019, Tsubakitani1998} and a better overall result than others has not been found, changing the typology of the problem also varies the best size of the list. An average list size with respect to the problem proved to be the best choice as a balance between computational time and the optimal markspace value. Thus a size equal to half the number of problem nodes was set.\\
 Finally, the termination criterion can be based on a maximum number of iterations of the algorithm or on a fixed number of iterations in which the solution no longer improves or, as in our case, on a timelimit.
@@ -26,22 +44,6 @@ Finally, the termination criterion can be based on a maximum number of iteration
 	\includegraphics[width=1.0\columnwidth]{../res/gr666_17.png}
 	\caption{Performance profile considering the execution time *** DA RIFARE IL GRAFICOOO ***}
 	\label{fig:tabu_search_perform_time}
-\end{figure}
-\begin{figure}[!h]
-	\centering
-	\begin{subfigure}{0.49\columnwidth}
-		\centering
-		\includegraphics[width=\columnwidth]{../res/Ltabu_LA_time.png}
-		\caption{Performance profile considering the execution time}
-		\label{fig:tabu_search_diff_perform_time}
-	\end{subfigure}
-\hfill
-	\begin{subfigure}{0.49\columnwidth}
-		\centering
-		\includegraphics[width=\columnwidth]{../res/Ltabu_LA_lb.png}
-		\caption{Performance profile considering the solution cost}
-		\label{fig:tabu_search_diff_perform_lb}
-	\end{subfigure}
 \end{figure}
 
 \section{Simulated-Annealing}
@@ -59,73 +61,94 @@ The slight probability of taking a step that gives higher energy is what allows 
 \begin{figure}[!h]
 	\begin{subfigure}{.5\columnwidth}
 	\centering
-	\includegraphics[width=\columnwidth]{../res/lb_simulating_annealing_att48.png}
-	\caption{TODO}
-	\label{fig:simultaing_annealing_perform_time}
+	\begin{subfigure}{.49\columnwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/lb_simulating_annealing_att48.png}
+		\caption{Performance profile considering the execution time of 280 nodes file (a280.tsp) with time limit of 1000}
+		\label{fig:simultaing_annealing_perform_time}
 	\end{subfigure}
-
-	\begin{subfigure}{.5\columnwidth}
-	\centering
-	\includegraphics[width=\columnwidth]{../res/lb_simulating_annealing_a280.png}
-	\caption{TODO}
-	\label{fig:simultaing_annealing_perform_time}
+	\hfill
+	\begin{subfigure}{.49\columnwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/lb_simulating_annealing_a280.png}
+		\caption{Performance profile considering the execution time of 280 nodes file (a280.tsp) with time limit of 1000}
+		\label{fig:simultaing_annealing_perform_time}
 	\end{subfigure}
-	
-	\begin{subfigure}{.5\columnwidth}
-	\centering
-	\includegraphics[width=\columnwidth]{../res/lb_simulating_annealing_a280_500.png}
-	\caption{TODO}
-	\label{fig:simultaing_annealing_perform_time}	
+	\hfill
+	\begin{subfigure}{.49\columnwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/lb_simulating_annealing_a280_500.png}
+		\caption{Performance profile considering the execution time of 280 nodes file (a280.tsp) with time limit of 1000}
+		\label{fig:simultaing_annealing_perform_time}
 	\end{subfigure}
-	
-	\begin{subfigure}{.5\columnwidth}
-	\centering
-	\includegraphics[width=\columnwidth]{../res/lb_simulating_annealing_50_a280_500.png}
-	\caption{TODO}
-	\label{fig:simultaing_annealing_perform_time}
+	\hfill
+	\begin{subfigure}{.49\columnwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/lb_simulating_annealing_50_a280_500.png}
+		\caption{Performance profile considering the execution time of 280 nodes file (a280.tsp) with time limit of 1000}
+		\label{fig:simultaing_annealing_perform_time}
 	\end{subfigure}
 \end{figure}
 
 \section{Variable Neighborhood Search (VNS)}
+
 This metaheuristic moves from a solution to another iterating two phases:
 \begin{enumerate}
 	\item optimization
 	\item perturbation
 \end{enumerate}
-The first is done iterating a refining heuristic until a local minimum is found, in this specific case it has been used the \texttt{best\_two\_opt()} algorithm, which is explained in cap \ref{sec:best_2_opt}. After the optimization, a perturbation is applied to leave the local minima, here \texttt{random\_n\_opt()} with $ n=5 $. This algorithm generate a new solution that differ n edges from the first (check at the end of the section for details).
-The two phases are iterated until the max number of iterations or time limit occur.\\
-Note that the implemented VNS is not optimized to work with multiple thread.\\
-In fig \ref{fig:VNS_d2103} is shown the cost of the solution in each \texttt{best\_two\_opt()} step of the VNS. It is interesting to note that most of the time is required for the first descent and after that the first local minimum is found, the best lower bound does not decrease so much.
-The calculated tour is plotted in fig \ref{fig:d2103_16}.\\
-The performance profiles in fig \ref{fig:Lsubtour_hardfixing_vns_time} and \ref{fig:Lsubtour_hardfixing_vns_lb} show that VNS is faster than the exact algorithm and the returned solution is near the optimum.
 
-The n\_opt set of an tour T is the set of tour that have exactly n different edges w.r.t. T. \texttt{random\_n\_opt()} return a random tour in this set.
 \begin{figure}[!h]
 	\begin{subfigure}{.5\columnwidth}
 		\centering
-		\includegraphics[width=\columnwidth]{../res/d2103.png}
-		\caption{The profile of the cost of the solution (vs time domain) returned by \texttt{best\_two\_opt()} in each step of the VNS.}
-		\label{fig:VNS_d2103}
+		\includegraphics[width=\columnwidth]{../res/lb_vns_n_grasp_10_95_03_02_5_d2103.png}
+		\caption{n=5}
+		\label{fig:lb_vns_n_grasp_10_95_03_02_5_d2103}
+	\end{subfigure}
+	\begin{subfigure}{.5\columnwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/lb_vns_n_grasp_10_95_03_02_10_d2103.png}
+		\caption{n=10}
+		\label{fig:lb_vns_n_grasp_10_95_03_02_10_d2103}
+	\end{subfigure}
+	\begin{subfigure}{.5\columnwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/lb_vns_n_grasp_10_95_03_02_20_d2103.png}
+		\caption{n=20}
+		\label{fig:lb_vns_n_grasp_10_95_03_02_20_d2103}
 	\end{subfigure}
 	\begin{subfigure}{.5\columnwidth}
 		\centering
 		\includegraphics[width=\columnwidth]{../res/d2103_16.png}
-		\caption{The graph of the solution returned by VNS.}
+		\caption{The graph of the solution returned by VNS (n=5).}
 		\label{fig:d2103_16}
 	\end{subfigure}
+	\caption{The profile of the cost of the solution (vs time domain) returned by \texttt{best\_two\_opt} in each step of the VNS changing the value of n of \texttt{random\_n\_opt}.}
+	\label{fig:lb_vns}
+\end{figure}
+The first is done iterating a refining heuristic until a local minimum is found, in this specific case it has been used the \texttt{best\_two\_opt} algorithm, which is explained in cap \ref{sec:best_2_opt}. After the optimization, a perturbation is applied to leave the local minima, here \texttt{random\_n\_opt} with $ n=5 $. This algorithm generate a new solution that differ n edges from the first (check at the end of the section for details).
+The two phases are iterated until the max number of iterations or time limit occur.\\
+Note that the implemented VNS is not optimized to work with multiple thread.\\
+In fig \ref{fig:lb_vns} is shown the cost of the solution in each \texttt{2\_opt} step of the VNS using different $ n $ for \texttt{random\_n\_opt}. It is interesting to note that most of the time is required for the first descent and after that the first local minimum is found, the best lower bound does not decrease so much. Moreover, \texttt{random\_n\_opt} bring to solutions that with \texttt{best\_two\_opt} decrease the solution cost with all the values tested for $ n $, therefore for farther implementation, the \texttt{random\_n\_opt} should depend from the refining applied.
+The calculated tour is plotted in fig \ref{fig:d2103_16}.\\
+The performance profiles in fig \ref{fig:Lsubtour_hardfixing_vns_time} and \ref{fig:Lsubtour_hardfixing_vns_lb} show that VNS is faster than the exact algorithm and the returned solution is near the optimum.
+
+\begin{figure}[!h]
 	\begin{subfigure}{.5\columnwidth}
 		\centering
-		\includegraphics[width=\columnwidth]{../res/Lsubtour_hardfixing_vns_time.png}
+		\includegraphics[width=\columnwidth]{../res/Lvns_LA_time.png}
 		\caption{Performance profile considering the execution time}
 		\label{fig:Lsubtour_hardfixing_vns_time}
 	\end{subfigure}
 \hfill
 	\begin{subfigure}{.5\columnwidth}
 		\centering
-		\includegraphics[width=\columnwidth]{../res/Lsubtour_hardfixing_vns_lb.png}
-		\caption{Performance profile considering the lower bound.}
+		\includegraphics[width=\columnwidth]{../res/Lvns_LA_lb.png}
+		\caption{Performance profile considering the solution cost.}
 		\label{fig:Lsubtour_hardfixing_vns_lb}
 	\end{subfigure}
+\caption{\texttt{vns} method use \texttt{n\_grasp} with $ n=1 $ as warm start, instead in \texttt{vns\_n\_greedy} and \texttt{vns\_n\_grasp} $ n=10 $. No significant differences to note in terms of execution times and solutions cost between the methods.}
+\label{fig:Lvns_pp}
 \end{figure}
 
 \section{Genetic Algorithm}
