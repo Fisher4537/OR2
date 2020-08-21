@@ -193,12 +193,12 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->model_type = 0;
 			inst->warm_start = 5;
 			inst->heuristic = 6;
-			return "n_greedy_tabu_search";				// Greedy + TABU' SEARCH (Linked List version)
+			return "n_greedy_tabu_search";				// N_Greedy + TABU' SEARCH (Linked List version)
 		case 18:
 			inst->model_type = 0;
 			inst->warm_start = 5;
 			inst->heuristic = 7;
-			return "n_greedy_tabu_search_array";		// Greedy + TABU' SEARCH (Array version)
+			return "n_greedy_tabu_search_array";		// N_Greedy + TABU' SEARCH (Array version)
 		case 19:
 			inst->model_type = 0;
 			inst->warm_start = 1;
@@ -2065,6 +2065,7 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 		}
 
 		best_lb -= best_improve;
+		if (inst->verbose >= 1) printf("%.1lf,%lf\n", best_lb, second() - inst->init_time);
 		if (best_temp_lb == best_lb){
 			// Local/Global minimum found
 			isImprovement = 0;

@@ -103,3 +103,5 @@ res/lb_simulating_annealing_01_d18512_25200.csv
 res/lb_simulating_annealing_ngrasp_100_d18512.csv
 
 res/lb_n_greedy_best_two_opt_a280.csv
+
+res/lb_tabu_search_n_greedy_d2103.csv
