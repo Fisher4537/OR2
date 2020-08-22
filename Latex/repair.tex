@@ -1,8 +1,8 @@
 \chapter{Repair}
-Some heuristic could generate an invalid solution, like the merge or mutation phase in Genetic Algorithm. Here a repair heuristic is intended as a method that can return a valid solution from an invalid solution. The input of the repair heuristic has peculiar property derived from the method that produce it.
+Some heuristic could generate an invalid solution, like the merge or mutation phase in Genetic Algorithm. Here a repair heuristic is intended as a method that can return a valid solution from an invalid one. The input of the repair heuristic has peculiar property derived from the method that produce it.
 \section{Patching} \label{section:patching}
 The Patching heuristic is a way to merge together multiple tours and obtain a single one.
-The algorithm proposed is an iteration of a \texttt{single\_patch()} method which merge only one pair of tours. Note that an isolated node is the tour with minimum length therefore \texttt{patching()} can also resolve a TSP problem. \\
+The algorithm proposed is an iteration of a \texttt{single\_patch} method which merge only one pair of tours. Note that an isolated node is the tour with minimum length therefore \texttt{patching} can also resolve a TSP problem. \\
 The proposed algorithm work through the 6 steps represented in fig \ref{fig:single_patch}.
 \begin{figure}[!h]
 	\begin{subfigure}{.26\columnwidth}
@@ -50,7 +50,8 @@ A \texttt{succ} structure is use to represent the input tours, which for each  $
 \end{cases}
 \end{equation} \\
 In the \texttt{succ} structure, each edge could be considered as oriented: if \texttt{succ[i] = j} than \texttt{i} $\rightarrow$ \texttt{j} is the considered edge orientation. \\
-The merge phase is the core of the method. To avoid a large number of intersection between edges, which is a sign of non optimal solution, all the tour are initialize in clockwise orientation and the merge phase must keep the property in the output tour. An example of merge is done in fig \ref{fig:patching_merge}. Note that once the two nodes are selected there are only two possible merge: one create the intersection and the other one does not. It is easy to prove that without intersection the tour is shorter. Moreover if each tour is clockwise, the property is naturally maintained
+The merge phase is the core of the method. All the tour are initialize in clockwise orientation and the merge phase must keep the property in the output tour. When the solution is created from scratch by \texttt{patching}, it avoids a large number of intersection between edges, which is a sign of non optimal solution. \\
+An example of merge is done in fig \ref{fig:patching_merge}. Note that once the two nodes are selected there are only two possible merge: one create the intersection and the other one does not. It is easy to prove that without intersection the tour is shorter. Moreover if each tour is clockwise, the property is naturally maintained
 \begin{figure}[!h]
 	\begin{subfigure}{.26\columnwidth}
 		\includegraphics[width=\columnwidth]{img/patching_merge1.png}
@@ -70,7 +71,7 @@ The merge phase is the core of the method. To avoid a large number of intersecti
 		\label{fig:patching_merge3}
 	\end{subfigure}
 
-	\caption{Merge phase in detail. Note that the orientation of the arch is that expressed from the associated \texttt{succ} structure, however the problem is aTSP, therefore the edges are not oriented.}
+	\caption{Merge phase in detail. The orientation of the arches is defined by the associated \texttt{succ} structure but, being an aTSP, the edges are undirected.}
 	\label{fig:patching_merge}
 \end{figure}\\
 
@@ -85,8 +86,8 @@ The merge phase is the core of the method. To avoid a large number of intersecti
 														& \texttt{succ[i]:}	& 5 & 3 & 1 & 2 & 6 & 4 \\
 	\end{tabular}
 \end{table}
-To keep the clockwise orientation of the tour there is a special consideration have to be done to merge an isolated node with a tour of two nodes. In the final tour the clockwise property must is checked if the condition is satisfied:
-$ (x_3 - x_1)*(y_2 - y_1) < (y_3 - y_1)*(x_2 - x_1) $,
+To keep the clockwise orientation of the tour, there is a special consideration to be done to merge an isolated node with a tour of two nodes. In the final tour the clockwise property must is checked if the condition is satisfied:
+$ (x_3 - x_1)(y_2 - y_1) < (y_3 - y_1)(x_2 - x_1) $,
 otherwise the tour is reversed.
 \begin{figure}[!h]
 	\centering

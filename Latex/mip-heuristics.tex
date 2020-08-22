@@ -1,16 +1,16 @@
 \chapter{MIP Heuristics}
-Mixed Integer Program Heuristics can be applied in each MIP problem independently from the context. These do not consider the specific formulation of the TSP problem however they could have good applicability. In this report two MIP Heuristics will be discussed and compared with the  Metaheuristics
+Mixed Integer Program Heuristics can be applied in each MIP problem independently from the context. These do not consider the specific formulation of the TSP problem however they could have good applicability. In this report two MIP Heuristics will be discussed and compared with the metaheuristics.
 
 \section{Hard-fixing}
-A simple idea to reduce the complexity of the problem is to get an initial solution like an incumbent, fix some active edges and resolve the subproblem with CPLEX. This is exactly the idea behind hard fix approach.\\
+A simple idea to reduce the complexity of the problem is to get an initial solution like an incumbent, fix some active edges and resolve the subproblem with CPLEX. This is exactly the idea behind hard fixing approach.\\
 The implementation proposed is applied in sTSP problem, with the optimization of the general callback (\texttt{subtour\_callback\_general}).
-The algorithm can be divided in step:
+The algorithm can be divided in steps:
 \begin{enumerate} \label{hard-fix-step}
-	\item calculate an initial solution: in our implementation this is done by CPLEX with \texttt{subtour\_callback\_general} and \texttt{CPX\_PARAM\_INTSOLLIM} set to 1. When the first incumbent is available,the optimization terminate and a solution is obtained.
-	\item fix a percentage of edges (fixing rate $ f_r $): edges are fixed using \texttt{CPXchgbds()} method that change the upper and lower bound of the decision variables. The fixing percentage is an important parameter: fixing too much edges leads to a fast resolution of the subproblem however increase the risk of obtaining the same solution and fall in a loop. Fixing too low edges involves slower resolution. In the first iteration $ f_r = 0.9 $.
-	\item CPLEX optimization with time limit: After the fixing phase, the problem is optimized with \texttt{CPX\_mipopt()} and a short time limit is set ($ = 50 $s).
-	\item fixing rate update: after the last phase, if the returned solution is improved better than a fixed gap ($  good\_gap $), it is considered a good solution and the $ f_r $ is increased by a constant ($ incr\_f_r $) until a max ($ max\_f_r $) otherwise if the new solution is not increased enough (less than $ optimal\_gap $), $ f_r $ is decreased of a constant ($ decr\_f_r $) until a min ($ min\_f_r $). Note that $ good\_gap $ and $ optimal\_gap $ are expressed as fraction of the best lower bound.
-	\item check end condition: if the time limit is reached, or $ f_r = 0.0 $ and the solution is not improved in the last iteration then the solution is returned. Note that in the second case, the best solution is found. In case that no ending condition is satisfy, the algorithm continue with point 3.
+	\item Calculate an initial solution: in our implementation this is done by CPLEX with \texttt{subtour\_callba \\ ck\_general} and \texttt{CPX\_PARAM\_INTSOLLIM} set to 1. When the first incumbent is available, the optimization terminate and a solution is obtained.
+	\item Fix a percentage of edges (fixing rate $ f_r $): edges are fixed using \texttt{CPXchgbds} method that change the upper and lower bound of the decision variables. The fixing percentage is an important parameter: fixing too much edges leads to a fast resolution of the subproblem, however increase the risk of obtaining the same solution and fall in a loop. Fixing too low edges involves slower resolution. In the first iteration $ f_r = 0.9 $.
+	\item CPLEX optimization with time limit: After the fixing phase, the problem is optimized with \texttt{CPX\_mipopt} and a short time limit is set (in our implementation $50 $s).
+	\item Fixing rate update: after the last phase, if the returned solution is improved better than a fixed gap ($  good\_gap $), it is considered a good solution and the $ f_r $ increases by a constant ($ incr\_f_r $) until a max ($ max\_f_r $), otherwise if the new solution is not increased enough (less than $ optimal\_gap $), then $ f_r $ decreases of a constant ($ decr\_f_r $) until a min ($ min\_f_r $). Note that $ good\_gap $ and $ optimal\_gap $ are expressed as fraction of the current best lower bound.
+	\item Check end condition: if the time limit is reached or $ f_r = 0.0 $ and the solution is not improved in the last iteration, then the solution is returned. In the second case, the best solution is found. If no ending condition is satisfied, the algorithm continue with point 3.
 \end{enumerate}
 
 \section{Local-Branching}

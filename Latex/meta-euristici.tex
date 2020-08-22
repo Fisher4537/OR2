@@ -32,7 +32,7 @@ Fig.s \ref{fig:tabu_search_diff_perform_time} and \ref{fig:tabu_search_diff_perf
 		\caption{Performance profile considering the solution cost}
 		\label{fig:tabu_search_diff_perform_lb}
 	\end{subfigure}
-\caption{}
+\caption{\texttt{tabu\_search} use linked list as data structure to store the tabu list instead of array.}
 \label{fig:tabu_search_diff_perform}
 \end{figure}
 Another aspect to consider is the size of the tabu list. An "infinite" dimension would risk bringing the algorithm to a standstill in which it can no longer make any move since all those around two optimality have been prohibited. Conversely, too small a size could cause a return to the local minimum from which one was running away. A lot of studies and research have been done for this specific aspect \cite{Nababan_2019, Tsubakitani1998} and a better overall result than others has not been found, changing the typology of the problem also varies the best size of the list. An average list size with respect to the problem proved to be the best choice as a balance between computational time and the optimal cost. Thus a size equal to half the number of problem nodes was set.\\
@@ -142,21 +142,21 @@ This metaheuristic moves from a solution to another iterating two phases:
 \begin{figure}[!h]
 	\begin{subfigure}{.5\columnwidth}
 		\centering
-		\includegraphics[width=\columnwidth]{../res/lb_vns_n_grasp_10_95_03_02_5_d2103.png}
+		\includegraphics[width=\columnwidth]{../res/lb_vns_n_greedy_10_5_d2103.png}
 		\caption{n=5}
-		\label{fig:lb_vns_n_grasp_10_95_03_02_5_d2103}
+		\label{fig:lb_vns_n_greedy_10_95_03_02_5_d2103}
 	\end{subfigure}
 	\begin{subfigure}{.5\columnwidth}
 		\centering
-		\includegraphics[width=\columnwidth]{../res/lb_vns_n_grasp_10_95_03_02_10_d2103.png}
+		\includegraphics[width=\columnwidth]{../res/lb_vns_n_greedy_10_10_d2103.png}
 		\caption{n=10}
-		\label{fig:lb_vns_n_grasp_10_95_03_02_10_d2103}
+		\label{fig:lb_vns_n_greedy_10_95_03_02_10_d2103}
 	\end{subfigure}
 	\begin{subfigure}{.5\columnwidth}
 		\centering
-		\includegraphics[width=\columnwidth]{../res/lb_vns_n_grasp_10_95_03_02_20_d2103.png}
+		\includegraphics[width=\columnwidth]{../res/lb_vns_n_greedy_10_20_d2103.png}
 		\caption{n=20}
-		\label{fig:lb_vns_n_grasp_10_95_03_02_20_d2103}
+		\label{fig:lb_vns_n_greedy_10_95_03_02_20_d2103}
 	\end{subfigure}
 	\begin{subfigure}{.5\columnwidth}
 		\centering
@@ -197,7 +197,7 @@ For a complete explanation of the simple genetic algorithm, see \cite{phdthesis}
 A particular genetic algorithm has been implemented in this paper: it is based almost exclusively on the "Powerful Genetic Algorithm Using Edge Assembly Crossover" created by Yuichi Nagata and Shigenobu Kobayashi \cite{Nagata2013, Honda2013}, except for a subsection that has been completely designed by us.\\ A description of the algorithm will be presented and some paragraphs, which are contained in their paper \cite{Nagata2013}, will be reported here thanks to their clear description. In addition, the differences from his algorithm and our implementation choices will be explained.\\
 The search process of the GA consists of two stages: \\
 \begin{itemize}
-\item GA-EAX/Stage I: a localized version of Edge Assembly Crossover (EAX) as the crossover operator from the start of the search until no improvement in the best solution is found over a period of generations or because of timelimit.
+\item GA-EAX/Stage I: a localized version of Edge Assembly Crossover (EAX) as the crossover operator from the start of the search until no improvement in the best solution is found over a period of generations or because of timelimit. % l'algoritmo termina davvero se non trova miglioramenti?
 \item  GA-EAX/Stage II: after that, switch to a global version of EAX and use it until the end of the search. Stage II is also terminated by the same condition of previous one.
 \end{itemize}
 For this project only Stage I was developed but the global version does not add any difficulties in the code.
@@ -227,7 +227,8 @@ Algorithm \ref{alg:gagen} describes in a compact way the various steps of the en
 The recombination operator EAX uses the edges from the two parents to construct disjoint subtours.
 Then, using a more general version of the Patching Algorithm \ref{section:patching}, the subtours are connected in a greedy fashion to produce the offspring tour. Thus, the EAX operator considers local information which is exploited in determining which edges to use to connect subtours.\\
 Another important trait of the EAX operator is that it will introduce new edges into the offspring when connecting subtours. Edges not in the parents, or perhaps not even in the population, are introduced into offspring. 
-The argument as to why good new edges must be introduced during recombination is simple. As point out in \cite{Mathias92geneticoperators}, the complete graph of all possible edges for a sTSP has $(N^2-N)/2$ edges, where $N$ is the number of nodes. Each tour samples $N$ of these edges, so a population must be of size at least $(N-1)/2$ in order to sample each edge exactly once. Assume population size is proportional to the number of the nodes. Then each edge occurs twice in expectation in an initial random population. Selection can therefore quickly eliminate edges from the population. Good edges can also be lost if they occur in poor tours. Thus it is important for operators to intelligently introduce new good edges. This feature is part of the construction of EAX and therefore, may contribute to its effectiveness.\\
+The argument as to why good new edges must be introduced during recombination is simple. As point out in \cite{Mathias92geneticoperators}, the complete graph of all possible edges for a sTSP has $(N^2-N)/2$ edges, where $N$ is the number of nodes. Each tour samples $N$ of these edges, so a population must be of size at least $(N-1)/2$ in order to sample each edge exactly once. % perchè è necessario avere dei tour che passino almeno una volta su ogni arco?
+Assume population size is proportional to the number of the nodes. Then each edge occurs twice in expectation in an initial random population. Selection can therefore quickly eliminate edges from the population. Good edges can also be lost if they occur in poor tours. Thus it is important for operators to intelligently introduce new good edges. This feature is part of the construction of EAX and therefore, may contribute to its effectiveness.
 
 \begin{figure}[h]
 	\centering
@@ -242,7 +243,8 @@ R is next divided into a set of disjoint subtours. Let v\textsubscript{i} repres
 Choose one vertex (either v\textsubscript{i} or v\textsubscript{j}) as the origin. If v\textsubscript{i} is the origin, then choose an edge which leads from the second vertex, v\textsubscript{j} , to any other vertex in R. However, this edge must come from parent B. If more than one such edge exists, a random selection is made. The algorithm continues to traverse R, at each step alternately picking edges from parent A and parent B.\\
 After each edge is traversed, the algorithm checks to see if adding this new edge to the set of previously selected edges will result in an AB-cycle. An AB-cycle is a even-length sub-cycle of R with edges that alternately come from A and B. An AB-cycle may repeat nodes, but not edges. While there can be two edges between a pair of nodes, they are uniquely identified as an A or B edge, and thus distinct.\\
 Once an AB-cycle has been found it is stored and the edges making up that cycle are removed from R. The algorithm repeats this procedure until R contains no more edges, having been completely decomposed into a set of AB-cycles (Step 2 of Image \ref{fig:GA_steps}). \\
-The first several edges used in the construction of the AB-cycle may not appear in the final AB-cycle. This occurs when the final edge connects back onto the subgraph at some node x other than the origin node, and the induced subcycle is an AB-cycle. In this case the remaining edges are however removed from R graph but is kept aside in the path being traced, to eventually be used later in forming another cycle. Nagata and Kobayashi choose an edge incident with x from R to begin construction of the next AB-cycle instead in our algorithm we preferred to take an edge incident to any node remaining in the traced path (other technique prefers to select the starting location of a new AB-cycle at random from R).
+The first several edges used in the construction of the AB-cycle may not appear in the final AB-cycle.
+This occurs when the final edge connects back onto the subgraph at some node x other than the origin node, and the induced subcycle is an AB-cycle. In this case the remaining edges are however removed from R graph but is kept aside in the path being traced, to eventually be used later in forming another cycle. Nagata and Kobayashi choose an edge incident with x from R to begin construction of the next AB-cycle instead in our algorithm we preferred to take an edge incident to any node remaining in the traced path (other technique prefers to select the starting location of a new AB-cycle at random from R).
 For the symmetric TSP problem, R is undirected and therefore, the set of AB-cycles is not uniquely determined by the algorithm. Furthermore, a number of "ineffective" AB-cycles may be formed by the algorithm. All AB-cycles that have less than 4 different nodes inside them belong to this group. Any ineffective AB-cycles are found and removed from R and also removed from consideration by the remaining phases of the algorithm.
 \\
 After construction of the set of AB-cycles, a subset of AB-cycles is chosen to be used in the generation of an intermediate child. This subset is called an E-set (Step 3 of Image \ref{fig:GA_steps}). For selecting AB-cycles for inclusion into the E-set, we choose an our method different from those defined by Nagata and Kobayashi. Given the small size of the problems we tested compared to those of the TSP Art of Nagata, the number of subtours in the E-set is not very large and therefore, instead of sampling by random selection some of them, we scroll through them all and create one intermediate child for each.

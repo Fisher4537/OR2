@@ -1,5 +1,5 @@
 \chapter{Refining Heuristics}
-\label{chapter:refininf}
+\label{chapter:refining}
 In this chapter are discussed the heuristic that starting from an initial solution of the TSP, return a better solution in term of cost. This kind of heuristic will be called Refining Heuristics because of the solution cost improvement. 
 
 \section{2-opt} \label{sec:best_2_opt}
@@ -32,12 +32,10 @@ A pseudo-code is proposed in alg. \ref{alg:2opt} to describe how it works. The i
 	\end{algorithmic}
 \end{algorithm}
 
-In the example in fig. \ref{fig:2_opt_graph} the pair that has the best improvement is $ (1,4) $ and $ (5,2) $. Note that although $ (5,2) = (2,5) $ for the model, to be coherent with $ \delta_{cost} $ annotation, an orientation of the tour must be choose, and each edge must be represented with consequent ordered node pair: if $ (1,4) $ is the first considered edge, it impose the orientation of the tour.
-
 \begin{figure}[h]
 	\centering
 	\includegraphics[width=.3\columnwidth]{img/2_opt_graph.png}
-	\caption{Example graph to explain \texttt{2\_opt} method. The input graph is that with continuous edges. \texttt{2\_opt} would remove $ (1,4) $ and $ (2,5) $ from the tour and replace them with $ (1,5) $ and $  (2,4) $}
+	\caption{Example graph to explain \texttt{2\_opt} method. The input graph is that with continuous edges. \texttt{2\_opt} would remove $ (1,4) $ and $ (2,5) $ from the tour and replace them with $ (1,5) $ and $  (2,4) $.}
 	\label{fig:2_opt_graph}
 \end{figure}
 As can be seen in fig. \ref{fig:lb_time_grasp_best_two_opt_d2103} multiple execution of \texttt{2\_opt} can improve more than 50\% the cost of the solution before to find a local minimum. This multiple execution of \texttt{2\_opt} in the report is called \texttt{best\_two\_opt}.
@@ -50,7 +48,7 @@ As can be seen in fig. \ref{fig:lb_time_grasp_best_two_opt_d2103} multiple execu
 
 It is interesting to see the solution cost profile of \texttt{best\_two\_opt} (fig. \ref{fig:a280_25}) applied to the best of the Greedy solutions (called \texttt{greedy\_best\_two\_opt}). The improve of the cost solution is considerable even if it stop on a local minimum.  Note that, the best tour is calculated in about $ 8 $s with \texttt{subtour\_callback\_general}, \texttt{n\_greedy} take about $ 0.0045 $s to find the best tour and \texttt{best\_two\_opt} find a local minimum in $0.07$s. Moreover is important to consider that greedy method can be easily modify to execute each greedy tour in parallel and than apply \texttt{best\_two\_opt}.
 
-In fig.s \ref{fig:a280_10} and \ref{fig:a280_25} can be compared the \texttt{Greedy}, \texttt{greedy\_best\_two\_opt} and \texttt{subtour\_callback\_general} tours, solutions cost and execution time.\\
+In fig.s \ref{fig:a280_10} and \ref{fig:a280_25} can be compared the \texttt{Greedy}, \texttt{greedy\_best\_two\_opt} and \texttt{subtour\_callback\_gen \\ eral} tours, solutions cost and execution time.
 
 \begin{figure}[!h]
 	\begin{subfigure}{.5\columnwidth}
@@ -68,7 +66,7 @@ In fig.s \ref{fig:a280_10} and \ref{fig:a280_25} can be compared the \texttt{Gre
 	\begin{subfigure}{.5\columnwidth}
 		\centering
 		\includegraphics[width=\columnwidth]{../res/lb_greedy_best_two_opt_a280.png}
-		\caption{The profile of the solution cost over time of the \texttt{best\_two\_opt} optimization phase.}
+		\caption{\centering{The profile of the solution cost over time of the \texttt{best\_two\_opt} optimization phase.}}
 		\label{fig:lb_greedy_best_two_opt_a280}
 	\end{subfigure}
 	\begin{subfigure}{.5\columnwidth}
@@ -78,27 +76,25 @@ In fig.s \ref{fig:a280_10} and \ref{fig:a280_25} can be compared the \texttt{Gre
 		\label{fig:a280_0}
 	\end{subfigure}
 \end{figure}
-
-
 \begin{figure}[!h]
 	\centering
 	\begin{subfigure}{.7\textwidth}
 		\centering
 		\includegraphics[width=\columnwidth]{../res/Lconstructives_refining_LA_time.png}
-		\caption{Performance profile in time domain.}
+		\caption{Time domain.}
 		\label{fig:Lconstructives_refining_time}
 	\end{subfigure}
 	\begin{subfigure}{.7\textwidth}
 		\centering
 		\includegraphics[width=\columnwidth]{../res/Lconstructives_refining_LA_lb.png}
-		\caption{Performance profile in solution cost domain.}
+		\caption{Cost domain.}
 		\label{fig:Lconstructives_refining_lb}
 	\end{subfigure}
-\caption{Performance profile of refining heuristic}
+\caption{Performance profiles of refining heuristics.}
 \label{fig:pp_Lconstructives_refining}
 \end{figure}
 
-The performance profile in fig. \ref{fig:pp_Lgreedy_refining} compare greedy algorithms with them \texttt{best\_two\_opt} optimization. It is clear that most of the execution time is required for the constructive heuristic, however the difference in term of cost optimization is done by the \texttt{best\_two\_opt}. In fig. \ref{fig:Lgreedy_refining_LA_lb} \texttt{n\_greedy\_best\_two\_opt} gain the solution of \texttt{greedy\_best\_two\_opt}, proving that it is not necessary to find the best tour created from the greedy, but is enough to compute ten random tour and than apply \texttt{best\_two\_opt} to find similar solutions.
+The performance profile in fig. \ref{fig:pp_Lgreedy_refining} compare greedy algorithms with their \texttt{best\_two\_opt} optimization. It is clear that most of the execution time is required for the constructive heuristic, however the difference in term of cost optimization is done by the \texttt{best\_two\_opt}. In fig. \ref{fig:Lgreedy_refining_LA_lb} \texttt{n\_greedy\_best\_two\_opt} gain the solution of \texttt{greedy\_best\_two\_opt}, proving that it is not necessary to find the best tour created from the greedy, but is enough to compute 10 random tour and than apply \texttt{best\_two\_opt} to find similar solutions.
 
 \begin{figure}
 	\centering
@@ -119,7 +115,7 @@ The performance profile in fig. \ref{fig:pp_Lgreedy_refining} compare greedy alg
 \end{figure}
 
 
-The effectiveness of the refining heuristic depend from the warm start solution. In fig. \ref{fig:Lgrasp_insertion_refining_LA_lb} it is show that even if \texttt{heuristic\_insertion} generate shorter tour than \texttt{n\_grasp}, \texttt{n\_grasp\_best\_two\_opt} is better than \texttt{insertion\_best\_two\_opt}.
+The effectiveness of the refining heuristic depend from the warm start solution. In fig. \ref{fig:Lgrasp_insertion_refining_LA_lb} it is show that, even if \texttt{heuristic\_insertion} generate shorter tour than \texttt{n\_grasp}, \texttt{n\_grasp\_best\_two\_opt} is better than \texttt{insertion\_best\_two\_opt}.
 
 \begin{figure}
 \centering
@@ -135,8 +131,8 @@ The effectiveness of the refining heuristic depend from the warm start solution.
 	\caption{Performance profile in solution cost domain.}
 	\label{fig:Lgrasp_insertion_refining_LA_lb}
 \end{subfigure}
-\caption{Comparison of constructive vs refining heuristics of grasp and insertion methods.}
+\caption{Comparison of \texttt{n\_grasp} and \texttt{heuristic\_insertion} with and \texttt{best\_two\_opt}.}
 \label{fig:pp_Lgrasp_insertion_refining}
 \end{figure}
 
-In conclusion, \texttt{best\_two\_opt} is a really useful refining heuristic for its time efficiency and cost effectiveness, however its effectiveness depend from how many cross edges has the warm start solution.
+In conclusion, \texttt{best\_two\_opt} is a really useful refining heuristic for its time efficiency and cost effectiveness, however the second one depends from how many cross edges has the warm start solution.
