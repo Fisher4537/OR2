@@ -36,9 +36,8 @@ Fig.s \ref{fig:tabu_search_diff_perform_time} and \ref{fig:tabu_search_diff_perf
 \label{fig:tabu_search_diff_perform}
 \end{figure}
 Another aspect to consider is the size of the tabu list. An "infinite" dimension would risk bringing the algorithm to a standstill in which it can no longer make any move since all those around two optimality have been prohibited. Conversely, too small a size could cause a return to the local minimum from which one was running away. A lot of studies and research have been done for this specific aspect \cite{Nababan_2019, Tsubakitani1998} and a better overall result than others has not been found, changing the typology of the problem also varies the best size of the list. An average list size with respect to the problem proved to be the best choice as a balance between computational time and the optimal cost. Thus a size equal to half the number of problem nodes was set.\\
-Finally, the termination criterion can be based on a maximum number of iterations of the algorithm in which the solution no longer improves or on a timelimit.
-
-La fig. \ref{fig:tabu_search_perform_time} mostra l'andamento d %TODO da finire
+Finally, the termination criterion can be based on a maximum number of iterations of the algorithm in which the solution no longer improves or on a timelimit.\\
+Fig. \ref{fig:tabu_search_perform_time} shows the trend of the lower bounds found over time. Note that the descent and ascent trend is clear in the figure although, after the initial descent, it no longer finds a better solution.
 \begin{figure}[h]
 	\centering
 	\includegraphics[width=.70\columnwidth]{../res/lb_tabu_search_n_greedy_d2103.png}
