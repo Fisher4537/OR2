@@ -281,8 +281,23 @@
 			\end{table}
 
 		\chapter{CGAL Library in Windows with VS2019} \label{sec:cagalOne}
-CGAL is a library that simplifies access reliably to computational geometry algorithms. it is written in C ++ and therefore it is compatible with this project. Here are the steps to follow to use the CGAL library in a Windows environment with the IDE Visual Studio 2019 version.\\ Unfortunately, porting from the Linux environment requires installing MPIR (a fork of GMP), MPFR and all boost header files. Furthermore, the possibility of compiling the library was also explained.
+CGAL is a library that reliably simplifies access to computational geometry algorithms. It is written in C++ and therefore using the code:
+\begin{lstlisting}
+extern "C" {...}
+\end{lstlisting}
+
+it is possible to invoke C++ methods from a C file because it makes a function-name in C++ have C linkage. \\
+Here are the steps to follow to use the CGAL library in a Windows environment with the IDE Visual Studio 2019 version.\\
+
 \subsection{GMP in Windows} \label{sec:cgalLib}
+First of all CGAL library use GMP, a free library arbitrary-precision arithmetic.  Unfortunately, it is not available for Windows, therefore is necessary to install these library: 
+\begin{itemize}
+	\item MPIR: a fork of GMP
+	\item MPFR
+	\item all boost library header files
+\end{itemize}
+Furthermore, the possibility of compiling the library is also explained.
+
 \begin{itemize}
 \item Follow steps at: \href{https://doc.cgal.org/latest/Manual/windows.html}{https://doc.cgal.org/latest/Manual/windows.html}. For the x64 version of CGAL, instead of command:
 \begin{lstlisting}
@@ -316,7 +331,7 @@ Cygwin Package Information: To be more specific, in the tab.\ref{tab:packages} t
 \begin{table}[h]
 \scriptsize
 	\begin{center}
-		\caption{Output of command: \textit{cygcheck --check-setup} ran into Cygwin console which corresponds to the list of its installed packages and related versions}
+		\caption{Output of command: \textit{cygcheck --check-setup} ran into Cygwin console which corresponds to the list of its installed packages and related versions.}
 		\label{tab:packages}
 		\begin{tabular}{ll|ll|ll}
 			Package & Version & Package & Version & Package & Version \\ \hline
@@ -463,7 +478,7 @@ int main()
 It can be possible to change used Framework directy on VS settings :
 \begin{enumerate}
 \item \textit{VS} $\rightarrow$ \textit{Esplora Soluzione} $\rightarrow$ \textit{<nome\_progetto>} $\rightarrow$ right click $\rightarrow$ \textit{Proprietà}:
-\item \textit{Proprietà di configurazione} $\rightarrow$ \textit{Avanzate}: Versione di .NET Framework di destinazione
+\item \textit{Proprietà di configurazione} $\rightarrow$ \textit{Avanzate} $\rightarrow$ \textit{Versione di .NET Framework di destinazione}: insert .NET Framework version previously checked.
 \end{enumerate}
 (reference: \href{https://docs.microsoft.com/it-it/cpp/build/how-to-modify-the-target-framework-and-platform-toolset?view=vs-2019}{https://docs.microsoft.com/it-it/cpp/build/how-to-modify-the-target-framework-and-platform-toolset?view=vs-2019})
 \begin{itemize}
