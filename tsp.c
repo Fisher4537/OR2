@@ -2214,7 +2214,7 @@ void print_list(tabu_list* head) {
 	//printf("--- Tabu list elements: ---\n");
 	while (current != NULL) {
 		printval = current->arc;
-		if(0) printf("Arc:\t%d\n", printval);
+		if(verbose_without_inst) printf("Arc:\t%d\n", printval);
 		current = current->next;
 	}
 }
@@ -2716,6 +2716,7 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 						inst->best_sol[k] = 0.0;
 			}
 		}
+		fflush(stdout);
 		if (inst->verbose > 10) printf("\n");
 		remaining_time -= second() - ini;
 	}
@@ -4250,10 +4251,10 @@ int print_list_of_list(tour_list* tours) {
 
 		tabu_list* current = print_tours->entry;
 		int printval;
-		if (0) printf("\n--- TOUR: %d ---\n", idx_k);
+		if (verbose_without_inst) printf("\n--- TOUR: %d ---\n", idx_k);
 		while (current != NULL) {
 			printval = current->arc;
-			if (0) printf("%d ", printval);
+			if (verbose_without_inst) printf("%d ", printval);
 			current = current->next;
 		}
 

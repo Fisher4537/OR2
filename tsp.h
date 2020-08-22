@@ -19,6 +19,7 @@
 #define XSMALL		  		  1e-5 		// 1e-4*	// tolerance used to decide // ingerality of 0-1 var.s
 #define EPS 1e-5
 #define TICKS_PER_SECOND 	  1000.0  	// cplex's ticks on Intel Core i7 quadcore // @2.3GHZ
+#define verbose_without_inst  0			// use 0 when write lb result in file (for performance profile)
 
 //data structures
 typedef struct {
