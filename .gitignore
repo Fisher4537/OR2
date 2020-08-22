@@ -111,3 +111,7 @@ res/lb_genetic_algorithm_pr152_28000.csv
 res/genetic_algorithm_att48.csv
 
 res/genetic_algorithm_lb_data_light.csv
+
+res/local_branching_d2013.csv
+
+res/local_branching_a280.csv

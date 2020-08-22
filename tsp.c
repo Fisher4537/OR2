@@ -1893,6 +1893,7 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 				if (best_lb > inst->best_lb)
 					for (int i = 0; i < inst->nedges; i++)
 						best_sol[i] = inst->best_sol[i];
+				if (inst->verbose >= 1) printf("%.1lf,%lf\n", inst->best_lb, second() - inst->init_time);
 				if(inst->verbose >= 100) printf("*** Better soluzion found! ***\n");
 			}else {
 
