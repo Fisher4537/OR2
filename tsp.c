@@ -24,7 +24,7 @@
 			- check all array and if free is used everytime is possible	(check all cname for example)
 
 			- Latex: how to use generic callback (if it's write good he can take the part for next year courses)
-	PACCO	- User_cut di Concorde (difficile implementarle e non è possibile utilizzarle ogni volta bensì solo ogni tot..)		-> per la lode
+	PACCO	- User_cut di Concorde (difficile implementarle e non è possibile utilizzarle ogni volta bensì solo ogni tot..)
 
 			13/07/2020
 	RISOLTO	- Aggiungere limite di tempo in tutti i metodi che lo richiedono (io lo metterei in tutti se il timelimit viene settato)
@@ -1971,7 +1971,7 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 	tabu_list* head_save = NULL;
 	int countListSize = 0;
 
-	for (int times = 0; remaining_time > 0.0 && times < 1000000; times++) {
+	for (int times = 0; remaining_time > 0.0 /*&& times < 1000000*/; times++) {
 		double ini = second();
 
 		if (inst->verbose > 100) printf("*** Calc new 2_opt sol ***\n");
@@ -2654,7 +2654,7 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 	double global_best_lb = CPX_INFBOUND;
 	double remaining_time = inst->timelimit;
 
-	int nPop = 10, nKids = 10;			// GA-EAX/Stage1 & Parallel GA-EAX/Stage1
+	int nPop = inst->nnodes, nKids = 10;			// GA-EAX/Stage1 & Parallel GA-EAX/Stage1
 	int sChunk = 10, nChunk = 30;		// Only for Parallel GA-EAX/Stage1
 	int nStag;							// Termination Criterion of GA-EAX/Stage1
 
@@ -2690,14 +2690,14 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 				survival_selection(inst, population, nPop, frequencyTable, real_nKids, pA, kids);
 
 			// free kids matrix
-			for (int j = 0; j < nKids; j++)
+			for (int j = 0; j < real_nKids; j++)
 				free(kids[j]);
 			free(kids);
 
-			if (inst->verbose > 10) print_population(inst, population, nPop);
+			if (inst->verbose > 100) print_population(inst, population, nPop);
 			//print_frequency_table(inst, frequencyTable);
 		}
-		if (inst->verbose > 1) print_population(inst, population, nPop);
+		if (inst->verbose > 10) print_population(inst, population, nPop);
 		//plot_population(inst, population, nPop);
 		if(inst->verbose > 10) printf("\n*********** FINISH GENERATION %d ***********\n\n", g);
 		if (inst->verbose > 10) printf("\nEvaluate LBs:");
@@ -2712,7 +2712,7 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 			}
 			if (inst->verbose > 10) printf("\nIndividual %d: %0.f\n", i, cost);
 			//push(&head_save, cost, 0);
-			if (inst->verbose >= 1) printf("%.1lf,%lf\n", cost, second() - inst->init_time);
+			if (inst->verbose >= 1 && inst->verbose < 10) printf("%.1lf,%lf\n", cost, second() - inst->init_time);
 			if (cost <= global_best_lb) {
 				global_best_lb = cost;
 				for (int k = 0; k < inst->nedges; k++)
@@ -2779,9 +2779,8 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 		solution y and adding those of EB in the AB-cycle to y.
 		- Connect all the subtours in the intermediate solution y to generate an offspring solution y(a single tour) by using a local search heuristic.
 	*/
-	int Kids = nKids;
-	double** ABcycles = (double**)calloc(Kids, sizeof(double*));			// nKids * 3.0 =  3 * nKids set as maximum number of AB-cycles
-	for (int i = 0; i < nKids * 3; i++) {
+	double** ABcycles = (double**)calloc(nKids, sizeof(double*));			// nKids * 3.0 =  3 * nKids set as maximum number of AB-cycles
+	for (int i = 0; i < nKids; i++) {
 		ABcycles[i] = (double*)calloc(inst->nedges, sizeof(double));
 	}
 
@@ -2797,7 +2796,7 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 	if (inst->verbose > 1000) printf("\n");
 
 	// NOOO!! <= nnodes * 2 : perchè potrei fare tutto il giro dei nodi tranne l'ultimo edge che chiude il ciclo e invece tornare indietro per gli stessi e chiuderlo a ritroso
-	int** edges_cycles_EA = (int**)calloc(Kids, sizeof(int*));		// Edges di EA che appartengono ai ABcycles
+	int** edges_cycles_EA = (int**)calloc(nKids, sizeof(int*));		// Edges di EA che appartengono ai ABcycles
 	for (int i = 0; i < nKids; i++) {
 		edges_cycles_EA[i] = (int*)calloc(inst->nnodes, sizeof(int));
 		for (int j = 0; j < inst->nnodes; j++)
@@ -2806,11 +2805,11 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 
 	int countCycle = 0;
 	extract_ABcycles(inst, population, pA, pB, ABcycles, graph_AB, &countCycle, nKids, edges_cycles_EA);
-	if (inst->verbose > 100) {
+	if (inst->verbose >= 100) {
 		print_population(inst, ABcycles, countCycle);
 		printf("\n**** EDGES CYCLES EA ****");
 		for (int i = 0; i < countCycle; i++) {
-			printf("\nIndividual %d: ", i);
+			printf("\nCycle EA %d: ", i);
 			for (int j = 0; j < inst->nnodes; j++) {
 				if (edges_cycles_EA[i][j] != -1)
 					printf("%d ", edges_cycles_EA[i][j]);
@@ -2868,52 +2867,45 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 
 		double* y = (double*)calloc(inst->nedges, sizeof(double));
 		if (inst->verbose > 10) {
-			printf("Edges of y (EA):\n");
+			printf("\nEdges of y (EA): \n");
 			for (int j = 0; j < inst->nedges; j++) {
 				y[j] = population[pA][j];
 				if (y[j] == 1.0)
 					printf("%d ", j);
 			}
-			printf("\n");
 		}
-		if (inst->verbose >= 2000)
+		if (inst->verbose > 100)
 			plot_single(inst, y);
 
 		if (inst->verbose > 10) {
-			printf("Edges of EB:\n");
+			printf("\nEdges of EB: \n");
 			for (int j = 0; j < inst->nedges; j++) {
 				if (population[pB][j] == 1.0)
 					printf("%d ", j);
 			}
-			printf("\n");
 		}
-		if (inst->verbose >= 2000)
+		if (inst->verbose > 100)
 			plot_single(inst, population[pB]);
 
-		if (inst->verbose > 10) printf("Edges of EA removed from y :\n");
-		for (int j = 0; j < inst->nedges; j++) {
-			if (population[pA][j] == 1.0) {
-				for (int w = 0; w < inst->nnodes; w++) {
-					if (edges_cycles_EA[idx_effective[i]][w] == j) {
-						if (inst->verbose > 10) if (inst->verbose > 10) printf("%d ", j);
-						y[j]--;
+		if (inst->verbose > 10) printf("\nEdges of EA removed from y: \n");
+		for (int j = 0; j < inst->nnodes; j++)
+			if (edges_cycles_EA[idx_effective[i]][j] != -1)
+				if (population[pA][edges_cycles_EA[idx_effective[i]][j]] == 1.0)
+					if(ABcycles[idx_effective[i]][edges_cycles_EA[idx_effective[i]][j]] >= 1.0) {
+						if (inst->verbose > 10) printf("%d ", edges_cycles_EA[idx_effective[i]][j]);
+						y[edges_cycles_EA[idx_effective[i]][j]]--;
 					}
-				}
-			}
-		}
 		if (inst->verbose > 10){
-			printf("\n");
-			printf("Edges of y After Removing:\n");
+			printf("\nEdges of y After Removing: \n");
 			for (int j = 0; j < inst->nedges; j++) {
 				if (y[j] == 1.0)
 					printf("%d ", j);
 			}
-			printf("\n");
 		}
-		if (inst->verbose >= 2000)
+		if (inst->verbose > 100)
 			plot_single(inst, y);
 
-		if (inst->verbose > 10) printf("Edges from EB added to y :\n");
+		if (inst->verbose > 10) printf("\nEdges of EB added to y: \n");
 		for (int j = 0; j < inst->nedges; j++) {
 			if (population[pB][j] == 1.0 && ABcycles[idx_effective[i]][j] >= 1.0) {
 				int found = 0;															// trovato tra gli edges di EA e l'arco non è doppio
@@ -2930,17 +2922,15 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 			}
 		}
 		if (inst->verbose > 10) {
-			printf("\n");
-			printf("Edges of y After Adding:\n");
+			printf("\nEdges of y After Adding: \n");
 			for (int j = 0; j < inst->nedges; j++) {
 				if (y[j] == 1.0)
 					printf("%d ", j);
 				else if (y[j] == 2.0)
 					printf("%d(2) ", j);
 			}
-			printf("\n");
 		}
-		if (inst->verbose >= 2000)
+		if (inst->verbose > 100)
 			plot_single(inst, y);
 
 
@@ -2978,7 +2968,10 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 		free(y);
 	}
 
-	print_population(inst, kids, i_eff - avoid);
+	if (inst->verbose > 100) {
+		printf("\nKIDS OBTAINED: \n");
+		print_population(inst, kids, i_eff - avoid);
+	}
 
 	for (int i = 0; i < nKids; i++)
 		free(ABcycles[i]);
@@ -3498,18 +3491,23 @@ int build_sol_ga(tspinstance* inst, const double* sol, int* succ, int* prev, int
 			while (comp[start] == -1) {
 				found_succ = 0;
 				for (int j = 0; j < inst->nnodes; j++) {	// j iterate to be the subsequent node of i in the tour
-					if (i != j && sol[xpos(i, j, inst)] == 2.0) {  // found subsequent of i (j)
+					//if (i != j && sol[xpos(i, j, inst)] > 0.5 && j != prv) {  // found subsequent of i (j)
+					if (i == j)
+						continue;
+					int pox = sol[xpos(i, j, inst)];
+					if (pox == 1.0 && j != prv) {
 						succ[i] = j;
 						comp[j] = *ncomp;
 						prv = i;
 						i = j;
 						found_succ = 1;
 						break;
-					}
-					else if (i != j && sol[xpos(i, j, inst)] > 0.5 && j != prv) {  // found subsequent of i (j)
+					}else if (pox == 2.0 && j != prv) {
 						succ[i] = j;
 						comp[j] = *ncomp;
 						prv = i;
+						succ[j] = i;
+						comp[i] = *ncomp;
 						i = j;
 						found_succ = 1;
 						break;
@@ -3528,7 +3526,7 @@ int build_sol_ga(tspinstance* inst, const double* sol, int* succ, int* prev, int
 		}
 
 		// print succ and comp
-		if (inst->verbose >= 10000) {
+		if (inst->verbose >= 1) {
 			printf("\ni:      "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", i);
 			printf("\nsucc:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", succ[i]);
 			printf("\ncomp:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
@@ -4289,7 +4287,7 @@ int patching_two_edges(tspinstance* inst, double* tour)	 {
 	int* comp = (int*)calloc(inst->nnodes, sizeof(int));
 	int* ncomp = (int*)calloc(1, sizeof(int));
 	int res = build_sol_ga(inst, tour, succ, NULL, comp, ncomp);
-	if (res == 1)
+	if (res > 1)
 		return 1;
 	if (*ncomp == 1) {
 		printf("WARNING: solution already has 1 tour, patching has no effect.\n");
@@ -4301,7 +4299,7 @@ int patching_two_edges(tspinstance* inst, double* tour)	 {
 
 	while (*ncomp > 1) {
 		single_patch(inst, succ, comp, ncomp);
-		if (inst->verbose >= 100) {
+		if (inst->verbose > 100) {
 			print_succ(succ, inst);
 			if (inst->verbose >= 10000) {
 				printf("comp:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
@@ -5398,7 +5396,7 @@ void build_sol(tspinstance *inst, int *succ, int *comp, int *ncomp) {
 void build_sol_sym(tspinstance *inst, int *succ, int *comp, int *ncomp) {	// build succ() and comp() wrt xstar()...
 
 	// check if nodes degree is 2 or 0 (isolated node) for each node
-	if (inst->verbose >= 2000 && inst->setup_model != 24) {
+	if (inst->verbose >= 2000) {
 		int *degree = (int *) calloc(inst->nnodes, sizeof(int));
 		printf("nnodes=%d\n", inst->nnodes);
 		for (int i = 0; i < inst->nnodes; i++) {
@@ -6084,7 +6082,7 @@ void plot_instance(tspinstance *inst) {
 	//plot_points(gnuplot, pngname, inst);
 
 	// save png into FILE
-	if (inst->verbose < 1000) fprintf(gnuplot, "set terminal png\nset output '%s'\n", pngname);
+	if (inst->verbose < 100) fprintf(gnuplot, "set terminal png\nset output '%s'\n", pngname);
 
 	// start plotting edges
 	plot_edges(gnuplot, pngname, inst);
@@ -6170,7 +6168,6 @@ void plot_edges(FILE *gnuplot, char *pngname, tspinstance *inst) {
 		switch (inst->model_type) {
 		case -1:
 		  break;
-		case 17:
 		case 0:			// Line
 			plot_lines_sym(gnuplot, pngname, inst);
 			break;
