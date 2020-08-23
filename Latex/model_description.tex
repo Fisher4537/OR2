@@ -76,9 +76,9 @@ Given a complete graph $ G = (V,A) $, a distance funciton  $ d $ where:
 \begin{itemize}
 	\item $ V:= \{1, 2, .., n\} $ is the set of nodes;
 	\item $ A := $ the set arcs between each nodes $ i,j \in V, i \ne j$ represented as $ (i,j) $, note that in the aTSP $ (i,j) \ne (j,i) $ and the number of arcs is $ |A| = n (n-1) $ which is double of the sTSP;
-	\item $ d: (i,j) \rightarrow d(i,j) = c_{ij} $ where $ c_{ij} $ is the cost associated to the arch $ (i,j) $.
+	\item $ d: (i,j) \rightarrow d(i,j) = c_{ij} $ where $ c_{ij} $ is the cost associated to the arc $ (i,j) $.
 \end{itemize}
-As in the sTSP, it is defined the decision variable $ x_{ij} $ which tell if the arch $ (i,j) $ is in the tour:
+As in the sTSP, it is defined the decision variable $ x_{ij} $ which tell if the arc $ (i,j) $ is in the tour:
 \[
 x_{ij} := \begin{cases}
 1 & \text{if $ (i,j) $ is in the tour,} \\
@@ -100,7 +100,7 @@ The aTSP can be defined in different ways, in this report two version will be co
 
 Miller Tucker Zemlin (MTZ) model impose the "subtour elimination" constraints with the help of another decision variable $ u_k $. For each node $ k = 2,..,n $, $ u_k $ is the position of the node $ k $ in the tour that start from the node $ 1 $. As an example in fig \ref{fig:asymTSP_MTZ} it is shown that $ u_1 = 0 $ and than $ u_k $ increase until $ n-1 $ along the tour.
 
-The proposed model is shown in the system of equations \ref{eq:aTSP_MTZ}. The cost function and the degree constraints are adapted to the asymmetric problem, moreover MTZ constraint is derived from $ u_j \ge u_i+1-M(1-x_{ij}), \forall i,j \in V \backslash \{1\}, M \gg 0 $. Considering an arch $ (i,j) \in A \backslash \{1\} $, if it is in the tour then $ u_j \ge u_i + 1 $ because $ M(1-x_{ij}) = 0 $, else $ u_j \ge u_i + 1 - M < 0 \implies u_j \ge 0 $. For example for the arch $ (4,2) $ in fig \ref{fig:asymTSP_MTZ}, $ 3 \ge 2 + 1 - M(1-1) \iff 3 \ge 3 $. \\
+The proposed model is shown in the system of equations \ref{eq:aTSP_MTZ}. The cost function and the degree constraints are adapted to the asymmetric problem, moreover MTZ constraint is derived from $ u_j \ge u_i+1-M(1-x_{ij}), \forall i,j \in V \backslash \{1\}, M \gg 0 $. Considering an arc $ (i,j) \in A \backslash \{1\} $, if it is in the tour then $ u_j \ge u_i + 1 $ because $ M(1-x_{ij}) = 0 $, else $ u_j \ge u_i + 1 - M < 0 \implies u_j \ge 0 $. For example for the arc $ (4,2) $ in fig \ref{fig:asymTSP_MTZ}, $ 3 \ge 2 + 1 - M(1-1) \iff 3 \ge 3 $. \\
 Note that, if the value of M is less than $|V| - 1$  then the constraint is incorrect, otherwise a value of M greater than $|V| - 1 $ makes the constraint redundant, therefore the best value of M is $|V| - 1$, as implemented. \\
 \begin{equation}
 \begin{cases}
@@ -116,7 +116,7 @@ u_i -u_j +M x_{ij} \le M - 1, \forall i,j \in V \backslash \{1\} & \text{MTZ con
 \end{equation}
 
 
-Note that the number of MTZ constraints is $ O(n^2) $, one for each arch, therefore much less respect sTSP model.\\
+Note that the number of MTZ constraints is $ O(n^2) $, one for each arc, therefore much less respect sTSP model.\\
 The number of decision variables instead is more than the double $ n(n-1) + n = n^2 $. Computational consideration will be done in the next chapter.
 
 \begin{table}[h!]
@@ -149,7 +149,7 @@ The number of decision variables instead is more than the double $ n(n-1) + n = 
 	\label{fig:asymTSP_F1}
 \end{figure}
 
-The Flow1 model impose the "subtour elimination" constraints with a decision variable $ y_{ij} $ which is associated to each arch $ (i,j) \in V $ and represent a flow that decrease from $ n-1 $ to $ 0 $ for each node of the tour and is $ 0 $ if it is not in the tour. As shown in fig \ref{fig:asymTSP_F1} starting from the node $ 1 $ the flow $ y_{15} = 4 $ than decrease each step by $ 1 $ unit until the last arch of the tour where $ y_{31} = 0 $. Note that the last arch $ y_{31} $ has the same value of the unselected one, this is because the last arch of the tour is implicit. \\
+The Flow1 model impose the "subtour elimination" constraints with a decision variable $ y_{ij} $ which is associated to each arc $ (i,j) \in V $ and represent a flow that decrease from $ n-1 $ to $ 0 $ for each node of the tour and is $ 0 $ if it is not in the tour. As shown in fig \ref{fig:asymTSP_F1} starting from the node $ 1 $ the flow $ y_{15} = 4 $ than decrease each step by $ 1 $ unit until the last arc of the tour where $ y_{31} = 0 $. Note that the last arc $ y_{31} $ has the same value of the unselected one, this is because the last arc of the tour is implicit. \\
 The proposed LP model is in the system of equations \ref{eq:aTSP_F1}. The outer flow of $ 1 $ is the first constraint, than to make the flow decrease it is imposed the "flow equilibrium" where each inner flow must be equal to the outer flow $ +1 $ and, in the end, the \textit{coupling constraints} imposed that only the arcs in the tour ($ x_{ij} > 0 $) can have $ y_{ij} > 0 $ otherwise must be equal to $ 0 $. The last set of constraint force the flow to move along the tour and decrease each step. 
 
 \begin{equation}
