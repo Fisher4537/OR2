@@ -35,7 +35,8 @@ vector<int>::iterator it = find_if(neigh_sol_idx[succ].begin(), neigh_sol_idx[su
 });
 \end{lstlisting}
 
-the resulting matrix will have a number of lines equal to the number of nodes and each of them will be a tour built starting from a node and always choosing the closest from the current node, exactly as \texttt{Greedy}.
+the resulting matrix will have a number of lines equal to the number of nodes and each of them will be a tour built starting from a node and always choosing the closest from the current node, exactly as \texttt{Greedy}. \\
+The algorithm, as shown in fig. \ref{fig:Lconstructives_time} , takes longer to run, as it uses higher level objects and methods than \texttt {Greedy}. In fact, its potential lies in its application in complex problems, in which these data structures offer powerful and effective tools for geometric problems.
 
 \section{Greedy Randomize Adaptive Search Path (GRASP)}\label{sec:grasp}
 GRASP heuristic, as the name anticipate, is a Greedy constructive heuristic with some randomization. Indeed, for the TSP problem, instead of bringing the closer isolated node as next, it's chosen a random one between the first $ n $ closest isolated nodes, where $ n = 3 $ in the tested implementation.
@@ -114,13 +115,13 @@ Other consideration about the constructive heuristics in chapter \ref{chapter:re
 	\begin{subfigure}{.9\textwidth}
 		\centering
 		\includegraphics[width=\columnwidth]{../res/Lconstructives_LA_time.png}
-		\caption{Performance profile in time domain.}
+		\caption{Solution time domain.}
 		\label{fig:Lconstructives_time}
 	\end{subfigure}
 	\begin{subfigure}{.9\textwidth}
 	\centering
 	\includegraphics[width=\columnwidth]{../res/Lconstructives_LA_lb.png}
-	\caption{Performance profile in solution cost domain.}
+	\caption{Solution cost domain.}
 	\label{fig:Lconstructives_lb}
 	\end{subfigure}
 	\caption{Performance profile of constructive heuristic}

@@ -1831,13 +1831,13 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 		double rhs;
 		double gap = 1.0;
 		gap = ((inst->best_lb - inst->best_int) / inst->best_lb) * 100;
+		if (inst->verbose >= 1) printf("%.1lf,%lf\n", inst->best_lb, second() - inst->init_time);
 		if (best_lb > inst->best_lb &&  gap > 0.09) {
 			if (inst->verbose >= 100) {
 				printf("BEST_LB update from -> to : [%f] -> [%f]\tBEST_INT : %f\tGAP : %f\n",
 									best_lb, inst->best_lb, inst->best_int, gap);
 
 			}
-			if (inst->verbose >= 1) printf("%.1lf,%lf\n", inst->best_lb, second() - inst->init_time);
 
 			best_lb = inst->best_lb;
 			if(k_index < 5)
@@ -2099,8 +2099,6 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 				if (inst->verbose >= 100) printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_temp_lb, best_lb);
 				best_temp_lb = best_lb;
 
-				pop_last(head);
-				countListSize--;
 			}
 		}
 
@@ -2656,7 +2654,7 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 	double global_best_lb = CPX_INFBOUND;
 	double remaining_time = inst->timelimit;
 
-	int nPop = 10, nKids = 30;			// GA-EAX/Stage1 & Parallel GA-EAX/Stage1
+	int nPop = 10, nKids = 10;			// GA-EAX/Stage1 & Parallel GA-EAX/Stage1
 	int sChunk = 10, nChunk = 30;		// Only for Parallel GA-EAX/Stage1
 	int nStag;							// Termination Criterion of GA-EAX/Stage1
 
@@ -2671,14 +2669,14 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 	// TODO: aggiorna la soluzione
 	if (inst->verbose > 1) print_population(inst, population, nPop);
 	init_frequency_edges(inst, population, frequencyTable, nPop);
-	if (inst->verbose > 10) print_frequency_table(inst, frequencyTable);
+	if (inst->verbose > 100) print_frequency_table(inst, frequencyTable);
 
 	for (int g = 0; remaining_time > 0.0; g++) {
 
 		double ini = second();
 
 		shuffle_individuals(inst, population, nPop);
-		if (inst->verbose > 10) print_population(inst, population, nPop);
+		if (inst->verbose > 1000) print_population(inst, population, nPop);
 
 		for (int i = 0; i < nPop; i++) {
 			pA = i;
@@ -2781,8 +2779,8 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 		solution y and adding those of EB in the AB-cycle to y.
 		- Connect all the subtours in the intermediate solution y to generate an offspring solution y(a single tour) by using a local search heuristic.
 	*/
-
-	double** ABcycles = (double**)calloc(nKids * 3.0, sizeof(double*));			// 3 * nKids set as maximum number of AB-cycles (theoretically not need more)
+	int Kids = nKids;
+	double** ABcycles = (double**)calloc(Kids, sizeof(double*));			// nKids * 3.0 =  3 * nKids set as maximum number of AB-cycles
 	for (int i = 0; i < nKids * 3; i++) {
 		ABcycles[i] = (double*)calloc(inst->nedges, sizeof(double));
 	}
@@ -2793,22 +2791,22 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 			graph_AB[i]++;
 		if (population[pB][i] == 1.0)
 			graph_AB[i]++;
-		if (inst->verbose >= 100)
+		if (inst->verbose > 1000)
 			printf("%.0f %.0f %.0f - ", graph_AB[i], population[pA][i], population[pB][i]);
 	}
-	if (inst->verbose >= 100) printf("\n");
+	if (inst->verbose > 1000) printf("\n");
 
 	// NOOO!! <= nnodes * 2 : perchè potrei fare tutto il giro dei nodi tranne l'ultimo edge che chiude il ciclo e invece tornare indietro per gli stessi e chiuderlo a ritroso
-	int** edges_cycles_EA = (int**)calloc(nKids * 3.0, sizeof(int*));		// Edges di EA che appartengono ai ABcycles
-	for (int i = 0; i < nKids * 3.0; i++) {
+	int** edges_cycles_EA = (int**)calloc(Kids, sizeof(int*));		// Edges di EA che appartengono ai ABcycles
+	for (int i = 0; i < nKids; i++) {
 		edges_cycles_EA[i] = (int*)calloc(inst->nnodes, sizeof(int));
 		for (int j = 0; j < inst->nnodes; j++)
 			edges_cycles_EA[i][j] = -1;
 	}
 
 	int countCycle = 0;
-	extract_ABcycles(inst, population, pA, pB, ABcycles, graph_AB, &countCycle, nKids * 3, edges_cycles_EA);
-	if (inst->verbose > 10) {
+	extract_ABcycles(inst, population, pA, pB, ABcycles, graph_AB, &countCycle, nKids, edges_cycles_EA);
+	if (inst->verbose > 100) {
 		print_population(inst, ABcycles, countCycle);
 		printf("\n**** EDGES CYCLES EA ****");
 		for (int i = 0; i < countCycle; i++) {
@@ -2878,7 +2876,7 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 			}
 			printf("\n");
 		}
-		if (inst->verbose >= 100)
+		if (inst->verbose >= 2000)
 			plot_single(inst, y);
 
 		if (inst->verbose > 10) {
@@ -2889,7 +2887,7 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 			}
 			printf("\n");
 		}
-		if (inst->verbose >= 100)
+		if (inst->verbose >= 2000)
 			plot_single(inst, population[pB]);
 
 		if (inst->verbose > 10) printf("Edges of EA removed from y :\n");
@@ -2912,7 +2910,7 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 			}
 			printf("\n");
 		}
-		if (inst->verbose >= 100)
+		if (inst->verbose >= 2000)
 			plot_single(inst, y);
 
 		if (inst->verbose > 10) printf("Edges from EB added to y :\n");
@@ -2942,7 +2940,7 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 			}
 			printf("\n");
 		}
-		if (inst->verbose >= 100)
+		if (inst->verbose >= 2000)
 			plot_single(inst, y);
 
 
@@ -3443,7 +3441,7 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 					printf("%2d ", w);
 			}
 		}
-		if (inst->verbose > 10) printf("\n********************************* END TOUR SEARCH *********************************\n");
+		if (inst->verbose > 100) printf("\n********************************* END TOUR SEARCH *********************************\n");
 
 		// Termination criterion
 		EdgeInGAB = 0;
@@ -3554,7 +3552,7 @@ int build_sol_ga(tspinstance* inst, const double* sol, int* succ, int* prev, int
 			if (sol[e] == 1.0) {
 				i[t] = invers_xpos(e, inst)[0];
 				j[t] = invers_xpos(e, inst)[1];
-				if (inst->verbose >= 100)
+				if (inst->verbose > 100)
 					printf("%d <- [%d, %d]\n", e, i[t], j[t]);
 				t++;
 
@@ -3835,7 +3833,7 @@ void evaluate_traced_ABcycle(tspinstance* inst, double* traced_AB, double** ABcy
 		if (traced_AB[e] == 1.0) {
 			i[t] = invers_xpos(e, inst)[0];
 			j[t] = invers_xpos(e, inst)[1];
-			if (inst->verbose >= 100)
+			if (inst->verbose > 100)
 				printf("%d <- [%d, %d]\n", e, i[t], j[t]);
 			t++;
 
@@ -3843,12 +3841,12 @@ void evaluate_traced_ABcycle(tspinstance* inst, double* traced_AB, double** ABcy
 		else if (traced_AB[e] == 2.0) {
 			i[t] = invers_xpos(e, inst)[0];
 			j[t] = invers_xpos(e, inst)[1];
-			if (inst->verbose >= 100)
+			if (inst->verbose > 100)
 				printf("%d <- [%d, %d]\n", e, i[t], j[t]);
 			t++;
 			i[t] = invers_xpos(e, inst)[0];
 			j[t] = invers_xpos(e, inst)[1];
-			if (inst->verbose >= 100)
+			if (inst->verbose > 100)
 				printf("%d <- [%d, %d]\n", e, i[t], j[t]);
 			t++;
 
