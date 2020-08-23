@@ -21,9 +21,14 @@ Consider $ x^H $ as non optimal tour and $ \chi $ the fraction of edges to fix, 
 \end{equation}
 to automatically fix the desired number of edges. \\
 In this paper, the structure of the algorithm is very similar to that of Hard Fixing. Initialization is analogous to Point 1 (\ref{hard-fix-step})
-In the CPLEX optimization with time limit (Point 3), the time limit is a little higher and is set to 300 according to the choice of the fixing rate update. Thus, the fixing rate is an array consisting of 5 values {3.0, 5.0, 10.0, 15.0, 20.0}. It starts from the first value of 3.0 which is kept until better solutions are found. It is updated to the next value as soon as the algorithm returns a non-improving solution.  \\
-This choice is motivated by the idea that keeping a low fixing rate allows you to find a solution in a short time and therefore not reach the time limit, which instead is set with a higher value to allow a longer search when the fixed\_rate increase. \\
-If the last value is reached and there is still no improvement solution, then the value is doubled until either a better solution is found or the number of nodes of the problem is reached. In the latter case, the search no longer has any constraint and therefore appears to be the last possible, in fact it is assigned the entire remaining time. \\
+In the CPLEX optimization with time limit (Point 3), the time limit is a little higher and is set to 300 according to the choice of the fixing rate update. Thus, $ \chi n $ assume values in $ \{3, 5, 10, 15, 20\}$. It starts from the first value of 3 which is kept until better solutions are found. It is updated to the next value as soon as the algorithm returns a non-improving solution. This choice is motivated by the idea that keeping a low fixing rate allows you to find a solution in a short time and therefore not reach the time limit, which instead is set with a higher value to allow a longer search when the value increase. If the last value is reached and there is still no improvement solution, then the value is doubled until either a better solution is found or the number of nodes of the problem is reached. In the latter case, it is assigned the entire remaining time to find the best tour. In fig. \ref{fig:local_branching_a280} there is an example of the lower bound trend executed on \textit{a280.tsp} instance.\\
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.5\columnwidth]{../res/local_branching_a280.png}
+	\caption{Solution cost profile.}
+	\label{fig:local_branching_a280}
+\end{figure}
+
 The exit conditions evaluate both the time limit and the gap calculated by CPLEX, obtainable through the \texttt{generic\_callback} using \texttt{CPX\_CALLBACKCONTEXT\_GLOBAL\_PROGRESS} as \texttt{Context}. 
 For a detailed explanation of the reasons for this algorithm refer to \cite{article}.
 
@@ -40,7 +45,7 @@ For a detailed explanation of the reasons for this algorithm refer to \cite{arti
 		\caption{}
 		\label{fig:Lmip_meta_LA_lb}
 	\end{subfigure}
-\caption{Comparison of mip heuristics and meta heuristics. \texttt{n\_greedy\_best\_two\_opt} is the first part of \texttt{vns} therefore it is faster, however the last one introduce a little improvement in the solutions cost. Most of the times \texttt{hard\_fixing} can find the best solution of sTSP indeed it find the shorter tours of the analyzed heuristics. }
+\caption{Comparison of mip heuristics and meta heuristics. \texttt{n\_greedy\_best\_two\_opt} is the first part of \texttt{vns} therefore it is faster, however the last one introduce a little improvement in the solutions cost. Most of the times \texttt{hard\_fixing} can find the best solution of sTSP, indeed it find the shorter tours of the analyzed heuristics. }
 \label{fig:Lmip_meta_LA}
 \end{figure}
 

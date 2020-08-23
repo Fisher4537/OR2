@@ -1730,6 +1730,8 @@ int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		// build_sol(inst, succ, comp, ncomp);
 		// if (inst->verbose >= 100) printf("Partial solution, ncomp = %d\n", *ncomp);
 		if (inst->verbose >= 1000) plot_instance(inst);
+		if (inst->verbose >= 80) 
+			printf("%10.1lf,%.3lf\n", inst->best_lb, second() - inst->init_time);  // used to plot time vs cost
 	}
 	// if (inst->verbose >= 100) printf("best solution found. ncomp = %d\n", *ncomp);
 	// free(succ);

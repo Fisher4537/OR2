@@ -26,7 +26,7 @@ def best_lb_vs_time(file_path):
 
     fig, ax = plt.subplots()
 
-    ax.plot(np.array(time_domain), np.array(best_lb), 'o')
+    ax.plot(np.array(time_domain), np.array(best_lb), '-')
 
     ax.set(xlabel='Time [s]', ylabel='Best lower bound',
            title=file_path)

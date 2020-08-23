@@ -41,7 +41,7 @@ Fig. \ref{fig:tabu_search_perform_time} shows the trend of the lower bounds foun
 \begin{figure}[h]
 	\centering
 	\includegraphics[width=.70\columnwidth]{../res/lb_tabu_search_n_greedy_d2103.png}
-	\caption{Performance profile considering the execution time.}
+	\caption{Solution cost profile considering the execution time.}
 	\label{fig:tabu_search_perform_time}
 \end{figure}
 
@@ -79,7 +79,7 @@ where $ E_{i} $ is the energy at time $ i $, $ T $ is the temperature, $k$ is th
 		\caption{Initial temperature of $1$\%.}
 		\label{fig:sim_ann_1}
 	\end{subfigure}
-	\caption{Performance profiles considering the execution time, with time limit of $500$ seconds and different initial temperatures, of the instance a280.tsp.}
+	\caption{Solution cost profile considering the execution time, with time limit of $500$ seconds and different initial temperatures, of the instance \textit{a280.tsp}.}
 	\label{fig:sim_ann_temperature}
 \end{figure}
 A step will occur if the new energy is lower. If the new energy is higher, the transition can still occur, and its likelihood is proportional to the temperature $T$ and inversely proportional to the energy difference $\Delta E$.
@@ -103,10 +103,10 @@ Surely the right initial temperature value is based on the problem.
 	\begin{subfigure}{.5\columnwidth}
 		\centering
 		\includegraphics[width=\columnwidth]{../res/lb_simulating_annealing_100_a280.png}
-		\caption{Instance a280.tsp.}
+		\caption{Instance \textit{a280.tsp}.}
 		\label{fig:sim_ann_a280}
 	\end{subfigure}
-	\caption{Two examples of performance profiles considering the execution time with initial temperature of 100\% of different instances.}
+	\caption{Two examples of solution cost profile considering the execution time with initial temperature of 100\% of different instances.}
 	\label{fig:sim_ann_dataset}
 \end{figure}
 
@@ -123,7 +123,7 @@ Surely the right initial temperature value is based on the problem.
 		\caption{Initial temperature of 10\% and time limit \protect\\ of $36000$ sec.}
 		\label{fig:sim_ann_10_d18512}
 	\end{subfigure}
-	\caption{Performance profile considering the execution time of heavy instance d18512.tsp with different initial temperatures and execution times.}
+	\caption{Solution cost profile considering the execution time of heavy instance \textit{d18512.tsp} with different initial temperatures and execution times.}
 	\label{fig:sim_ann_heavy}
 \end{figure}
 There are two other important considerations shown in fig.s \ref{fig:sim_ann_dataset} and \ref{fig:sim_ann_heavy}. The first concerns the search method used, it is clearly seen that \texttt{random\_two\_opt} brings a lot of variability in datasets with few nodes (\ref{fig:sim_ann_att48}), as it is also performed more quickly and therefore more times, while for heavy datasets (\ref{fig:sim_ann_heavy}) the time required for a single \texttt{random\_two\_opt} is very high and the variability is very low. \\
