@@ -75,6 +75,8 @@ char * model_name(int i) {
 		case 30: return "n_greedy_best_two_opt";
 		case 31: return "vns_n_greedy";
 		case 32: return "vns_n_grasp";
+		case 33: return "n_greedy_hard_fixing";
+		case 34: return "n_greedy_b2o_hf";
 		default: return "not_supported";
 	}
 }
@@ -270,6 +272,22 @@ NUM			model_type				warm_start					heuristic						mip_opt							callback
 			inst->warm_start = 6;
 			inst->heuristic = 5;
 			return "vns_n_grasp";	 							// VSN: n_grasp + 2opt and random_n_opt
+		case 33:
+			inst->model_type = 0;
+			inst->warm_start = 6;
+			inst->heuristic = 1;
+			inst->callback = 2;
+			inst->mip_opt = 2;
+			inst->useCplex = 1;
+			return "n_greedy_hard_fixing";
+		case 34:
+			inst->model_type = 0;
+			inst->warm_start = 7;
+			inst->heuristic = 1;
+			inst->callback = 2;
+			inst->mip_opt = 2;
+			inst->useCplex = 1;
+			return "n_greedy_b2o_hf";
 		default: return "not_supported";
 	}
 }
@@ -941,6 +959,11 @@ int switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* status
 			n_grasp(inst, status, (inst->nnodes < 1000) ? 10 : (inst->nnodes > 10000) ? 2 : 5, .95, .03);			// nnodes: < 1000 = 10 times - 1000:5000 = 5 times - >5000 = 2 times
 		break;
 
+		case 7:													// Heuristic Greedy Single + best_two_opt
+			n_greedy(env, lp, inst, status, (inst->nnodes < 1000) ? 10 : (inst->nnodes > 10000) ? 2 : 5);
+			*status = best_two_opt(inst);
+		break;
+
 		default:
 			print_error(" model type unknown!!");
 		break;
@@ -1508,24 +1531,24 @@ int insertion_move(tspinstance* inst, int* best_sol, int count_sol, int vertex) 
 	//
 	// 		pos = contained_in_index(best_sol, count_sol, xpos(i, j, inst));
 	// 		if (pos != -1) {
-		int i, j;
+		int* ij;
 		for (pos = 0; pos < count_sol; pos++) {
 			if (inst->verbose > 100)
 				printf("Side %d in pos %d is contained in best_sol => calculate extra_mileage...", best_sol[pos], pos);
-			i = invers_xpos(best_sol[pos], inst)[0];
-			j = invers_xpos(best_sol[pos], inst)[1];
-			temp_min = dist(i, vertex, inst) + dist(vertex, j, inst) - dist(i, j, inst);
+			ij = invers_xpos(best_sol[pos], inst);
+			temp_min = dist(ij[0], vertex, inst) + dist(vertex, ij[1], inst) - dist(ij[0], ij[1], inst);
 			if (temp_min < extra_mileage) {
 				extra_mileage = temp_min;
 				replace_pos = pos;
-				best_i = i;
-				best_j = j;
+				best_i = ij[0];
+				best_j = ij[1];
 				if (inst->verbose > 100)
 					printf("\t\t=>Extra_mileage upload: %f\n", extra_mileage);
 			}
 			else if (inst->verbose > 100)
 				printf("\n");
 		}
+	free(ij);
 	// }
 	if (inst->verbose > 10)
 		printf("***** Replace %d ", best_sol[replace_pos]);
@@ -1682,22 +1705,36 @@ int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	double gap = 1.0;						// best_lb - objval_p / best_lb
 	double fr = 0.9;				// fixing_ratio
 
+	double max_fr = 0.9;		// maximum fixing_ratio
+	double incr_fr = 0.1;		// increase of fixing_ratio when good gap
+	double decr_fr = 0.1;		// decreasing of fixing_ratio when bad gap
+	double good_gap = 0.1;			// a good gap allow to decrease fixing_ratio
+	double optimal_gap = 0.05; 	// under this value, solution is optimal
+
+	// save param in inst to plot with performance later
+	inst->max_fr = max_fr;		// maximum fixing_ratio
+	inst->incr_fr = incr_fr;		// increase of fixing_ratio when good gap
+	inst->decr_fr = decr_fr;		// decreasing of fixing_ratio when bad gap
+	inst->good_gap = good_gap;			// a good gap allow to decrease fixing_ratio
+	inst->optimal_gap = optimal_gap;
+
 	// set next internal time limit
 	double remaining_time = inst->timelimit - (second()-inst->init_time);
-	if (remaining_time > internal_time_limit*2)
-		next_time_limit = internal_time_limit;
-	else
-		next_time_limit = remaining_time;
 
-	CPXsetdblparam(env, CPX_PARAM_TILIM, next_time_limit);
-	CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 10);
+	// first optimization step if no warm start
+	if (inst->warm_start < 0) {
+		next_time_limit = remaining_time > internal_time_limit*2 ? internal_time_limit : remaining_time;
 
-	// first optimization step
-	mip_optimization(env, lp, inst, status);
+		CPXsetdblparam(env, CPX_PARAM_TILIM, next_time_limit);
+		CPXsetintparam(env, CPX_PARAM_INTSOLLIM, 10);
+		mip_optimization(env, lp, inst, status);
+		CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
+		CPXgetbestobjval(env, lp, &objval_p);
+	} else {
+		objval_p = inst->best_lb;
+	}
 
 	// get first step solution gap
-	CPXsolution(env, lp, status, &inst->best_lb, inst->best_sol, NULL, NULL, NULL);
-	CPXgetbestobjval(env, lp, &objval_p);
 	gap = (inst->best_lb - objval_p) / inst->best_lb;
 
 	// build_sol(inst, succ, comp, ncomp);
@@ -1709,17 +1746,12 @@ int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	while ( (second()-inst->init_time) < inst->timelimit &&
 	 (fr > 0.0 || gap > (inst->optimal_gap)))
 	{
-		// printf("BEST SOLUTION: %lf\n", inst->best_lb);
-
 		// fix a % of bounds
 		fix_bound(env, lp, inst, status, fr);
 
 		// set next internal time limit
 		remaining_time = inst->timelimit - (second()-inst->init_time);
-		if (remaining_time > internal_time_limit*2)
-			next_time_limit = internal_time_limit;
-		else
-			next_time_limit = remaining_time;
+		next_time_limit = remaining_time > internal_time_limit*2 ? internal_time_limit : remaining_time;
 		CPXsetdblparam(env, CPX_PARAM_TILIM, next_time_limit);
 
 		// run again with fixed bound
@@ -1736,16 +1768,10 @@ int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		else	// the solution is not good, increase frn to get
 			fr = fr + inst->incr_fr <= inst->max_fr ? fr + inst->incr_fr : inst->max_fr;
 
-		// build_sol(inst, succ, comp, ncomp);
-		// if (inst->verbose >= 100) printf("Partial solution, ncomp = %d\n", *ncomp);
 		if (inst->verbose >= 1000) plot_instance(inst);
 		if (inst->verbose >= 80)
 			printf("%10.1lf,%.3lf\n", inst->best_lb, second() - inst->init_time);  // used to plot time vs cost
 	}
-	// if (inst->verbose >= 100) printf("best solution found. ncomp = %d\n", *ncomp);
-	// free(succ);
-	// free(comp);
-	// free(ncomp);
 	return 0;
 }
 void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, double fixing_ratio) {
@@ -1758,7 +1784,7 @@ void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, doubl
 	double* bd = (double*)calloc(inst->nnodes, sizeof(double));
 
 	double random;
-	int cnt = 0;  // from 0 to inst->nnodes = nedges
+	int cnt = 0;  // from 0 to inst->nedges
 
 	switch (inst->model_type) {
 		case -1:
@@ -2291,14 +2317,12 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 	tabu_list* head_save = NULL;
 
 	// Arrotonda per eccesso nnodes / 2. +1 viene usato per tenere conto di dove inserire l'arco proibito
-	int tabu_array_size = (inst->nnodes / 2) % 2 == 0 ? (inst->nnodes / 2) + 1 : ((inst->nnodes + 1) / 2) + 1;
+	int tabu_array_size = (int)(inst->nnodes / 10); // (inst->nnodes / 2) % 2 == 0 ? (inst->nnodes / 2) + 1 : ((inst->nnodes + 1) / 2) + 1;
 	int* tabu_array = (int*)calloc(tabu_array_size, sizeof(int));
 	for (int i = 0; i < tabu_array_size; i++)
 		tabu_array[i] = -1;
 
-
-
-	for (int times = 0; remaining_time > 0.0 && times < 1000000; times++) {
+	for (int times = 0; remaining_time > 0.0 && times < 100*inst->nnodes; times++) {
 		double ini = second();
 
 		if (inst->verbose > 100) printf("*** Calc new 2_opt sol ***\n");
@@ -5961,13 +5985,6 @@ void parse_command_line(int argc, char** argv, tspinstance *inst) {
 	inst->integer_costs = 1;
 	inst->verbose = 1000;							// VERBOSE
 
-	// hard fixing
-	double max_fr = 0.9;		// maximum fixing_ratio
-	double incr_fr = 0.1;		// increase of fixing_ratio when good gap
-	double decr_fr = 0.1;		// decreasing of fixing_ratio when bad gap
-	double good_gap = 0.1;			// a good gap allow to decrease fixing_ratio
-	double optimal_gap = 0.05; 	// under this value, solution is optimal
-
   int help = 0; if ( argc < 1 ) help = 1;
 	for ( int i = 1; i < argc; i++ )
   {
@@ -5977,11 +5994,11 @@ void parse_command_line(int argc, char** argv, tspinstance *inst) {
 		if ( strcmp(argv[i],"-time_limit") == 0 ) { inst->timelimit = atof(argv[++i]); continue; }		// total time limit
 
 		// hard fixing
-		if ( strcmp(argv[i],"-max_fr") == 0 ) { max_fr = atof(argv[++i]); continue; }
-		if ( strcmp(argv[i],"-incr_fr") == 0 ) { incr_fr = atof(argv[++i]); continue; }
-		if ( strcmp(argv[i],"-decr_fr") == 0 ) { decr_fr = atof(argv[++i]); continue; }
-		if ( strcmp(argv[i],"-good_gap") == 0 ) { good_gap = atof(argv[++i]); continue; }
-		if ( strcmp(argv[i],"-optimal_gap") == 0 ) { optimal_gap = atof(argv[++i]); continue; }
+		// if ( strcmp(argv[i],"-max_fr") == 0 ) { max_fr = atof(argv[++i]); continue; }
+		// if ( strcmp(argv[i],"-incr_fr") == 0 ) { incr_fr = atof(argv[++i]); continue; }
+		// if ( strcmp(argv[i],"-decr_fr") == 0 ) { decr_fr = atof(argv[++i]); continue; }
+		// if ( strcmp(argv[i],"-good_gap") == 0 ) { good_gap = atof(argv[++i]); continue; }
+		// if ( strcmp(argv[i],"-optimal_gap") == 0 ) { optimal_gap = atof(argv[++i]); continue; }
 
 		if ( strcmp(argv[i],"-setup_model") == 0) { inst->setup_model = atoi(argv[++i]); continue; } 	// model type
 		if ( strcmp(argv[i],"-model") == 0 ) { inst->setup_model = atoi(argv[++i]); continue; } 			// model type
@@ -5996,15 +6013,6 @@ void parse_command_line(int argc, char** argv, tspinstance *inst) {
 		if ( strcmp(argv[i],"--help") == 0 ) { help = 1; continue; } 									// help
 		help = 1;
   }
-
-	if (inst->setup_model == 8) {
-		inst->max_fr = max_fr;		// maximum fixing_ratio
-		inst->incr_fr = incr_fr;		// increase of fixing_ratio when good gap
-		inst->decr_fr = decr_fr;		// decreasing of fixing_ratio when bad gap
-		inst->good_gap = good_gap;			// a good gap allow to decrease fixing_ratio
-		inst->optimal_gap = optimal_gap;
-	}
-
 
 	if ( help || (inst->verbose >= 2000) )		// print current parameters
 	{
