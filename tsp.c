@@ -1003,7 +1003,7 @@ int switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* status
 
 		int izero = 0;
 
-		if (*status = CPXaddmipstarts(env, lp, 1, inst->nedges, &izero, best_sol_complete, inst->best_sol, &nocheck_warmstart, NULL)) {
+		if ((*status = CPXaddmipstarts(env, lp, 1, inst->nedges, &izero, best_sol_complete, inst->best_sol, &nocheck_warmstart, NULL))) {
 			print_error("Error during warm start: adding new start, check CPXaddmipstarts\n");
 		}
 		free(best_sol_complete);
@@ -1079,10 +1079,8 @@ int heur_greedy_cgal(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status)
 int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 
 	double best_lb = CPX_INFBOUND;
-	double val = 1.0;
 	inst->best_lb = CPX_INFBOUND;
 	int* best_sol = (int*)calloc(inst->nnodes, sizeof(int));
-	int izero = 0;
 
 	for (int i = 0; i < inst->nnodes; i++) {
 
@@ -1339,7 +1337,6 @@ int n_grasp(tspinstance* inst, int* status, int times, double x1, double x2) {
 
 	if (inst->verbose >= 100) printf("Heuristic GRASP %d_TIMES\n", times);
 
-	int  temp_node = -1;
 	double best_lb = INT_MAX;  		// the cost of the solution
 	int* succ = (int*)malloc(inst->nnodes * sizeof(int));
 	int cur_node;
@@ -1638,7 +1635,8 @@ int vns(tspinstance* inst) {
 
 void patching(tspinstance* inst) {
 
-	if (inst->verbose >= 100) printf("PATCHING\n"); fflush(stdout);
+	if (inst->verbose >= 100) printf("PATCHING\n");
+	fflush(stdout);
 
 	// check if current solution has only one tour
 	int *succ = (int*) calloc(inst->nnodes, sizeof(int));
@@ -1730,7 +1728,7 @@ int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		// build_sol(inst, succ, comp, ncomp);
 		// if (inst->verbose >= 100) printf("Partial solution, ncomp = %d\n", *ncomp);
 		if (inst->verbose >= 1000) plot_instance(inst);
-		if (inst->verbose >= 80) 
+		if (inst->verbose >= 80)
 			printf("%10.1lf,%.3lf\n", inst->best_lb, second() - inst->init_time);  // used to plot time vs cost
 	}
 	// if (inst->verbose >= 100) printf("best solution found. ncomp = %d\n", *ncomp);
@@ -1831,7 +1829,7 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 		double rhs;
 		double gap = 1.0;
 		gap = ((inst->best_lb - inst->best_int) / inst->best_lb) * 100;
-		if (inst->verbose >= 1) printf("%.1lf,%lf\n", inst->best_lb, second() - inst->init_time);
+		if (inst->verbose >= 80) printf("%.1lf,%lf\n", inst->best_lb, second() - inst->init_time);
 		if (best_lb > inst->best_lb &&  gap > 0.09) {
 			if (inst->verbose >= 100) {
 				printf("BEST_LB update from -> to : [%f] -> [%f]\tBEST_INT : %f\tGAP : %f\n",
@@ -1895,7 +1893,7 @@ int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) 
 				if (best_lb > inst->best_lb)
 					for (int i = 0; i < inst->nedges; i++)
 						best_sol[i] = inst->best_sol[i];
-				if (inst->verbose >= 1) printf("%.1lf,%lf\n", inst->best_lb, second() - inst->init_time);
+				if (inst->verbose >= 80) printf("%.1lf,%lf\n", inst->best_lb, second() - inst->init_time);
 				if(inst->verbose >= 100) printf("*** Better soluzion found! ***\n");
 			}else {
 
@@ -2490,7 +2488,6 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 	double* best_global_sol = (double*)calloc(inst->nedges, sizeof(double));
 	double best_lb = inst->best_lb;
 	double best_global_lb = inst->best_lb;
-	double extra_time = inst->timelimit * 5 / 100;
 	double remaining_time = inst->timelimit;
 	double temp_time = remaining_time;
 
@@ -2506,9 +2503,6 @@ int simulating_annealing(CPXENVptr env, tspinstance* inst, int* status) {
 	double prob = 0.0;
 
 	int dont_print_same_number = 100;		// used to have a slim verbose
-
-
-	tabu_list* head_save = NULL;
 
 	if (inst->verbose >= 100)
 		printf("\nSimulating Annealing uses a maxTemperature with an extra value of\
@@ -2649,17 +2643,15 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 
 	*/
 
-	tabu_list* head_save = NULL;
+	// tabu_list* head_save = NULL;
 
 	double global_best_lb = CPX_INFBOUND;
 	double remaining_time = inst->timelimit;
 
 	int nPop = inst->nnodes, nKids = 10;			// GA-EAX/Stage1 & Parallel GA-EAX/Stage1
-	int sChunk = 10, nChunk = 30;		// Only for Parallel GA-EAX/Stage1
 	int nStag;							// Termination Criterion of GA-EAX/Stage1
 
 	double** population = (double**)calloc(nPop, sizeof(double*));
-	double* best_global_sol = (double*)calloc(inst->nedges, sizeof(double));
 
 	int* frequencyTable = (int*)calloc(inst->nedges, sizeof(int));
 
@@ -3385,7 +3377,6 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 				}
 
 				// remove edges of EA from edges_cycles_EA that do not belong to the corresponding tour of ABcycles
-				int temp = -1;
 				countEdges = 0;
 				for (int w = 0; w < inst->nnodes; w++) {
 					if (ABcycles[*idxCycle - 1][edges_cycles_EA[*idxCycle - 1][w]] == 0.0) {
@@ -3558,7 +3549,7 @@ int build_sol_ga(tspinstance* inst, const double* sol, int* succ, int* prev, int
 		}
 
 		if (inst->verbose >= 10000) {
-			printf("\i:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", i[w]);
+			printf("\ni:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", i[w]);
 			printf("\nj:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", j[w]);
 			printf("\n");
 		}
@@ -3591,7 +3582,7 @@ int build_sol_ga(tspinstance* inst, const double* sol, int* succ, int* prev, int
 				}
 			}
 			if (inst->verbose >= 10000) {
-				printf("\i:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", i[w]);
+				printf("\ni:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", i[w]);
 				printf("\nj:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", j[w]);
 				printf("\n");
 				printf(" prev -> current -> succ: [ %d -> %d -> %d ]\n", prev[current], current, succ[current]);
@@ -5208,7 +5199,8 @@ void random_n_opt(tspinstance* inst, int n) {
 // Repair
 void single_patch(tspinstance* inst, int* succ, int* comp, int* ncomp) {
 
-	if (inst->verbose >= 100) printf("\nSINGLE_PATCHING"); fflush(stdout);
+	if (inst->verbose >= 100) printf("\nSINGLE_PATCHING");
+	fflush(stdout);
 	// single patch merge the isolated nodes or tours,
 	// if already merged, exit the method
 	if (*ncomp == 1) return;

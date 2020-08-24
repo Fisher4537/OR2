@@ -120,6 +120,7 @@ void add_lazy_mtz(tspinstance* inst, CPXENVptr env, CPXLPptr lp);
 int switch_warm_start(tspinstance* inst, CPXENVptr env, CPXLPptr lp, int* status);
 
 void optimization(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
+int vns(tspinstance* inst);
 int local_branching(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 int hard_fixing(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status);
 void fix_bound(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status, double fixing_ratio);
