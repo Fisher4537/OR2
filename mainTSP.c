@@ -18,7 +18,7 @@ int main(int argc, char **argv)
 
 #ifdef _WIN32
 	
-	if (0) {
+	if (1) {
 		// TEST CODE for Windows:
 
 		int folders = 3;
@@ -29,19 +29,23 @@ int main(int argc, char **argv)
 			2: data_heavy
 			3: data_light + data_average
 			4: data_light + data_average + data_heavy
+			5: data_meta
 		*/
 
 		int seed[5] = { 0, 123456, 666, 777, 1995 };
 
-		folders = folders == 0 ? 29 : folders == 1 ? 16 : folders == 2 ? 43 : folders == 3 ? 45 : 88;
+		folders = folders == 0 ? 29 : folders == 1 ? 16 : folders == 2 ? 43 : folders == 3 ? 45 : folders == 4 ? 88 : 15;
 
 		char** files = (char**)calloc(folders, sizeof(char*));
 		for (int i = 0; i < folders; i++)
 			files[i] = (char*)calloc(25, sizeof(char));
 
 		FILE* fp;
-		fp = fopen("./filename.txt", "r");
-
+		if(folders == 5)								// test for meta heuristics
+			fp = fopen("./filename2.txt", "r");
+		else
+			fp = fopen("./filename.txt", "r");
+			
 		int idx = 0;
 		while (folders > 0 && fscanf(fp, "%s", files[idx]) == 1) {
 			//printf("%s\n", files[idx]);
