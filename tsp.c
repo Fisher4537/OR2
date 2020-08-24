@@ -361,18 +361,21 @@ int* invers_xpos(int pos, tspinstance* inst) {
 	if (pos > (inst->nnodes * inst->nnodes - inst->nnodes - 2) / 2) print_error(" position exceeds max value");
 
 	int* ij = (int*)calloc(2, sizeof(int));
-	int temp_pos = 0;
-	for (int i = 0; i < inst->nnodes - 1; i++){
-		for (int j = i + 1; j < inst->nnodes; j++) {
-			if (temp_pos == pos) {
-				ij[0] = i;
-				ij[1] = j;
-				return ij;
-			}
-			temp_pos++;
-		}
-	}
-	free(ij);
+	ij[0] = xpos_to_i(pos, inst->nnodes);
+	ij[1] = pos - xpos(ij[0], ij[0]+1, inst) + ij[0]+1;
+
+	// int temp_pos = 0;
+	// for (int i = 0; i < inst->nnodes - 1; i++){
+	// 	for (int j = i + 1; j < inst->nnodes; j++) {
+	// 		if (temp_pos == pos) {
+	// 			ij[0] = i;
+	// 			ij[1] = j;
+	// 			return ij;
+	// 		}
+	// 		temp_pos++;
+	// 	}
+	// }
+	return ij;
 }
 
 int asym_xpos(int i, int j, tspinstance *inst) {
@@ -388,6 +391,11 @@ int asym_upos(int i, tspinstance *inst) {
 int asym_ypos(int i, int j, tspinstance* inst) {
 	if (i == j) print_error(" i == j in asym_ypos");
 	return (inst->nnodes * (inst->nnodes - 1)) + i * (inst->nnodes - 1) + (i < j ? j - 1 : j);
+}
+
+int xpos_to_i(int xpos, int n) {
+	if (xpos <= n-2) return 0;
+	else return xpos_to_i(xpos-n+1, n-1)+1;
 }
 
 
@@ -1493,29 +1501,32 @@ int insertion_move(tspinstance* inst, int* best_sol, int count_sol, int vertex) 
 	int best_i = -1, best_j = -1, pos, replace_pos = -1;
 
 
-	for (int i = 0; i < inst->nnodes; i++) {
-		for (int j = i; j < inst->nnodes; j++) {
-			if (i == j)
-				continue;
-
-			pos = contained_in_index(best_sol, count_sol, xpos(i, j, inst));
-			if (pos != -1) {
+	// for (int i = 0; i < inst->nnodes; i++) {
+	// 	for (int j = i; j < inst->nnodes; j++) {
+	// 		if (i == j)
+	// 			continue;
+	//
+	// 		pos = contained_in_index(best_sol, count_sol, xpos(i, j, inst));
+	// 		if (pos != -1) {
+		int i, j;
+		for (pos = 0; pos < count_sol; pos++) {
+			if (inst->verbose > 100)
+				printf("Side %d in pos %d is contained in best_sol => calculate extra_mileage...", best_sol[pos], pos);
+			i = invers_xpos(best_sol[pos], inst)[0];
+			j = invers_xpos(best_sol[pos], inst)[1];
+			temp_min = dist(i, vertex, inst) + dist(vertex, j, inst) - dist(i, j, inst);
+			if (temp_min < extra_mileage) {
+				extra_mileage = temp_min;
+				replace_pos = pos;
+				best_i = i;
+				best_j = j;
 				if (inst->verbose > 100)
-					printf("Side %d in pos %d is contained in best_sol => calculate extra_mileage...", best_sol[pos], pos);
-				temp_min = dist(i, vertex, inst) + dist(vertex, j, inst) - dist(i, j, inst);
-				if (temp_min < extra_mileage) {
-					extra_mileage = temp_min;
-					replace_pos = pos;
-					best_i = i;
-					best_j = j;
-					if (inst->verbose > 100)
-						printf("\t\t=>Extra_mileage upload: %f\n", extra_mileage);
-				}
-				else if (inst->verbose > 100)
-					printf("\n");
+					printf("\t\t=>Extra_mileage upload: %f\n", extra_mileage);
 			}
+			else if (inst->verbose > 100)
+				printf("\n");
 		}
-	}
+	// }
 	if (inst->verbose > 10)
 		printf("***** Replace %d ", best_sol[replace_pos]);
 	best_sol[replace_pos] = xpos(vertex, best_i, inst);

@@ -131,3 +131,9 @@ res/lb_hard_fixing_a280.csv
 res/lb_hard_fixing_d2103.csv
 
 res/lb_local_branching_a280.csv
+
+res/lb_hf_a280.csv
+
+res/lb_n_greedy_b2o_hf_a280.csv
+
+res/lb_n_greedy_hf_a280.csv
