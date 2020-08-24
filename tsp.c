@@ -379,18 +379,21 @@ int* invers_xpos(int pos, tspinstance* inst) {
 	if (pos > (inst->nnodes * inst->nnodes - inst->nnodes - 2) / 2) print_error(" position exceeds max value");
 
 	int* ij = (int*)calloc(2, sizeof(int));
-	int temp_pos = 0;
-	for (int i = 0; i < inst->nnodes - 1; i++){
-		for (int j = i + 1; j < inst->nnodes; j++) {
-			if (temp_pos == pos) {
-				ij[0] = i;
-				ij[1] = j;
-				return ij;
-			}
-			temp_pos++;
-		}
-	}
-	free(ij);
+	ij[0] = xpos_to_i(pos, inst->nnodes);
+	ij[1] = pos - xpos(ij[0], ij[0]+1, inst) + ij[0]+1;
+
+	// int temp_pos = 0;
+	// for (int i = 0; i < inst->nnodes - 1; i++){
+	// 	for (int j = i + 1; j < inst->nnodes; j++) {
+	// 		if (temp_pos == pos) {
+	// 			ij[0] = i;
+	// 			ij[1] = j;
+	// 			return ij;
+	// 		}
+	// 		temp_pos++;
+	// 	}
+	// }
+	return ij;
 }
 
 int asym_xpos(int i, int j, tspinstance *inst) {
@@ -406,6 +409,11 @@ int asym_upos(int i, tspinstance *inst) {
 int asym_ypos(int i, int j, tspinstance* inst) {
 	if (i == j) print_error(" i == j in asym_ypos");
 	return (inst->nnodes * (inst->nnodes - 1)) + i * (inst->nnodes - 1) + (i < j ? j - 1 : j);
+}
+
+int xpos_to_i(int xpos, int n) {
+	if (xpos <= n-2) return 0;
+	else return xpos_to_i(xpos-n+1, n-1)+1;
 }
 
 
@@ -1516,29 +1524,32 @@ int insertion_move(tspinstance* inst, int* best_sol, int count_sol, int vertex) 
 	int best_i = -1, best_j = -1, pos, replace_pos = -1;
 
 
-	for (int i = 0; i < inst->nnodes; i++) {
-		for (int j = i; j < inst->nnodes; j++) {
-			if (i == j)
-				continue;
-
-			pos = contained_in_index(best_sol, count_sol, xpos(i, j, inst));
-			if (pos != -1) {
+	// for (int i = 0; i < inst->nnodes; i++) {
+	// 	for (int j = i; j < inst->nnodes; j++) {
+	// 		if (i == j)
+	// 			continue;
+	//
+	// 		pos = contained_in_index(best_sol, count_sol, xpos(i, j, inst));
+	// 		if (pos != -1) {
+		int* ij;
+		for (pos = 0; pos < count_sol; pos++) {
+			if (inst->verbose > 100)
+				printf("Side %d in pos %d is contained in best_sol => calculate extra_mileage...", best_sol[pos], pos);
+			ij = invers_xpos(best_sol[pos], inst);
+			temp_min = dist(ij[0], vertex, inst) + dist(vertex, ij[1], inst) - dist(ij[0], ij[1], inst);
+			if (temp_min < extra_mileage) {
+				extra_mileage = temp_min;
+				replace_pos = pos;
+				best_i = ij[0];
+				best_j = ij[1];
 				if (inst->verbose > 100)
-					printf("Side %d in pos %d is contained in best_sol => calculate extra_mileage...", best_sol[pos], pos);
-				temp_min = dist(i, vertex, inst) + dist(vertex, j, inst) - dist(i, j, inst);
-				if (temp_min < extra_mileage) {
-					extra_mileage = temp_min;
-					replace_pos = pos;
-					best_i = i;
-					best_j = j;
-					if (inst->verbose > 100)
-						printf("\t\t=>Extra_mileage upload: %f\n", extra_mileage);
-				}
-				else if (inst->verbose > 100)
-					printf("\n");
+					printf("\t\t=>Extra_mileage upload: %f\n", extra_mileage);
 			}
+			else if (inst->verbose > 100)
+				printf("\n");
 		}
-	}
+	free(ij);
+	// }
 	if (inst->verbose > 10)
 		printf("***** Replace %d ", best_sol[replace_pos]);
 	best_sol[replace_pos] = xpos(vertex, best_i, inst);
@@ -2306,14 +2317,12 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 	tabu_list* head_save = NULL;
 
 	// Arrotonda per eccesso nnodes / 2. +1 viene usato per tenere conto di dove inserire l'arco proibito
-	int tabu_array_size = (inst->nnodes / 2) % 2 == 0 ? (inst->nnodes / 2) + 1 : ((inst->nnodes + 1) / 2) + 1;
+	int tabu_array_size = (int)(inst->nnodes / 10); // (inst->nnodes / 2) % 2 == 0 ? (inst->nnodes / 2) + 1 : ((inst->nnodes + 1) / 2) + 1;
 	int* tabu_array = (int*)calloc(tabu_array_size, sizeof(int));
 	for (int i = 0; i < tabu_array_size; i++)
 		tabu_array[i] = -1;
 
-
-
-	for (int times = 0; remaining_time > 0.0 && times < 1000000; times++) {
+	for (int times = 0; remaining_time > 0.0 && times < 100*inst->nnodes; times++) {
 		double ini = second();
 
 		if (inst->verbose > 100) printf("*** Calc new 2_opt sol ***\n");
