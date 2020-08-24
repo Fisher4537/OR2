@@ -2317,7 +2317,7 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 	tabu_list* head_save = NULL;
 
 	// Arrotonda per eccesso nnodes / 2. +1 viene usato per tenere conto di dove inserire l'arco proibito
-	int tabu_array_size = (int)(inst->nnodes / 10); // (inst->nnodes / 2) % 2 == 0 ? (inst->nnodes / 2) + 1 : ((inst->nnodes + 1) / 2) + 1;
+	int tabu_array_size = (int)(inst->nnodes / (1.732050*log((double)inst->nnodes)/log(10.))); // (inst->nnodes / 2) % 2 == 0 ? (inst->nnodes / 2) + 1 : ((inst->nnodes + 1) / 2) + 1;
 	int* tabu_array = (int*)calloc(tabu_array_size, sizeof(int));
 	for (int i = 0; i < tabu_array_size; i++)
 		tabu_array[i] = -1;
