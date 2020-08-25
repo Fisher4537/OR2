@@ -382,17 +382,6 @@ int* invers_xpos(int pos, tspinstance* inst) {
 	ij[0] = xpos_to_i(pos, inst->nnodes);
 	ij[1] = pos - xpos(ij[0], ij[0]+1, inst) + ij[0]+1;
 
-	// int temp_pos = 0;
-	// for (int i = 0; i < inst->nnodes - 1; i++){
-	// 	for (int j = i + 1; j < inst->nnodes; j++) {
-	// 		if (temp_pos == pos) {
-	// 			ij[0] = i;
-	// 			ij[1] = j;
-	// 			return ij;
-	// 		}
-	// 		temp_pos++;
-	// 	}
-	// }
 	return ij;
 }
 
@@ -1145,18 +1134,21 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		best_lb += dist(sol[inst->nnodes - 1], i, inst);
 		sol[inst->nnodes - 1] = xpos(sol[inst->nnodes - 1], i, inst);
 
+		if (inst->verbose >= 100)
+			printf("Greedy Heuristic LB found %d: [%.0f]\n",i, best_lb);
+
 		if (best_lb < inst->best_lb) {
 
 			inst->best_lb = best_lb;
 			for (int k = 0; k < inst->nnodes; k++)
 				best_sol[k] = sol[k];
-
+			
 		}
 		free(sol);
 	}
 
 	if (inst->verbose >= 100)
-		printf("BEST_LB Greedy Heuristic found: [%f]\n", inst->best_lb);
+		printf("BEST_LB Greedy Heuristic found: [%.0f]\n", inst->best_lb);
 
 	// Copy and convert to double sol in best_sol
 	for (int i = 0; i < inst->nnodes; i++) {
@@ -1524,33 +1516,25 @@ int insertion_move(tspinstance* inst, int* best_sol, int count_sol, int vertex) 
 	double temp_min = INT_MAX;
 	int best_i = -1, best_j = -1, pos, replace_pos = -1;
 
-
-	// for (int i = 0; i < inst->nnodes; i++) {
-	// 	for (int j = i; j < inst->nnodes; j++) {
-	// 		if (i == j)
-	// 			continue;
-	//
-	// 		pos = contained_in_index(best_sol, count_sol, xpos(i, j, inst));
-	// 		if (pos != -1) {
-		int* ij;
-		for (pos = 0; pos < count_sol; pos++) {
+	int i, j;
+	for (pos = 0; pos < count_sol; pos++) {
+		if (inst->verbose > 100)
+			printf("Side %d in pos %d is contained in best_sol => calculate extra_mileage...", best_sol[pos], pos);
+		i = invers_xpos(best_sol[pos], inst)[0];
+		j = invers_xpos(best_sol[pos], inst)[1];
+		temp_min = dist(i, vertex, inst) + dist(vertex, j, inst) - dist(i, j, inst);
+		if (temp_min < extra_mileage) {
+			extra_mileage = temp_min;
+			replace_pos = pos;
+			best_i = i;
+			best_j = j;
 			if (inst->verbose > 100)
-				printf("Side %d in pos %d is contained in best_sol => calculate extra_mileage...", best_sol[pos], pos);
-			ij = invers_xpos(best_sol[pos], inst);
-			temp_min = dist(ij[0], vertex, inst) + dist(vertex, ij[1], inst) - dist(ij[0], ij[1], inst);
-			if (temp_min < extra_mileage) {
-				extra_mileage = temp_min;
-				replace_pos = pos;
-				best_i = ij[0];
-				best_j = ij[1];
-				if (inst->verbose > 100)
-					printf("\t\t=>Extra_mileage upload: %f\n", extra_mileage);
-			}
-			else if (inst->verbose > 100)
-				printf("\n");
+				printf("\t\t=>Extra_mileage upload: %f\n", extra_mileage);
 		}
-	free(ij);
-	// }
+		else if (inst->verbose > 100)
+			printf("\n");
+	}
+
 	if (inst->verbose > 10)
 		printf("***** Replace %d ", best_sol[replace_pos]);
 	best_sol[replace_pos] = xpos(vertex, best_i, inst);
@@ -2699,11 +2683,11 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 	// save best population LB found
 	for (int i = 0; i < nPop; i++) {
 		double cost = 0.0;
-		for (int j = 0; j < inst->nedges; j++) {
-			if (population[i][j] != 0.0) {
-				int* ij = invers_xpos(j, inst);
-				cost += dist(ij[0], ij[1], inst);
-				free(ij);
+		for (int k = 0; k < inst->nedges; k++) {
+			if (population[i][k] != 0.0) {
+				int i = invers_xpos(k, inst)[0];
+				int j = invers_xpos(k, inst)[1];
+				cost += dist(i, j, inst);
 			}
 		}
 		if (cost < global_best_lb) {
@@ -2772,11 +2756,11 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 			// Check if this kid update the global_LB
 			updateLB++;
 			double cost = 0.0;
-			for (int j = 0; j < inst->nedges; j++) {
-				if (population[i][j] != 0.0) {
-					int* ij = invers_xpos(j, inst);
-					cost += dist(ij[0], ij[1], inst);
-					free(ij);
+			for (int k = 0; k < inst->nedges; k++) {
+				if (population[i][k] != 0.0) {
+					int i = invers_xpos(k, inst)[0];
+					int j = invers_xpos(k, inst)[1];
+					cost += dist(i, j, inst);
 				}
 			}
 			if (inst->verbose >= 10) printf("Individual %d: %0.f\n", i, cost);
@@ -2806,11 +2790,11 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 		if (inst->verbose >= 10) printf("\nEvaluate LBs:\n");
 		for (int i = 0; i < nPop; i++) {
 			double cost = 0.0;
-			for (int j = 0; j < inst->nedges; j++) {
-				if (population[i][j] != 0.0) {
-					int* ij = invers_xpos(j, inst);
-					cost += dist(ij[0], ij[1], inst);
-					free(ij);
+			for (int k = 0; k < inst->nedges; k++) {
+				if (population[i][k] != 0.0) {
+					int i = invers_xpos(k, inst)[0];
+					int j = invers_xpos(k, inst)[1];
+					cost += dist(i, j, inst);
 				}
 			}
 			if (inst->verbose >= 10) printf("Individual %d: %0.f\n", i, cost);
@@ -2859,7 +2843,7 @@ void init_population(tspinstance* inst, double** population, int nPop) {
 			n_grasp(inst, &status, (inst->nnodes < 1000) ? 10 : (inst->nnodes > 10000) ? 2 : 5, .95, .03);
 			break;
 		case 2:
-			heur_greedy(NULL, NULL, inst, &status);
+			n_greedy(NULL, NULL, inst, &status, (inst->nnodes < 1000) ? 100 : (inst->nnodes > 10000) ? 10 : 30);		// greedy more times (heur_greedy too long over 500 nodes)
 			break;
 		case 3:
 			n_greedy(NULL, NULL, inst, &status, (inst->nnodes < 1000) ? 10 : (inst->nnodes > 10000) ? 2 : 5);
@@ -4553,15 +4537,15 @@ void update_frequency_table(tspinstance* inst, int* frequencyTable, double* pA, 
 }
 double calc_L(tspinstance* inst, double** population, int nPop) {
 	double L = 0.0;
-	int* ij = (int*)calloc(2, sizeof(int));
 	for (int k = 0; k < nPop; k++) {
 
 		double indiv_cost = 0.0;
 		int i = 0, j = 0;
 		for (int w = 0; w < inst->nedges; w++) {
 			if (population[k][w] == 1.0) {
-				ij = invers_xpos(w, inst);
-				indiv_cost += dist(ij[0], ij[1], inst);
+				int i = invers_xpos(w, inst)[0];
+				int j = invers_xpos(w, inst)[1];
+				indiv_cost += dist(i, j, inst);
 			}
 		}
 		L += indiv_cost;
