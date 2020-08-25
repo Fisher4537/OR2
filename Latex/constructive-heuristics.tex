@@ -46,12 +46,12 @@ The idea is that in TSP it's not always the closer to be the next node on the op
 	\centering
 	\begin{subfigure}{.75\textwidth}
 		\includegraphics[width=\columnwidth]{../res/Lgrasp_greedy_time.png}
-		\caption{}
+		\caption{Solution time domain.}
 		\label{fig:Lgrasp_greedy_time}
 	\end{subfigure}
 	\begin{subfigure}{.75\textwidth}
 		\includegraphics[width=\columnwidth]{../res/Lgrasp_greedy_lb.png}
-		\caption{}
+		\caption{Solution cost domain.}
 		\label{fig:Lgrasp_greedy_lb}
 	\end{subfigure}
 \caption{The first parameter in the name of \texttt{n\_greedy} and \texttt{n\_grasp} is the number of different tour evaluated. In \texttt{n\_grasp} name the other parameter represent the probability to chose in order the first, the second and the third closer node.  }
@@ -106,9 +106,10 @@ In figure \ref{fig:att48_diff} can be compared of the optimum tour, \texttt{Gree
 The idea of this constructive heuristic is to create an initial simple tour of 3 nodes randomly and insert one node at a time, breaking the edge that minimize the final tour cost.\\
 The complexity of the algorithm is $ O(n^2) $.
 
-
-\textbf{Construction heuristic comparison.} The performance profile in fig \ref{fig:pp_Lconstructives} show the three constructive presented in this chapter. In particular \texttt{heristic\_insertion} is comparable with \texttt{heuristic\_greedy} in execution time, however it usually find shorter tours of all the other constructive.\\
+% versione 2
+\textbf{Construction heuristic comparison.} The performance profile in fig \ref{fig:pp_Lconstructives} show the three constructive presented in this chapter. In particular \texttt{heristic\_insertion} is comparable with \texttt{n\_greedy} and \texttt{n\_grasp} in execution time, however it find shorter tours of all the other constructive.\\
 Other consideration about the constructive heuristics in chapter \ref{chapter:refining}.
+
 
 \begin{figure}[!h]
 	\centering
@@ -124,6 +125,6 @@ Other consideration about the constructive heuristics in chapter \ref{chapter:re
 	\caption{Solution cost domain.}
 	\label{fig:Lconstructives_lb}
 	\end{subfigure}
-	\caption{Performance profile of constructive heuristic}
+	\caption{Performance profile of constructive heuristic.}
 	\label{fig:pp_Lconstructives}
 \end{figure}

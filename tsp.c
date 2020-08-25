@@ -2780,36 +2780,34 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 		if (inst->verbose > 10) {
 			printf("\n**** INDIVIDUALS POPULATION ****");
 			print_population(inst, population, nPop);
-		}
-		//plot_population(inst, population, nPop);
-		
-		if(inst->verbose >= 10) printf("\n*********** FINISH GENERATION %d ***********\n\n", g);
-		
-		// print population LBs
-		/*
-		if (inst->verbose >= 10) printf("\nEvaluate LBs:\n");
-		for (int i = 0; i < nPop; i++) {
-			double cost = 0.0;
-			for (int k = 0; k < inst->nedges; k++) {
-				if (population[i][k] != 0.0) {
-					int i = invers_xpos(k, inst)[0];
-					int j = invers_xpos(k, inst)[1];
-					cost += dist(i, j, inst);
+			//plot_population(inst, population, nPop);
+			// print population LBs
+			/*
+			if (inst->verbose >= 10) printf("\nEvaluate LBs:\n");
+			for (int i = 0; i < nPop; i++) {
+				double cost = 0.0;
+				for (int k = 0; k < inst->nedges; k++) {
+					if (population[i][k] != 0.0) {
+						int i = invers_xpos(k, inst)[0];
+						int j = invers_xpos(k, inst)[1];
+						cost += dist(i, j, inst);
+					}
+				}
+				if (inst->verbose >= 10) printf("Individual %d: %0.f\n", i, cost);
+				if (inst->verbose >= 1 && inst->verbose < 10) printf("%.1lf,%lf\n", cost, second() - inst->init_time);
+				if (cost < global_best_lb) {
+					global_best_lb = cost;
+					for (int k = 0; k < inst->nedges; k++)
+						if (population[i][k] == 1.0)
+							inst->best_sol[k] = 1.0;
+						else
+							inst->best_sol[k] = 0.0;
 				}
 			}
-			if (inst->verbose >= 10) printf("Individual %d: %0.f\n", i, cost);
-			if (inst->verbose >= 1 && inst->verbose < 10) printf("%.1lf,%lf\n", cost, second() - inst->init_time);
-			if (cost < global_best_lb) {
-				global_best_lb = cost;
-				for (int k = 0; k < inst->nedges; k++)
-					if (population[i][k] == 1.0)
-						inst->best_sol[k] = 1.0;
-					else
-						inst->best_sol[k] = 0.0;
-			}
+			*/
 		}
-		*/
 
+		if (inst->verbose >= 10) printf("\n*********** FINISH GENERATION %d ***********\n\n", g);
 		if (inst->verbose >= 10) {
 			printf("\nBEST LB of Population: %.1lf \n", global_best_lb);
 			printf("\n");
