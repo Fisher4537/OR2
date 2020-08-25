@@ -1,1 +1,0 @@
-./mainTSP -input data_light/eil76.tsp -setup_model 24 -randomseed 0 -v 1 -nthread 4 -time_limit 600 

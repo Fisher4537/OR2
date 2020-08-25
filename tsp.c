@@ -2135,6 +2135,7 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 				if (inst->verbose >= 100) printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_temp_lb, best_lb);
 				best_temp_lb = best_lb;
 
+
 			}
 		}
 
@@ -2679,13 +2680,14 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 
 	*/
 
-	double global_best_lb = CPX_INFBOUND;
-	int updateLB = 0;
-	int maxIter = 500;		// 10 * number generation without update LB
-
 	int nPop = 10, nKids = 10;			// GA-EAX/Stage1 & Parallel GA-EAX/Stage1
 	int sChunk = 10, nChunk = 30;		// Only for Parallel GA-EAX/Stage1
 	int nStag;							// Termination Criterion of GA-EAX/Stage1
+
+	double* global_best_sol = (double*)calloc(inst->nedges, sizeof(double));
+	double global_best_lb = CPX_INFBOUND;
+	int updateLB = 0;
+	int maxIter = nPop * 10;		// nPop * number generation without update LB
 
 	double** population = (double**)calloc(nPop, sizeof(double*));
 
@@ -2708,19 +2710,20 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 			global_best_lb = cost;
 			for (int k = 0; k < inst->nedges; k++)
 				if (population[i][k] == 1.0)
-					inst->best_sol[k] = 1.0;
+					global_best_sol[k] = 1.0;
 				else
-					inst->best_sol[k] = 0.0;
+					global_best_sol[k] = 0.0;
 		}
 	}
-	if (inst->verbose > 1) {
+	if (inst->verbose > 10) { 
 		printf("\n**** INDIVIDUALS POPULATION ****");
 		print_population(inst, population, nPop);
 	}
+	
 	init_frequency_edges(inst, population, frequencyTable, nPop);
 	if (inst->verbose > 101) print_frequency_table(inst, frequencyTable);
 
-	double remaining_time = inst->timelimit - (second() - inst->init_time);
+	double remaining_time = inst->timelimit - (second() - inst->init_time) - 5;			// -5 used to do best_two_opt at the final_solution
 	for (int g = 0; updateLB < maxIter && remaining_time > 0.0; g++) {
 
 		double ini = second();
@@ -2753,7 +2756,20 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 				if(inst->verbose > 1000) print_frequency_table(inst, frequencyTable);
 			}
 
-			// Check if this kid update the global_LB 
+			// Apply two opt 
+			for (int k = 0; k < inst->nedges; k++)
+				if (population[i][k] == 1.0)
+					inst->best_sol[k] = 1.0;
+				else
+					inst->best_sol[k] = 0.0;
+			two_opt(inst);
+			for (int k = 0; k < inst->nedges; k++)
+				if (inst->best_sol[k] == 1.0)
+					population[i][k] = 1.0;
+				else
+					population[i][k] = 0.0;
+
+			// Check if this kid update the global_LB
 			updateLB++;
 			double cost = 0.0;
 			for (int j = 0; j < inst->nedges; j++) {
@@ -2770,9 +2786,9 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 				global_best_lb = cost;
 				for (int k = 0; k < inst->nedges; k++)
 					if (population[i][k] == 1.0)
-						inst->best_sol[k] = 1.0;
+						global_best_sol[k] = 1.0;
 					else
-						inst->best_sol[k] = 0.0;
+						global_best_sol[k] = 0.0;
 			}
 
 			
@@ -2817,21 +2833,49 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 		fflush(stdout);
 		remaining_time -= second() - ini;
 	}
-	inst->best_lb = global_best_lb;
-	free_ga(population, frequencyTable, nPop);
 
+	for (int k = 0; k < inst->nedges; k++)
+		if (global_best_sol[k] == 1.0)
+			inst->best_sol[k] = 1.0;
+		else
+			inst->best_sol[k] = 0.0;
+	inst->best_lb = global_best_lb;
+	best_two_opt(inst);
+	free(global_best_sol);
+	free_ga(population, frequencyTable, nPop);
 
 }
 void init_population(tspinstance* inst, double** population, int nPop) {
 	int status = 1;
 	for (int i = 0; i < nPop; i++) {
-		n_grasp(inst, &status, (inst->nnodes < 1000) ? 10 : (inst->nnodes > 10000) ? 2 : 5, .33, .33);
-		best_two_opt(inst);
+		inst->best_lb = CPX_INFBOUND;
+		clear_sol(inst);
+
+		switch (rand() % 5) {
+		case 0:
+			n_grasp(inst, &status, (inst->nnodes < 1000) ? 10 : (inst->nnodes > 10000) ? 2 : 5, .33, .33);
+			break;
+		case 1:
+			n_grasp(inst, &status, (inst->nnodes < 1000) ? 10 : (inst->nnodes > 10000) ? 2 : 5, .95, .03);
+			break;
+		case 2:
+			heur_greedy(NULL, NULL, inst, &status);
+			break;
+		case 3:
+			n_greedy(NULL, NULL, inst, &status, (inst->nnodes < 1000) ? 10 : (inst->nnodes > 10000) ? 2 : 5);
+			break;
+		case 4:
+			heur_insertion(NULL, NULL, inst, &status);
+			break;
+		default:
+			break;
+		}
+		
+		//best_two_opt(inst);
 		population[i] = (double*)calloc(inst->nedges, sizeof(double));
 		for (int j = 0; j < inst->nedges; j++) {
 			population[i][j] = inst->best_sol[j];
 		}
-		clear_sol(inst);
 	}
 }
 void init_frequency_edges(tspinstance* inst, double** population, int* frequencyTable, int nPop) {
@@ -2859,6 +2903,7 @@ void swap(double* a, double* b)
 	*a = *b;
 	*b = temp;
 }
+
 int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, int pB, int nKids) {
 	/*
 		- Generate an undirected multigraph defined as GAB = (V; EA U EB).
