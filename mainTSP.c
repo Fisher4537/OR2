@@ -8,7 +8,7 @@
 int main(int argc, char **argv)
 {
 
-	
+
 	if ( argc < 2 ) { printf("Usage: %s -help for help\n", argv[0]); exit(1); }
 	if ( VERBOSE >= 2 ) {
      for (int a = 0; a < argc; a++) printf("%s ", argv[a]);
@@ -16,10 +16,8 @@ int main(int argc, char **argv)
 		 fflush(stdout);
 	}
 
-	printf("\n");
-
 #ifdef _WIN32
-	
+
 	if (0) {
 		// TEST CODE for Windows:
 
@@ -47,7 +45,7 @@ int main(int argc, char **argv)
 			fp = fopen("./filename2.txt", "r");
 		else
 			fp = fopen("./filename.txt", "r");
-			
+
 		int idx = 0;
 		while (folders > 0 && fscanf(fp, "%s", files[idx]) == 1) {
 			//printf("%s\n", files[idx]);

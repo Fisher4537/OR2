@@ -1142,7 +1142,7 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 			inst->best_lb = best_lb;
 			for (int k = 0; k < inst->nnodes; k++)
 				best_sol[k] = sol[k];
-			
+
 		}
 		free(sol);
 	}
@@ -1991,7 +1991,7 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 	tabu_list* head_save = NULL;
 	int countListSize = 0;
 
-	for (int times = 0; remaining_time > 0.0 /*&& times < 1000000*/; times++) {
+	for (int times = 0; remaining_time > 0.0 && times < 100*inst->nnodes; times++) {
 		double ini = second();
 
 		if (inst->verbose > 100) printf("*** Calc new 2_opt sol ***\n");
@@ -2090,7 +2090,7 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 		}
 
 		best_lb -= best_improve;
-		if (inst->verbose >= 1) printf("%.1lf,%lf\n", best_lb, second() - inst->init_time);
+		if (inst->verbose >= 100) printf("%.1lf,%lf\n", best_lb, second() - inst->init_time);
 		if (best_temp_lb == best_lb){
 			// Local/Global minimum found
 			isImprovement = 0;
@@ -2432,7 +2432,7 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 		}
 
 		best_lb -= best_improve;
-		if (inst->verbose >= 1) printf("%.1lf,%lf\n", best_lb, second() - inst->init_time);
+		if (inst->verbose >= 100) printf("%.1lf,%lf\n", best_lb, second() - inst->init_time);
 		fflush(stdout);
 		if (best_temp_lb == best_lb) {
 			// Local/Global minimum found
@@ -2699,11 +2699,11 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 					global_best_sol[k] = 0.0;
 		}
 	}
-	if (inst->verbose > 10) { 
+	if (inst->verbose > 10) {
 		printf("\n**** INDIVIDUALS POPULATION ****");
 		print_population(inst, population, nPop);
 	}
-	
+
 	init_frequency_edges(inst, population, frequencyTable, nPop);
 	if (inst->verbose > 101) print_frequency_table(inst, frequencyTable);
 
@@ -2740,7 +2740,7 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 				if(inst->verbose > 1000) print_frequency_table(inst, frequencyTable);
 			}
 
-			// Apply two opt 
+			// Apply two opt
 			for (int k = 0; k < inst->nedges; k++)
 				if (population[i][k] == 1.0)
 					inst->best_sol[k] = 1.0;
@@ -2775,7 +2775,7 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 						global_best_sol[k] = 0.0;
 			}
 
-			
+
 		}
 		if (inst->verbose > 10) {
 			printf("\n**** INDIVIDUALS POPULATION ****");
@@ -2852,7 +2852,7 @@ void init_population(tspinstance* inst, double** population, int nPop) {
 		default:
 			break;
 		}
-		
+
 		//best_two_opt(inst);
 		population[i] = (double*)calloc(inst->nedges, sizeof(double));
 		for (int j = 0; j < inst->nedges; j++) {
@@ -3511,7 +3511,7 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 				countEdges = 0;
 				for (int w = 0; w < inst->nnodes; w++) {
 					if (ABcycles[*idxCycle - 1][edges_cycles_EA[*idxCycle - 1][w]] == 0.0) {
-						if(*idxCycle != maxNcycles) 
+						if(*idxCycle != maxNcycles)
 							edges_cycles_EA[*idxCycle][countEdges] = edges_cycles_EA[*idxCycle - 1][w];
 						edges_cycles_EA[*idxCycle - 1][w] = -1;
 						countEdges++;
