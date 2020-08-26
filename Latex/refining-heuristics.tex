@@ -78,15 +78,15 @@ In fig.s \ref{fig:a280_10} and \ref{fig:a280_25} can be compared the \texttt{Gre
 \end{figure}
 \begin{figure}[!h]
 	\centering
-	\begin{subfigure}{.7\textwidth}
+	\begin{subfigure}{.95\textwidth}
 		\centering
-		\includegraphics[width=\columnwidth]{../res/Lconstructives_refining_LA_time.png}
+		\includegraphics[width=\columnwidth]{../res/Lconstructives_refining_LA_time_new.png}
 		\caption{Solution time domain.}
 		\label{fig:Lconstructives_refining_time}
 	\end{subfigure}
-	\begin{subfigure}{.7\textwidth}
+	\begin{subfigure}{.95\textwidth}
 		\centering
-		\includegraphics[width=\columnwidth]{../res/Lconstructives_refining_LA_lb.png}
+		\includegraphics[width=\columnwidth]{../res/Lconstructives_refining_LA_lb_new.png}
 		\caption{Solution cost domain.}
 		\label{fig:Lconstructives_refining_lb}
 	\end{subfigure}
@@ -98,40 +98,40 @@ The performance profile in fig. \ref{fig:pp_Lgreedy_refining} compare greedy alg
 
 \begin{figure}
 	\centering
-	\begin{subfigure}{.8\textwidth}
+	\begin{subfigure}{0.8\textwidth}
 		\centering
 		\includegraphics[width=\columnwidth]{../res/Lgreedy_refining_LA_time.png}
 		\caption{Performance profile in solution cost domain.}
 		\label{fig:Lgreedy_refining_LA_time}
 	\end{subfigure}
-	\begin{subfigure}{.8\textwidth}
+	\begin{subfigure}{0.8\textwidth}
 		\centering
 		\includegraphics[width=\columnwidth]{../res/Lgreedy_refining_LA_lb.png}
 		\caption{Performance profile in solution cost domain.}
 		\label{fig:Lgreedy_refining_LA_lb}
 	\end{subfigure}
-	\caption{Comparison of constructive vs refining heuristics of greedy methods.}
+	\caption{Comparison of constructive (\texttt{Greedy n\_greedy}) heuristics and their refining versions of greedy methods.}
 	\label{fig:pp_Lgreedy_refining}
 \end{figure}
 
 
-The effectiveness of the refining heuristic depend from the warm start solution. In fig. \ref{fig:Lgrasp_insertion_refining_LA_lb} it is show that, even if \texttt{heuristic\_insertion} generate shorter tour than \texttt{n\_grasp}, \texttt{n\_grasp\_best\_two\_opt} is better than \texttt{insertion\_best\_two\_opt}.
+The effectiveness of the refining heuristic depend from the warm start solution. In fig. \ref{fig:Lgrasp_insertion_refining_LA_lb} it is show that, even if \texttt{heuristic\_insertion} generate shorter tour than \texttt{n\_grasp}, \texttt{n\_grasp\_best\_two\_opt} is better than \texttt{insertion\_best\_two\_opt}, even over time (fig. \ref{fig:Lgrasp_insertion_refining_LA_time}).
 
 \begin{figure}
 \centering
-\begin{subfigure}{.7\textwidth}
+\begin{subfigure}{0.9\textwidth}
 	\centering
-	\includegraphics[width=\columnwidth]{../res/Lgrasp_insertion_refining_LA_time.png}
+	\includegraphics[width=\columnwidth]{../res/Lgrasp_insertion_refining_LA_time_new.png}
 	\caption{Performance profile in solution cost domain.}
 	\label{fig:Lgrasp_insertion_refining_LA_time}
 \end{subfigure}
-\begin{subfigure}{.7\textwidth}
+\begin{subfigure}{0.9\textwidth}
 	\centering
-	\includegraphics[width=\columnwidth]{../res/Lgrasp_insertion_refining_LA_lb.png}
+	\includegraphics[width=\columnwidth]{../res/Lgrasp_insertion_refining_LA_lb_new.png}
 	\caption{Performance profile in solution cost domain.}
 	\label{fig:Lgrasp_insertion_refining_LA_lb}
 \end{subfigure}
-\caption{Comparison of \texttt{n\_grasp} and \texttt{heuristic\_insertion} with and \texttt{best\_two\_opt}.}
+\caption{Comparison of \texttt{n\_grasp} and \texttt{heuristic\_insertion} with and without \texttt{best\_two\_opt}.}
 \label{fig:pp_Lgrasp_insertion_refining}
 \end{figure}
 

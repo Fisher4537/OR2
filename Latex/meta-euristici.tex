@@ -35,15 +35,37 @@ Fig.s \ref{fig:tabu_search_diff_perform_time} and \ref{fig:tabu_search_diff_perf
 \caption{\texttt{tabu\_search} use linked list as data structure to store the tabu list instead of array.}
 \label{fig:tabu_search_diff_perform}
 \end{figure}
-Another aspect to consider is the size of the tabu list. An "infinite" dimension would risk bringing the algorithm to a standstill in which it can no longer make any move since all those around two optimality have been prohibited. Conversely, too small a size could cause a return to the local minimum from which one was running away. A lot of studies and research have been done for this specific aspect \cite{Nababan_2019, Tsubakitani1998} and a better overall result than others has not been found, changing the typology of the problem also varies the best size of the list. An average list size with respect to the problem proved to be the best choice as a balance between computational time and the optimal cost. Thus a size equal to half the number of problem nodes was set.\\
-Finally, the termination criterion can be based on a maximum number of iterations of the algorithm in which the solution no longer improves or on a timelimit.\\
-Fig. \ref{fig:tabu_search_perform_time} shows the trend of the lower bounds found over time. Note that the descent and ascent trend is clear in the figure although, after the initial descent, it no longer finds a better solution.
-\begin{figure}[h]
-	\centering
-	\includegraphics[width=.70\columnwidth]{../res/lb_tabu_search_n_greedy_d2103.png}
-	\caption{Solution cost profile considering the execution time.}
+Another aspect to consider is the size of the tabu list. An "infinite" dimension would risk bringing the algorithm to a standstill in which it can no longer make any move since all those around two optimality have been prohibited. Conversely, too small a size could cause a return to the local minimum from which one was running away. A lot of studies and research have been done for this specific aspect \cite{Nababan_2019, Tsubakitani1998} and a better overall result than others has not been found, changing the typology of the problem also varies the best size of the list. A dynamic size list would seem to be the winning choice as a balance between computational time and the optimal cost. In our project, instead, two tests with a static dimension list are performed:
+\begin{enumerate}
+\item A size equal to (fig. \ref{fig:tabu_search_n2}):
+	\begin{equation}
+		\frac{|V|}{2}
+	\end{equation}
+\item A size equal to (fig. \ref{fig:tabu_search_r3}):
+	\begin{equation} \label{tabu_list_size_r3}
+		\frac{|V|}{\sqrt{3} * \frac{\ln{|V|}}{\ln{10}}}
+	\end{equation}
+\end{enumerate}
+\begin{figure}[!h]
+	\begin{subfigure}{\columnwidth}
+		\centering
+		\includegraphics[width=.6\columnwidth]{../res/lb_tabu_search_n_greedy_d2103_old.png}
+		\caption{Linear tabu list size in the number of nodes.}
+		\label{fig:tabu_search_n2}
+	\end{subfigure}
+	\begin{subfigure}{\columnwidth}
+		\centering
+		\includegraphics[width=0.6\columnwidth]{../res/lb_ts_test_d2103_5000.png}
+		\caption{Logarithmic tabu list size in the number of nodes.}
+		\label{fig:tabu_search_r3}
+	\end{subfigure}
+	\caption{Solution cost profiles considering the execution time.}
 	\label{fig:tabu_search_perform_time}
 \end{figure}
+Finally, the termination criterion can be based on a maximum number of iterations of the algorithm in which the solution no longer improves or on a time limit.\\
+Fig. \ref{fig:tabu_search_perform_time} shows the trend of the lower bounds found over time. %versione 2
+The linear version gets good results for small problems, but from the figure, it is clear that as the number of nodes increases, the list becomes too large and, therefore, also the number of pejorative moves, which causes the lower bound to no longer be able to improve.
+Instead, a logarithmic tabu list size manages both small and large problems and improves the lower bound in both types of them.
 
 \section{Simulated-Annealing}
 The goal is to find a point in the space at which a real valued energy function (or cost function) is minimized. Simulated annealing is a minimization technique which has given good results in avoiding local minima. This research is based on a \texttt{random\_two\_opt} (similar to sec. \ref{sec:best_2_opt} but choose a random one instead of looking for the best one). Moreover, it follows the idea of taking a random walk through the space at successively lower temperatures, where the probability of taking a step is given by a Boltzmann distribution:
@@ -79,12 +101,12 @@ where $ E_{i} $ is the energy at time $ i $, $ T $ is the temperature, $k$ is th
 		\caption{Initial temperature of $1$\%.}
 		\label{fig:sim_ann_1}
 	\end{subfigure}
-	\caption{Solution cost profile considering the execution time, with time limit of $500$ seconds and different initial temperatures, of the instance \textit{a280.tsp}.}
+	\caption{Solution cost profile considering the execution time, with time limit of $500$ sec. and different initial temperatures, of the instance \textit{a280.tsp}.}
 	\label{fig:sim_ann_temperature}
 \end{figure}
 A step will occur if the new energy is lower. If the new energy is higher, the transition can still occur, and its likelihood is proportional to the temperature $T$ and inversely proportional to the energy difference $\Delta E$.
 The temperature $T$ is initially set to a high value (\texttt{INT\_MAX} of \textit{limits.h} C class), and a random walk is carried out at that temperature. Then, the temperature is lowered very slightly according to a cooling schedule.
-The cooling schedule chosen is based on the timelimit given to the algorithm, at each interaction the temperature is scaled as a percentage based on the percentage of time spent on the timelimit to perform that iteration. This avoids estimating a fixed value with which to decrease the temperature at each iteration, as the time required for an iteration can vary greatly based on the probability value found (when successful, the computational time increases drastically compared to when probability fails).\\
+The cooling schedule chosen is based on the time limit given to the algorithm, at each interaction the temperature is scaled as a percentage based on the percentage of time spent on the time limit to perform that iteration. This avoids estimating a fixed value with which to decrease the temperature at each iteration, as the time required for an iteration can vary greatly based on the probability value found (when successful, the computational time increases drastically compared to when probability fails).\\
 Furthermore, if the temperature decreases sufficiently slowly, the probability of finding the global minimum tends to 1, thanks to all simulated annealing proofs of convergence in the literature which is based on homogeneous Markov chain theory and the condition of reversibility \cite{Henderson}. Since only improvement steps are accepted at zero temperature, various \texttt{random\_two\_opt} are performed before concluding the algorithm in order to optimize the achieved solution as much as possible.\\
 The slight probability of taking a step that gives higher energy is what allows simulated annealing to frequently get out of local minima.
 
@@ -196,12 +218,10 @@ For a complete explanation of the simple genetic algorithm, see \cite{phdthesis}
 A particular genetic algorithm has been implemented in this paper: it is based almost exclusively on the "Powerful Genetic Algorithm Using Edge Assembly Crossover" created by Yuichi Nagata and Shigenobu Kobayashi \cite{Nagata2013, Honda2013}, except for a subsection that has been completely designed by us.\\ A description of the algorithm will be presented and some paragraphs, which are contained in their paper \cite{Nagata2013}, will be reported here thanks to their clear description. In addition, the differences from his algorithm and our implementation choices will be explained.\\
 The search process of the GA consists of two stages: \\
 \begin{itemize}
-\item \texttt{GA-EAX/Stage I}: a localized version of Edge Assembly Crossover (EAX) as the crossover operator from the start of the search until non-improvement in the best solution is found over a period of generations or because of timelimit.
+\item \texttt{GA-EAX/Stage I}: a localized version of Edge Assembly Crossover (EAX) as the crossover operator from the start of the search until non-improvement in the best solution is found over a period of generations or because of time limit.
 \item  \texttt{GA-EAX/Stage II}: after that, switch to a global version of EAX and use it until the end of the search. Stage II is also terminated by the same condition of previous one.
 \end{itemize}
-For this project only Stage I was developed but the global version does not add any difficulties in the code (thus, non-improvement exit condition is removed).
-
-Algorithm \ref{alg:gagen} describes in a compact way the various steps of the entire search.\\
+For this project only Stage I is developed but the global version does not add any difficulties in the code. Algorithm \ref{alg:gagen} describes in a compact way the various steps of the entire search.\\
 
 \begin{algorithm}
 \caption{GA General}\label{alg:gagen}
@@ -318,4 +338,81 @@ $\Delta$L(y) and $\Delta$H(y) denote the differences in L and H, respectively, w
 \end{array}\right.\end{equation}
 
 where $y$ is an offspring solution and $\epsilon$ is a sufficiently small positive number (our chosen value $0.1$).\\
+% versione 2
+\subsection{Test}
+For all tests, each individual of the initial population is created from one of the following heuristics at random: \texttt{heuristic\_insertion}, \texttt{n\_grasp\_10\_33\_33\_33}, \texttt{n\_grasp\_10\_95\_03\_02}, \texttt{n\_greedy\_10} and \texttt{n\_greedy\_100}. This allows the algorithm much more initial variance than a population created by the same heuristic. Furthermore, a \texttt{two\_opt} is executed for each child created, in order to optimize it without losing its characteristics (as happens if \texttt{best\_two\_opt}  is used instead).\\
+The figure \ref{fig:ga_50_10} contains two tests performed by varying the termination condition relative to the maximum number of iterations without improvement of the lower bound. If a maximum value of 50 generations without improvement is set, the figures \ref{fig:ga_50_att48} and \ref{fig:ga_50_bier127} show how the lower bound tends to stabilize towards the end of the execution but continuing for a long time.
+Instead, figures \ref{fig:ga_10_att48} and \ref{fig:ga_10_bier127} with only 10 generations without improvement get the same lower bound but in the first case, in a quarter of the time and in the second, about half. Figure \ref{fig:ga_10_50} confirms what has just been said.\\
+The potential of this algorithm lies in finding the best lower bound where many other algorithms would never be able to arrive, but its complexity entails an enormous time in our computers.
+Thus, to make the genetic algorithm comparable with the other meta heuristics, the value chosen is 10 generations (a lower value would lead the algorithm to find a worse lower bound for the same time).\\
+In the case that the best possible lower bound is sought, it is advisable to increase this value or even remove it and look for an initial population as variable as possible.
+This way the algorithm will have a slower lower bound improvement but will probably have enough variability to avoid local minima. \\
+
+\begin{figure}[!h]
+	\begin{subfigure}{.5\columnwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/ga_50_att48.png}
+		\caption{Max generations 50, instance \textit{att48.tsp}.}
+		\label{fig:ga_50_att48}
+	\end{subfigure}
+	\begin{subfigure}{.5\columnwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/ga_50_bier127.png}
+		\caption{Max generations 50, instance \textit{bier127.tsp}.}
+		\label{fig:ga_50_bier127}
+	\end{subfigure}
+	\begin{subfigure}{.5\columnwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/ga_10_att48.png}
+		\caption{Max generations 10, instance \textit{att48.tsp}.}
+		\label{fig:ga_10_att48}
+	\end{subfigure}
+	\begin{subfigure}{.5\columnwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/ga_10_bier127.png}
+		\caption{Max generations 10, instance \textit{bier127.tsp}}
+		\label{fig:ga_10_bier127}
+	\end{subfigure}
+	\caption{Solution cost profile considering the execution time, with time limit of $600$ sec. and different maximum number of generations without improvement.}
+	\label{fig:ga_50_10}
+\end{figure}
+
+\begin{figure}[!h]
+	\centering
+	\begin{subfigure}{0.7\columnwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/ga_10_50_time.png}
+		\caption{Solution time domain.}
+		\label{fig:ga_10_50_time}
+	\end{subfigure}
+	\begin{subfigure}{0.7\columnwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/ga_10_50_lb.png}
+		\caption{Solution cost domain.}
+		\label{fig:ga_10_50_lb}
+	\end{subfigure}
+	\caption{Performance profile of genetic algorithm with maximum number of generations without improvement of 50 and 10.}
+	\label{fig:ga_10_50}
+\end{figure}
+
+
+Finally, figure \ref{fig:meta_heur} reports the performance profiles of three of the four different meta heuristics. Simulating annealing is missing because, as it has been developed, it has no termination conditions except for the time limit. Consequently a comparison on time would have no meaning while a comparison on the lower bound would be possible if the other termination conditions were removed from the other algorithms.\\
+
+\begin{figure}[!h]
+	\centering
+	\begin{subfigure}{\columnwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/metaheur_time_L_2ga_new.png}
+		\caption{Solution time domain.}
+		\label{fig:meta_heur_time}
+	\end{subfigure}
+	\begin{subfigure}{\columnwidth}
+		\centering
+		\includegraphics[width=\columnwidth]{../res/metaheur_lb_L_2ga_new.png}
+		\caption{Solution cost domain.}
+		\label{fig:meta_heur_lb}
+	\end{subfigure}
+	\caption{Performance profile of meta-heuristics.}
+	\label{fig:meta_heur}
+\end{figure}
 

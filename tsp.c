@@ -374,25 +374,13 @@ int xpos(int i, int j, tspinstance *inst) {
 	return i*inst->nnodes + j - ((i + 1)*(i + 2))/2; 				// default case
 }
 
-int* invers_xpos(int pos, tspinstance* inst) {
+int* invers_xpos(int* ij, int pos, tspinstance* inst) {
 	if (pos < 0) print_error(" position cannot be negative");
 	if (pos > (inst->nnodes * inst->nnodes - inst->nnodes - 2) / 2) print_error(" position exceeds max value");
 
-	int* ij = (int*)calloc(2, sizeof(int));
 	ij[0] = xpos_to_i(pos, inst->nnodes);
 	ij[1] = pos - xpos(ij[0], ij[0]+1, inst) + ij[0]+1;
 
-	// int temp_pos = 0;
-	// for (int i = 0; i < inst->nnodes - 1; i++){
-	// 	for (int j = i + 1; j < inst->nnodes; j++) {
-	// 		if (temp_pos == pos) {
-	// 			ij[0] = i;
-	// 			ij[1] = j;
-	// 			return ij;
-	// 		}
-	// 		temp_pos++;
-	// 	}
-	// }
 	return ij;
 }
 
@@ -1145,6 +1133,9 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 		best_lb += dist(sol[inst->nnodes - 1], i, inst);
 		sol[inst->nnodes - 1] = xpos(sol[inst->nnodes - 1], i, inst);
 
+		if (inst->verbose >= 100)
+			printf("Greedy Heuristic LB found %d: [%.0f]\n",i, best_lb);
+
 		if (best_lb < inst->best_lb) {
 
 			inst->best_lb = best_lb;
@@ -1156,7 +1147,7 @@ int heur_greedy(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	}
 
 	if (inst->verbose >= 100)
-		printf("BEST_LB Greedy Heuristic found: [%f]\n", inst->best_lb);
+		printf("BEST_LB Greedy Heuristic found: [%.0f]\n", inst->best_lb);
 
 	// Copy and convert to double sol in best_sol
 	for (int i = 0; i < inst->nnodes; i++) {
@@ -1369,6 +1360,7 @@ int n_grasp(tspinstance* inst, int* status, int times, double x1, double x2) {
 	if (inst->verbose >= 100) printf("Heuristic GRASP %d_TIMES\n", times);
 
 	double best_lb = INT_MAX;  		// the cost of the solution
+	inst->best_lb = INT_MAX;
 	int* succ = (int*)malloc(inst->nnodes * sizeof(int));
 	int cur_node;
 	int first_node;
@@ -1508,13 +1500,13 @@ int heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	}
 
 	// Copy and convert to double sol in best_sol
+	int* ij= (int*)calloc(2, sizeof(int));
 	for (int i = 0; i < inst->nnodes; i++) {
+		ij = invers_xpos(ij, best_sol[i], inst);
 		inst->best_sol[best_sol[i]] = 1.0;
-		inst->best_lb += dist(invers_xpos(best_sol[i], inst)[0], invers_xpos(best_sol[i], inst)[1], inst);
+		inst->best_lb += dist(ij[0], ij[1], inst);
 	}
-
-	if(inst->useCplex)
-		CPXsetintparam(env, CPX_PARAM_ADVIND, 1);
+	free(ij);
 
 	return *status;
 }
@@ -1523,33 +1515,26 @@ int insertion_move(tspinstance* inst, int* best_sol, int count_sol, int vertex) 
 	double temp_min = INT_MAX;
 	int best_i = -1, best_j = -1, pos, replace_pos = -1;
 
+	int* ij= (int*)calloc(2, sizeof(int));
+	for (pos = 0; pos < count_sol; pos++) {
+		if (inst->verbose > 100)
+			printf("Side %d in pos %d is contained in best_sol => calculate extra_mileage...", best_sol[pos], pos);
+		ij = invers_xpos(ij, best_sol[pos], inst);
+		temp_min = dist(ij[0], vertex, inst) + dist(vertex, ij[1], inst) - dist(ij[0], ij[1], inst);
 
-	// for (int i = 0; i < inst->nnodes; i++) {
-	// 	for (int j = i; j < inst->nnodes; j++) {
-	// 		if (i == j)
-	// 			continue;
-	//
-	// 		pos = contained_in_index(best_sol, count_sol, xpos(i, j, inst));
-	// 		if (pos != -1) {
-		int* ij;
-		for (pos = 0; pos < count_sol; pos++) {
+		if (temp_min < extra_mileage) {
+			extra_mileage = temp_min;
+			replace_pos = pos;
+			best_i = ij[0];
+			best_j = ij[1];
 			if (inst->verbose > 100)
-				printf("Side %d in pos %d is contained in best_sol => calculate extra_mileage...", best_sol[pos], pos);
-			ij = invers_xpos(best_sol[pos], inst);
-			temp_min = dist(ij[0], vertex, inst) + dist(vertex, ij[1], inst) - dist(ij[0], ij[1], inst);
-			if (temp_min < extra_mileage) {
-				extra_mileage = temp_min;
-				replace_pos = pos;
-				best_i = ij[0];
-				best_j = ij[1];
-				if (inst->verbose > 100)
-					printf("\t\t=>Extra_mileage upload: %f\n", extra_mileage);
-			}
-			else if (inst->verbose > 100)
-				printf("\n");
+				printf("\t\t=>Extra_mileage upload: %f\n", extra_mileage);
 		}
+		else if (inst->verbose > 100)
+			printf("\n");
+	}
 	free(ij);
-	// }
+
 	if (inst->verbose > 10)
 		printf("***** Replace %d ", best_sol[replace_pos]);
 	best_sol[replace_pos] = xpos(vertex, best_i, inst);
@@ -1679,7 +1664,7 @@ void patching(tspinstance* inst) {
 	build_sol(inst, succ, comp, ncomp);
 	if (inst->verbose >= 100) print_succ(succ, inst);
 	if (*ncomp == 1) {
-		printf("WARNING: solution already has 1 tour, patching has no effect.\n");
+		if(inst->verbose > 10) printf("WARNING: solution already has 1 tour, patching has no effect.\n");
 		free(succ);
 		free(comp);
 		free(ncomp);
@@ -2006,7 +1991,7 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 	tabu_list* head_save = NULL;
 	int countListSize = 0;
 
-	for (int times = 0; remaining_time > 0.0 /*&& times < 1000000*/; times++) {
+	for (int times = 0; remaining_time > 0.0 && times < 100*inst->nnodes; times++) {
 		double ini = second();
 
 		if (inst->verbose > 100) printf("*** Calc new 2_opt sol ***\n");
@@ -2105,7 +2090,7 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 		}
 
 		best_lb -= best_improve;
-		if (inst->verbose >= 1) printf("%.1lf,%lf\n", best_lb, second() - inst->init_time);
+		if (inst->verbose >= 100) printf("%.1lf,%lf\n", best_lb, second() - inst->init_time);
 		if (best_temp_lb == best_lb){
 			// Local/Global minimum found
 			isImprovement = 0;
@@ -2133,6 +2118,7 @@ int tabu_search(CPXENVptr env, tspinstance* inst, int* status){
 
 				if (inst->verbose >= 100) printf("BEST_LB update from -> to : [%f] -> [%f]\n", best_temp_lb, best_lb);
 				best_temp_lb = best_lb;
+
 
 			}
 		}
@@ -2446,7 +2432,7 @@ int tabu_search_array(CPXENVptr env, tspinstance* inst, int* status) {
 		}
 
 		best_lb -= best_improve;
-		if (inst->verbose >= 1) printf("%.1lf,%lf\n", best_lb, second() - inst->init_time);
+		if (inst->verbose >= 100) printf("%.1lf,%lf\n", best_lb, second() - inst->init_time);
 		fflush(stdout);
 		if (best_temp_lb == best_lb) {
 			// Local/Global minimum found
@@ -2678,13 +2664,14 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 
 	*/
 
-	// tabu_list* head_save = NULL;
-
-	double global_best_lb = CPX_INFBOUND;
-	double remaining_time = inst->timelimit;
-
-	int nPop = inst->nnodes, nKids = 10;			// GA-EAX/Stage1 & Parallel GA-EAX/Stage1
+	int nPop = 10, nKids = 10;			// GA-EAX/Stage1 & Parallel GA-EAX/Stage1
+	int sChunk = 10, nChunk = 30;		// Only for Parallel GA-EAX/Stage1
 	int nStag;							// Termination Criterion of GA-EAX/Stage1
+
+	double* global_best_sol = (double*)calloc(inst->nedges, sizeof(double));
+	double global_best_lb = CPX_INFBOUND;
+	int updateLB = 0;
+	int maxIter = nPop * 10;		// nPop * number generation without update LB
 
 	double** population = (double**)calloc(nPop, sizeof(double*));
 
@@ -2693,19 +2680,46 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 	int pA, pB;	// Indexes of parents: pA as acceptor and pB as donor
 
 	init_population(inst, population, nPop);
-	// TODO: aggiorna la soluzione
-	if (inst->verbose > 1) print_population(inst, population, nPop);
-	init_frequency_edges(inst, population, frequencyTable, nPop);
-	if (inst->verbose > 100) print_frequency_table(inst, frequencyTable);
+	// save best population LB found
+	int* ij= (int*)calloc(2, sizeof(int));
+	for (int i = 0; i < nPop; i++) {
+		double cost = 0.0;
+		for (int k = 0; k < inst->nedges; k++) {
+			if (population[i][k] != 0.0) {
+				ij = invers_xpos(ij, k, inst);
+				cost += dist(ij[0], ij[1], inst);
+			}
+		}
+		if (cost < global_best_lb) {
+			global_best_lb = cost;
+			for (int k = 0; k < inst->nedges; k++)
+				if (population[i][k] == 1.0)
+					global_best_sol[k] = 1.0;
+				else
+					global_best_sol[k] = 0.0;
+		}
+	}
+	free(ij);
+	if (inst->verbose > 10) {
+		printf("\n**** INDIVIDUALS POPULATION ****");
+		print_population(inst, population, nPop);
+	}
 
-	for (int g = 0; remaining_time > 0.0; g++) {
+	init_frequency_edges(inst, population, frequencyTable, nPop);
+	if (inst->verbose > 101) print_frequency_table(inst, frequencyTable);
+
+	double remaining_time = inst->timelimit - (second() - inst->init_time) - 5;			// -5 used to do best_two_opt at the final_solution
+	for (int g = 0; updateLB < maxIter && remaining_time > 0.0; g++) {
 
 		double ini = second();
 
 		shuffle_individuals(inst, population, nPop);
-		if (inst->verbose > 1000) print_population(inst, population, nPop);
+		if (inst->verbose > 100) {
+			printf("\n**** INDIVIDUALS POPULATION AFTER SHUFFLING ****");
+			print_population(inst, population, nPop);
+		}
 
-		for (int i = 0; i < nPop; i++) {
+		for (int i = 0; i < nPop && remaining_time > 0.0; i++) {
 			pA = i;
 			pB = (i == nPop - 1) ? 0 : i + 1;
 
@@ -2721,53 +2735,132 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 				free(kids[j]);
 			free(kids);
 
-			if (inst->verbose > 100) print_population(inst, population, nPop);
-			//print_frequency_table(inst, frequencyTable);
-		}
-		if (inst->verbose > 10) print_population(inst, population, nPop);
-		//plot_population(inst, population, nPop);
-		if(inst->verbose > 10) printf("\n*********** FINISH GENERATION %d ***********\n\n", g);
-		if (inst->verbose > 10) printf("\nEvaluate LBs:");
-		for (int i = 0; i < nPop; i++) {
+			if (inst->verbose > 100) {
+				printf("\n**** INDIVIDUALS POPULATION ****");
+				print_population(inst, population, nPop);
+				if(inst->verbose > 1000) print_frequency_table(inst, frequencyTable);
+			}
+
+			// Apply two opt
+			for (int k = 0; k < inst->nedges; k++)
+				if (population[i][k] == 1.0)
+					inst->best_sol[k] = 1.0;
+				else
+					inst->best_sol[k] = 0.0;
+			two_opt(inst);
+			for (int k = 0; k < inst->nedges; k++)
+				if (inst->best_sol[k] == 1.0)
+					population[i][k] = 1.0;
+				else
+					population[i][k] = 0.0;
+
+			// Check if this kid update the global_LB
+			updateLB++;
 			double cost = 0.0;
-			for (int j = 0; j < inst->nedges; j++) {
-				if (population[i][j] != 0.0) {
-					int* ij = invers_xpos(j, inst);
+			int* ij= (int*)calloc(2, sizeof(int));
+			for (int k = 0; k < inst->nedges; k++) {
+				if (population[i][k] != 0.0) {
+					ij = invers_xpos(ij, k, inst);
 					cost += dist(ij[0], ij[1], inst);
-					free(ij);
 				}
 			}
-			if (inst->verbose > 10) printf("\nIndividual %d: %0.f\n", i, cost);
-			//push(&head_save, cost, 0);
-			if (inst->verbose >= 1 && inst->verbose < 10) printf("%.1lf,%lf\n", cost, second() - inst->init_time);
-			if (cost <= global_best_lb) {
+			free(ij);
+			if (inst->verbose >= 10) printf("Individual %d: %0.f\n", i, cost);
+			if (inst->verbose > 1 && inst->verbose < 10) printf("%.1lf,%lf\n", cost, second() - inst->init_time);
+			if (cost < global_best_lb) {
+				updateLB = 0;
 				global_best_lb = cost;
 				for (int k = 0; k < inst->nedges; k++)
 					if (population[i][k] == 1.0)
-						inst->best_sol[k] = 1.0;
+						global_best_sol[k] = 1.0;
 					else
-						inst->best_sol[k] = 0.0;
+						global_best_sol[k] = 0.0;
 			}
+
+
+		}
+		if (inst->verbose > 10) {
+			printf("\n**** INDIVIDUALS POPULATION ****");
+			print_population(inst, population, nPop);
+			//plot_population(inst, population, nPop);
+			// print population LBs
+			/*
+			if (inst->verbose >= 10) printf("\nEvaluate LBs:\n");
+			int* ij= (int*)calloc(2, sizeof(int));
+			for (int i = 0; i < nPop; i++) {
+				double cost = 0.0;
+				for (int k = 0; k < inst->nedges; k++) {
+					if (population[i][k] != 0.0) {
+						ij = invers_xpos(ij, k, inst);
+						cost += dist(ij[0], ij[1], inst);
+					}
+				}
+				if (inst->verbose >= 10) printf("Individual %d: %0.f\n", i, cost);
+				if (inst->verbose >= 1 && inst->verbose < 10) printf("%.1lf,%lf\n", cost, second() - inst->init_time);
+				if (cost < global_best_lb) {
+					global_best_lb = cost;
+					for (int k = 0; k < inst->nedges; k++)
+						if (population[i][k] == 1.0)
+							inst->best_sol[k] = 1.0;
+						else
+							inst->best_sol[k] = 0.0;
+				}
+			}
+			free(ij);
+			*/
+		}
+
+		if (inst->verbose >= 10) printf("\n*********** FINISH GENERATION %d ***********\n\n", g);
+		if (inst->verbose >= 10) {
+			printf("\nBEST LB of Population: %.1lf \n", global_best_lb);
+			printf("\n");
 		}
 		fflush(stdout);
-		if (inst->verbose > 10) printf("\n");
 		remaining_time -= second() - ini;
 	}
-	free_ga(population, frequencyTable, nPop);
-	//write_list_lb(head_save);
 
+	for (int k = 0; k < inst->nedges; k++)
+		if (global_best_sol[k] == 1.0)
+			inst->best_sol[k] = 1.0;
+		else
+			inst->best_sol[k] = 0.0;
+	inst->best_lb = global_best_lb;
+	best_two_opt(inst);
+	free(global_best_sol);
+	free_ga(population, frequencyTable, nPop);
 
 }
 void init_population(tspinstance* inst, double** population, int nPop) {
-
+	int status = 1;
 	for (int i = 0; i < nPop; i++) {
-		heur_grasp(inst, 1);
+		inst->best_lb = CPX_INFBOUND;
+		clear_sol(inst);
+
+		switch (rand() % 5) {
+		case 0:
+			n_grasp(inst, &status, (inst->nnodes < 1000) ? 10 : (inst->nnodes > 10000) ? 2 : 5, .33, .33);
+			break;
+		case 1:
+			n_grasp(inst, &status, (inst->nnodes < 1000) ? 10 : (inst->nnodes > 10000) ? 2 : 5, .95, .03);
+			break;
+		case 2:
+			n_greedy(NULL, NULL, inst, &status, (inst->nnodes < 1000) ? 100 : (inst->nnodes > 10000) ? 10 : 30);		// greedy more times (heur_greedy too long over 500 nodes)
+			break;
+		case 3:
+			n_greedy(NULL, NULL, inst, &status, (inst->nnodes < 1000) ? 10 : (inst->nnodes > 10000) ? 2 : 5);
+			break;
+		case 4:
+			heur_insertion(NULL, NULL, inst, &status);
+			break;
+		default:
+			break;
+		}
+
 		//best_two_opt(inst);
 		population[i] = (double*)calloc(inst->nedges, sizeof(double));
 		for (int j = 0; j < inst->nedges; j++) {
 			population[i][j] = inst->best_sol[j];
 		}
-		clear_sol(inst);
 	}
 }
 void init_frequency_edges(tspinstance* inst, double** population, int* frequencyTable, int nPop) {
@@ -2795,6 +2888,7 @@ void swap(double* a, double* b)
 	*a = *b;
 	*b = temp;
 }
+
 int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, int pB, int nKids) {
 	/*
 		- Generate an undirected multigraph defined as GAB = (V; EA U EB).
@@ -2833,6 +2927,7 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 	int countCycle = 0;
 	extract_ABcycles(inst, population, pA, pB, ABcycles, graph_AB, &countCycle, nKids, edges_cycles_EA);
 	if (inst->verbose >= 100) {
+		printf("\n**** INDIVIDUALS POPULATION ****");
 		print_population(inst, ABcycles, countCycle);
 		printf("\n**** EDGES CYCLES EA ****");
 		for (int i = 0; i < countCycle; i++) {
@@ -2864,13 +2959,15 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 
 	int* idx_effective = (int*)calloc(real_nKids, sizeof(int));
 	int i_eff = 0;
+	int* ij= (int*)calloc(2, sizeof(int));
 	for (int i = 0; i < real_nKids; i++) {
 
 		int* countN = (int*)calloc(inst->nnodes, sizeof(int));
 		for (int k = 0; k < inst->nedges; k++) {
 			if (ABcycles[i][k] >= 1.0) {
-				countN[invers_xpos(k, inst)[0]]++;
-				countN[invers_xpos(k, inst)[1]]++;
+				ij = invers_xpos(ij, k, inst);
+				countN[ij[0]]++;
+				countN[ij[1]]++;
 			}
 		}
 		int effective = 0;
@@ -2888,20 +2985,29 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 		}
 
 	}
+	free(ij);
 
 	int avoid = 0;
 	for (int i = 0, temp_i = 0; i < i_eff; i++, temp_i++) {
 
-		double* y = (double*)calloc(inst->nedges, sizeof(double));
+		int countN = 0;
 		if (inst->verbose > 10) {
-			printf("\nEdges of y (EA): \n");
+			printf("\n\n*** Current Effective AB_CYCLE %d: ", i);
 			for (int j = 0; j < inst->nedges; j++) {
-				y[j] = population[pA][j];
-				if (y[j] == 1.0)
+				if (ABcycles[idx_effective[i]][j] >= 1.0)
 					printf("%d ", j);
 			}
 		}
-		if (inst->verbose > 100)
+
+
+		double* y = (double*)calloc(inst->nedges, sizeof(double));
+		if (inst->verbose > 10) printf("\nEdges of y (EA): \n");
+		for (int j = 0; j < inst->nedges; j++) {
+			y[j] = population[pA][j];
+			if (y[j] == 1.0 && inst->verbose > 10)
+				printf("%d ", j);
+		}
+		if (inst->verbose >= 101)
 			plot_single(inst, y);
 
 		if (inst->verbose > 10) {
@@ -2911,7 +3017,7 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 					printf("%d ", j);
 			}
 		}
-		if (inst->verbose > 100)
+		if (inst->verbose >= 101)
 			plot_single(inst, population[pB]);
 
 		if (inst->verbose > 10) printf("\nEdges of EA removed from y: \n");
@@ -2921,6 +3027,7 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 					if(ABcycles[idx_effective[i]][edges_cycles_EA[idx_effective[i]][j]] >= 1.0) {
 						if (inst->verbose > 10) printf("%d ", edges_cycles_EA[idx_effective[i]][j]);
 						y[edges_cycles_EA[idx_effective[i]][j]]--;
+						countN++;
 					}
 		if (inst->verbose > 10){
 			printf("\nEdges of y After Removing: \n");
@@ -2929,7 +3036,7 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 					printf("%d ", j);
 			}
 		}
-		if (inst->verbose > 100)
+		if (inst->verbose >= 101)
 			plot_single(inst, y);
 
 		if (inst->verbose > 10) printf("\nEdges of EB added to y: \n");
@@ -2939,11 +3046,12 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 				for (int w = 0; w < inst->nnodes; w++) {
 					if (edges_cycles_EA[idx_effective[i]][w] == j && ABcycles[idx_effective[i]][j] <= 1.0) {
 						found = 1;
-						if (inst->verbose > 10) printf("%d(NO) ", j);
+						if (inst->verbose > 1000) printf("%d(NO) ", j);
 					}
 				}
 				if (!found) {
 					y[j]++;
+					countN--;
 					if (inst->verbose > 10) printf("%d ", j);
 				}
 			}
@@ -2957,16 +3065,29 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 					printf("%d(2) ", j);
 			}
 		}
-		if (inst->verbose > 100)
+		if (inst->verbose >= 101)
 			plot_single(inst, y);
 
 
 
 		// Patching
+		int* ij= (int*)calloc(2, sizeof(int));
 		for (int j = 0; j < inst->nedges; j++) {
-			if (y[j] != 0.0 && inst->verbose >= 1000)
-				printf("%d <- %d, %d\n", j, invers_xpos(j, inst)[0], invers_xpos(j, inst)[1]);
+			if (y[j] != 0.0 && inst->verbose >= 1000) {
+				ij = invers_xpos(ij, j, inst);
+				printf("%d <- %d, %d\n", j, ij[0], ij[1]);
+			}
+
 			inst->best_sol[j] = y[j];
+		}
+		free(ij);
+
+		if (countN != 0) {
+			if (inst->verbose >= 1) printf("*********************** Cycle y, before patching, created uncorrecty!! (row 3003) ***********************");
+			temp_i--;
+			avoid++;
+			free(y);
+			continue;
 		}
 
 		int res = patching_two_edges(inst, y);
@@ -2979,14 +3100,18 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 
 			kids[temp_i] = (double*)calloc(inst->nedges, sizeof(double));
 
+			int* ij= (int*)calloc(2, sizeof(int));
 			for (int j = 0; j < inst->nedges; j++) {
-				if (inst->best_sol[j] != 0.0 && inst->verbose >= 1000)
-					printf("%d <- %d, %d\n", j, invers_xpos(j, inst)[0], invers_xpos(j, inst)[1]);
+				if (inst->best_sol[j] != 0.0 && inst->verbose >= 1000){
+					ij = invers_xpos(ij, j, inst);
+					printf("%d <- %d, %d\n", j, ij[0], ij[1]);
+				}
 				if (inst->best_sol[j] == 2.0)
 					kids[temp_i][j] = 1.0;
 				else
 					kids[temp_i][j] = inst->best_sol[j];
 			}
+			free(ij);
 
 			//plot_single(inst, kids[i]);
 		}
@@ -2996,7 +3121,7 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 	}
 
 	if (inst->verbose > 100) {
-		printf("\nKIDS OBTAINED: \n");
+		printf("\nKIDS OBTAINED:");
 		print_population(inst, kids, i_eff - avoid);
 	}
 
@@ -3018,169 +3143,6 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 		- If the current traced path is not empty, start the tracing process again from the end of the current traced path.
 		Otherwise, start the tracing process by randomly selecting a vertex from among those linked by at least one edge in GAB.
 		- If there is no edge in GAB, iterations of the tracing process are terminated.
-
-
-	int* succA = (int*)calloc(inst->nnodes, sizeof(int));
-	int* prevA = (int*)calloc(inst->nnodes, sizeof(int));
-	build_sol_ga(inst, population[pA], succA, prevA);
-
-	int* succB = (int*)calloc(inst->nnodes, sizeof(int));
-	int* prevB = (int*)calloc(inst->nnodes, sizeof(int));
-	build_sol_ga(inst, population[pB], succB, prevB);
-
-	int init_rand_vertex = -1;
-	double* traced_AB = (double*)calloc(inst->nedges, sizeof(double));
-
-	int A_or_B = 1;
-	int nextRight = -1, nextLeft = -1, nextEdgeR = -1, nextEdgeL = -1;
-	int tourFound = 0;
-	int EdgeInGAB = 1;
-	while (EdgeInGAB) {
-
-		if (init_rand_vertex == -1) {
-			init_rand_vertex = rand() % inst->nnodes;
-		}
-
-		// Find next vertex parentA or parentB and so find EA or EB. Remove it from GAB, add it to traced_GAB
-		if (A_or_B) {
-
-			nextLeft = prevA[init_rand_vertex];
-			nextEdgeL = xpos(nextLeft, init_rand_vertex, inst);
-
-			nextRight = succA[init_rand_vertex];
-			nextEdgeR = xpos(init_rand_vertex, nextRight, inst);
-
-			if (graph_AB[nextEdgeL] == 0.0 && graph_AB[nextEdgeR] == 0.0) {
-				init_rand_vertex = -1;
-			}
-			else if (graph_AB[nextEdgeL] == 1.0 && graph_AB[nextEdgeR] == 1.0) {
-				if (rand() % 2 == 0) {
-					graph_AB[nextEdgeL] = 0.0;
-					traced_AB[nextEdgeL] = 1.0;
-					init_rand_vertex = nextLeft;
-				}
-				else {
-					graph_AB[nextEdgeR] = 0.0;
-					traced_AB[nextEdgeR] = 1.0;
-					init_rand_vertex = nextRight;
-				}
-			}
-			else if (graph_AB[nextEdgeL] == 1.0) {
-				graph_AB[nextEdgeL] = 0.0;
-				traced_AB[nextEdgeL] = 1.0;
-				init_rand_vertex = nextLeft;
-			}
-			else {
-				graph_AB[nextEdgeR] = 0.0;
-				traced_AB[nextEdgeR] = 1.0;
-				init_rand_vertex = nextRight;
-			}
-
-			A_or_B = 0;
-		}
-		else {
-
-			nextLeft = prevB[init_rand_vertex];
-			nextEdgeL = xpos(nextLeft, init_rand_vertex, inst);
-
-			nextRight = succB[init_rand_vertex];
-			nextEdgeR = xpos(init_rand_vertex, nextRight, inst);
-
-			if (graph_AB[nextEdgeL] == 0.0 && graph_AB[nextEdgeR] == 0.0) {
-				init_rand_vertex = -1;
-			}
-			else if (graph_AB[nextEdgeL] == 1.0 && graph_AB[nextEdgeR] == 1.0) {
-				if (rand() % 2 == 0) {
-					graph_AB[nextEdgeL] = 0.0;
-					traced_AB[nextEdgeL] = 1.0;
-					init_rand_vertex = nextLeft;
-				}
-				else {
-					graph_AB[nextEdgeR] = 0.0;
-					traced_AB[nextEdgeR] = 1.0;
-					init_rand_vertex = nextRight;
-				}
-			}
-			else if (graph_AB[nextEdgeL] == 1.0) {
-				graph_AB[nextEdgeL] = 0.0;
-				traced_AB[nextEdgeL] = 1.0;
-				init_rand_vertex = nextLeft;
-			}
-			else {
-				graph_AB[nextEdgeR] = 0.0;
-				traced_AB[nextEdgeR] = 1.0;
-				init_rand_vertex = nextRight;
-			}
-
-			A_or_B = 1;
-		}
-
-		if (init_rand_vertex != -1) {
-			evaluate_traced_ABcycle(inst, traced_AB, ABcycles, idxCycle, &tourFound);
-			if (tourFound) {
-				int* countN = (int*)calloc(inst->nnodes, sizeof(int));
-				for (int k = 0; k < inst->nedges; k++) {
-					if (traced_AB[k] == 1.0) {
-						countN[invers_xpos(k, inst)[0]]++;
-						countN[invers_xpos(k, inst)[1]]++;
-					}
-				}
-
-				if (inst->verbose >= 1000) {
-					printf("\ni:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", w);
-					printf("\nc:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", countN[w]);
-					printf("\n");
-				}
-
-				printf("Node with 1 edge remained in traced path\n");
-				int* nodes = (int*)calloc(inst->nnodes, sizeof(int));
-				int idx_nodes = 0;
-				for (int k = 0; k < inst->nnodes; k++) {
-					if (countN[k] == 1) {
-						nodes[idx_nodes] = k;
-						printf("%d ", nodes[idx_nodes]);
-						idx_nodes++;
-					}
-				}
-				printf("\n");
-
-				if (idx_nodes > 0) {
-					//init_rand_vertex = nodes[idx_nodes-1];
-					init_rand_vertex = rand() % (idx_nodes-1);
-					printf("Node choosen: %d\n", init_rand_vertex);
-				}else {
-					init_rand_vertex = -1;
-				}
-
-				free(countN);
-				free(nodes);
-			}
-		}
-
-		printf("\nEdges graph_AB:   ");
-		for (int w = 0; w < inst->nedges; w++)
-			if (graph_AB[w] == 1.0)
-				printf("%2d ", w);
-		printf("\n");
-
-		// Termination criterion
-		EdgeInGAB = 0;
-		for (int w = 0; w < inst->nedges; w++) {
-			if (graph_AB[w] == 1.0) {
-				EdgeInGAB = 1;
-				break;
-			}
-		}
-		if(idxCycle == maxNcycles - 1)
-			EdgeInGAB = 1;
-	}
-	printf("Graph_AB doesn't have any edge or max number [%d] of cycles reatched! ***\n", maxNcycles);
-	free(succA);
-	free(prevA);
-	free(succB);
-	free(prevB);
-	free(traced_AB);
-
 	*/
 
 	int* succA = (int*)calloc(inst->nnodes, sizeof(int));
@@ -3208,7 +3170,7 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 	int countEdges = 0;
 	int countLoop = 0;
 
-	while (EdgeInGAB) {
+	while (EdgeInGAB && second() - inst->init_time < inst->timelimit) {
 
 		if (init_rand_vertex == -1) {
 
@@ -3356,15 +3318,18 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 				tourFound = 0;
 
 				int* countN = (int*)calloc(inst->nnodes, sizeof(int));
+				int* ij= (int*)calloc(2, sizeof(int));
 				for (int k = 0; k < inst->nedges; k++) {
+					ij = invers_xpos(ij, k, inst);
 					if (traced_AB[k] == 1.0) {
-						countN[invers_xpos(k, inst)[0]]++;
-						countN[invers_xpos(k, inst)[1]]++;
+						countN[ij[0]]++;
+						countN[ij[1]]++;
 					}else if (traced_AB[k] == 2.0) {
-						countN[invers_xpos(k, inst)[0]] += 2;
-						countN[invers_xpos(k, inst)[1]] += 2;
+						countN[ij[0]] += 2;
+						countN[ij[1]] += 2;
 					}
 				}
+				free(ij);
 
 				if (inst->verbose >= 10000) {
 					printf("\ni:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", w);
@@ -3397,46 +3362,44 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 				free(countN);
 				free(nodes);
 
-				if (inst->verbose > 10) {
-					printf("\nABcycles: %d\n", (*idxCycle) - 1);
-					for (int w = 0; w < inst->nedges; w++) {
-						if (ABcycles[*idxCycle - 1][w] != 0.0)
-							printf("%d ", w);
-					}
-					printf("\n");
-					printf("\nedges_cycles_EA: %d\n", (*idxCycle) - 1);
-					for (int w = 0; w < inst->nnodes; w++) {
-						printf("%d ", edges_cycles_EA[*idxCycle - 1][w]);
-					}
-					printf("\n");
-				}
-
 				// remove edges of EA from edges_cycles_EA that do not belong to the corresponding tour of ABcycles
 				countEdges = 0;
 				for (int w = 0; w < inst->nnodes; w++) {
 					if (ABcycles[*idxCycle - 1][edges_cycles_EA[*idxCycle - 1][w]] == 0.0) {
-						//edges_cycles_EA[*idxCycle][countEdges] = edges_cycles_EA[*idxCycle - 1][w];
-						//edges_cycles_EA[*idxCycle - 1][w] = -1;
+						if(*idxCycle != maxNcycles)
+							edges_cycles_EA[*idxCycle][countEdges] = edges_cycles_EA[*idxCycle - 1][w];
+						edges_cycles_EA[*idxCycle - 1][w] = -1;
 						countEdges++;
 					}
 				}
 				if (inst->verbose > 10) {
-					printf("\nABcycles: %d\n", (*idxCycle) - 1);
+					printf("\nAfter tour removing:\n - ABcycles: %d\n", (*idxCycle) - 1);
 					for (int w = 0; w < inst->nedges; w++) {
-						if (ABcycles[*idxCycle - 1][w] != 0.0)
+						if (ABcycles[*idxCycle - 1][w] == 1.0)
 							printf("%d ", w);
+						else if (ABcycles[*idxCycle - 1][w] == 2.0)
+							printf("%d(2) ", w);
 					}
-					printf("\nedges_cycles_EA: %d\n", (*idxCycle) - 1);
+					printf("\n - edges_cycles_EA: %d\n", (*idxCycle) - 1);
 					for (int w = 0; w < inst->nnodes; w++) {
-						if (edges_cycles_EA[*idxCycle - 1][w] != -1)
+						if (edges_cycles_EA[*idxCycle - 1][w] != -1 && ABcycles[*idxCycle - 1][edges_cycles_EA[*idxCycle - 1][w]] != 0.0)
 							printf("%d ", edges_cycles_EA[*idxCycle - 1][w]);
 					}
+					if (*idxCycle != maxNcycles) {
+						printf("\n => Remaining values on next edges_cycles_EA: %d\n", *idxCycle);
+						for (int w = 0; w < inst->nnodes; w++) {
+							if (edges_cycles_EA[*idxCycle][w] != -1)
+								printf("%d ", edges_cycles_EA[*idxCycle][w]);
+						}
+					}
+					printf("\n");
+					/*
 					printf("\nedges_cycles_EA: %d\n", (*idxCycle));
 					for (int w = 0; w < inst->nnodes; w++) {
 						if (edges_cycles_EA[*idxCycle][w] != -1)
 							printf("%d ", edges_cycles_EA[*idxCycle][w]);
 					}
-					printf("\n");
+					*/
 				}
 			}
 		}
@@ -3498,6 +3461,7 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 int build_sol_ga(tspinstance* inst, const double* sol, int* succ, int* prev, int* comp, int* ncomp) {
 
 	if (comp != NULL && ncomp != NULL) {
+
 		// initialization of succ, comp and ncomp
 		*ncomp = 0;
 		for (int i = 0; i < inst->nnodes; i++) {
@@ -3552,7 +3516,7 @@ int build_sol_ga(tspinstance* inst, const double* sol, int* succ, int* prev, int
 		}
 
 		// print succ and comp
-		if (inst->verbose >= 1) {
+		if (inst->verbose >= 1000) {
 			printf("\ni:      "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", i);
 			printf("\nsucc:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", succ[i]);
 			printf("\ncomp:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
@@ -3569,19 +3533,21 @@ int build_sol_ga(tspinstance* inst, const double* sol, int* succ, int* prev, int
 
 		int* i = (int*)calloc(inst->nnodes, sizeof(int));
 		int* j = (int*)calloc(inst->nnodes, sizeof(int));
+		int* ij= (int*)calloc(2, sizeof(int));
 		int t = 0;
 
 		for (int e = 0; e < inst->nedges; e++) {
 
 			if (sol[e] == 1.0) {
-				i[t] = invers_xpos(e, inst)[0];
-				j[t] = invers_xpos(e, inst)[1];
-				if (inst->verbose > 100)
+				ij = invers_xpos(ij, e, inst);
+				i[t] = ij[0];
+				j[t] = ij[1];
+				if (inst->verbose > 1000)
 					printf("%d <- [%d, %d]\n", e, i[t], j[t]);
 				t++;
-
 			}
 		}
+		free(ij);
 
 		if (inst->verbose >= 10000) {
 			printf("\ni:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", i[w]);
@@ -3650,197 +3616,6 @@ void evaluate_traced_ABcycle(tspinstance* inst, double* traced_AB, double** ABcy
 
 		=> not works if the condition is to have alternate edges EA and EB :(
 
-
-	int* i = (int*)calloc(inst->nnodes, sizeof(int));
-	int* j = (int*)calloc(inst->nnodes, sizeof(int));
-	int* tour = (int*)calloc(inst->nnodes, sizeof(int));
-	for (int k = 0; k < inst->nnodes; k++) {
-		i[k] = -1;
-		j[k] = -1;
-		tour[k] = -1;
-	}
-
-
-	for (int e = 0, t = 0; e < inst->nedges; e++) {
-
-		if (traced_AB[e] == 1.0) {
-			i[t] = invers_xpos(e, inst)[0];
-			j[t] = invers_xpos(e, inst)[1];
-			if (inst->verbose >= 100)
-				printf("%d <- [%d, %d]\n", e, i[t], j[t]);
-			t++;
-
-		}else if (traced_AB[e] == 2.0) {
-			i[t] = invers_xpos(e, inst)[0];
-			j[t] = invers_xpos(e, inst)[1];
-			if (inst->verbose >= 100)
-				printf("%d <- [%d, %d]\n", e, i[t], j[t]);
-			t++;
-			i[t] = invers_xpos(e, inst)[0];
-			j[t] = invers_xpos(e, inst)[1];
-			if (inst->verbose >= 100)
-				printf("%d <- [%d, %d]\n", e, i[t], j[t]);
-			t++;
-
-		}
-	}
-
-	if (inst->verbose >= 100) {
-		printf("i:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", i[w]);
-		printf("\nj:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", j[w]);
-		printf("\n");
-	}
-
-
-	int repeat = 0;
-	do{
-		repeat = 0;
-		int* countN = (int*)calloc(inst->nnodes, sizeof(int));
-		for (int k = 0; k < inst->nnodes; k++) {
-			if (i[k] != -1)
-				countN[i[k]]++;
-			if (j[k] != -1)
-				countN[j[k]]++;
-		}
-
-		for (int k = 0; k < inst->nnodes; k++) {
-			if (countN[k] == 1) {
-				for (int h = 0; h < inst->nnodes; h++) {
-					if (i[h] == k) {
-						i[h] = -1;
-						j[h] = -1;
-						repeat = 1;
-						break;
-					}
-					if (j[h] == k) {
-						i[h] = -1;
-						j[h] = -1;
-						repeat = 1;
-						break;
-					}
-				}
-			}
-		}
-		if (inst->verbose >= 1000) {
-			printf("\ni:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", w);
-			printf("\nc:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", countN[w]);
-			printf("\n");
-		}
-	} while (repeat);
-
-	// check in i-j if a tour is remained!
-	int start = -1;
-	int current = -1;
-	int next = -1;
-	int idx = 0;
-	for (int k = 0; k < inst->nnodes; k++) {
-		if (i[k] != -1) {
-			current = i[k];
-			start = current;
-			next = j[k];
-			i[k] = -1;
-			j[k] = -1;
-			tour[idx] = current;
-			idx++;
-			printf("current, next -> [%d, %d]\n", current, next);
-			break;
-		}
-		else if (j[k] != -1) {
-			current = j[k];
-			start = current;
-			next = i[k];
-			i[k] = -1;
-			j[k] = -1;
-			tour[idx] = current;
-			idx++;
-			printf("current, next -> [%d, %d]\n", current, next);
-			break;
-		}
-	}
-
-	if (inst->verbose >= 1000) {
-		printf("\ni:    "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", i[w]);
-		printf("\nj:    "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", j[w]);
-		printf("\n");
-	}
-
-	*tourFound = 0;
-	if (current != -1) {
-		do {
-			current = next;
-			tour[idx] = current;
-			idx++;
-			for (int k = 0; k < inst->nnodes; k++) {
-				if (i[k] == current) {
-					next = j[k];
-					i[k] = -1;
-					j[k] = -1;
-					printf("current, next -> [%d, %d]\n", current, next);
-					break;
-				}
-				else if (j[k] == current) {
-					next = i[k];
-					i[k] = -1;
-					j[k] = -1;
-					printf("current, next -> [%d, %d]\n", current, next);
-					break;
-				}
-			}
-			if (inst->verbose >= 1000) {
-				printf("\ni:    "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", i[w]);
-				printf("\nj:    "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", j[w]);
-				printf("\ntour: "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", tour[w]);
-				printf("\n");
-			}
-			if (next == start) {
-				*tourFound = 1;
-				break;
-			}
-		} while (current != -1);
-	}
-
-	if (inst->verbose >= 100) {
-		printf("\ni:    "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", i[w]);
-		printf("\nj:    "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", j[w]);
-		printf("\ntour: "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", tour[w]);
-		printf("\n");
-	}
-
-	if (*tourFound) {
-		for (int k = 0; k < inst->nnodes; k++) {
-			if (tour[k] == -1) {
-				break;
-			}else{
-				int edge = xpos(tour[k], tour[k + 1] == -1 ? tour[0] : tour[k + 1], inst);
-				ABcycles[*idxCycle][edge]++;
-				traced_AB[edge]--;
-			}
-		}
-	}
-
-	if (inst->verbose >= 99) {
-		printf("\nABcycles:   ");
-		for (int w = 0; w < inst->nedges; w++) {
-			if(ABcycles[*idxCycle][w] == 1.0)
-				printf("%2d ", w);
-			else if (ABcycles[*idxCycle][w] == 2.0)
-				printf("%2d(%.0f) ", w, ABcycles[*idxCycle][w]);
-		}
-		printf("\ntraced_AB:  ");
-		for (int w = 0; w < inst->nedges; w++) {
-			if(traced_AB[w] == 1.0)
-				printf("%2d ", w);
-			else if (traced_AB[w] == 2.0)
-				printf("%2d(%.0f) ", w, traced_AB[w]);
-		}
-		printf("\n");
-	}
-	if (tour[0] != -1)
-		(*idxCycle)++;
-
-	free(i);
-	free(j);
-	free(tour);
 	*/
 
 	int* i = (int*)calloc(inst->nnodes * 2.0, sizeof(int));
@@ -3851,31 +3626,34 @@ void evaluate_traced_ABcycle(tspinstance* inst, double* traced_AB, double** ABcy
 		j[k] = -1;
 		tour[k] = -1;
 	}
-
+	int* ij= (int*)calloc(2, sizeof(int));
 	for (int e = 0, t = 0; e < inst->nedges; e++) {
-
 		if (traced_AB[e] == 1.0) {
-			i[t] = invers_xpos(e, inst)[0];
-			j[t] = invers_xpos(e, inst)[1];
+			ij = invers_xpos(ij, e, inst);
+			i[t] = ij[0];
+			j[t] = ij[1];
 			if (inst->verbose > 100)
 				printf("%d <- [%d, %d]\n", e, i[t], j[t]);
 			t++;
-
 		}
 		else if (traced_AB[e] == 2.0) {
-			i[t] = invers_xpos(e, inst)[0];
-			j[t] = invers_xpos(e, inst)[1];
-			if (inst->verbose > 100)
-				printf("%d <- [%d, %d]\n", e, i[t], j[t]);
-			t++;
-			i[t] = invers_xpos(e, inst)[0];
-			j[t] = invers_xpos(e, inst)[1];
+
+
+			ij = invers_xpos(ij, e, inst);
+			i[t] = ij[0];
+			j[t] = ij[1];
 			if (inst->verbose > 100)
 				printf("%d <- [%d, %d]\n", e, i[t], j[t]);
 			t++;
 
+			i[t] = ij[0];
+			j[t] = ij[1];
+			if (inst->verbose > 100)
+				printf("%d <- [%d, %d]\n", e, i[t], j[t]);
+			t++;
 		}
 	}
+	free(ij);
 
 	if (inst->verbose > 100) {
 		printf("\ni:   "); for (int w = 0; w < inst->nnodes * 2; w++) printf("%2d ", i[w]);
@@ -3918,7 +3696,8 @@ void evaluate_traced_ABcycle(tspinstance* inst, double* traced_AB, double** ABcy
 		if (inst->verbose > 10) {
 			printf("\nVector Tour:\n");
 			for (int k = 0; k < inst->nnodes * 2; k++) {
-				printf("%2d ", tour[k]);
+				if(tour[k] != -1)
+					printf("%2d ", tour[k]);
 			}
 			printf("\n");
 		}
@@ -3933,7 +3712,7 @@ void evaluate_traced_ABcycle(tspinstance* inst, double* traced_AB, double** ABcy
 			}
 		}
 
-		if (inst->verbose >= 99) {
+		if (inst->verbose >= 100) {
 			printf("\nABcycles:   ");
 			for (int w = 0; w < inst->nedges; w++) {
 				if (ABcycles[*idxCycle][w] == 1.0)
@@ -4073,7 +3852,14 @@ tour_list* Tree_recursive(tspinstance* inst, int current, int* nodes_one, int* n
 
 	int pos = contained_in_posix(&visited_nodes, current);
 	if (pos == -1) {
-
+		if (second() - inst->init_time > inst->timelimit) {
+			if (tours == NULL) {
+				return NULL;
+			}
+			else {
+				return tours;
+			}
+		}
 		int pred = -1;
 		for (int k = 0; k < inst->nnodes * 2; k++) {
 			if (!(*found)) {
@@ -4190,24 +3976,24 @@ void push_list_on_list(tspinstance* inst, tour_list** head_ref, tour_list** path
 
 	int* copy_edges_cycles_EA_current = (int*)calloc(inst->nnodes, sizeof(int));
 
-	if(inst->verbose >= 2000)
+	if(inst->verbose >= 1000)
 		printf("\nedges_cycles_EA:\n");
 	for (int w = 0; w < inst->nnodes; w++) {
 		copy_edges_cycles_EA_current[w] = edges_cycles_EA_current[w];
-		if (inst->verbose >= 2000)
+		if (inst->verbose >= 1000 && copy_edges_cycles_EA_current[w] != -1)
 			printf("%d ", copy_edges_cycles_EA_current[w]);
 	}
-	if (inst->verbose >= 2000)
+	if (inst->verbose >= 1000)
 		printf("\n");
 
-	if (inst->verbose > 100) printf("\nTOUR to be considered:\n");
+	if (inst->verbose > 1000) printf("\nTOUR to be considered:\n");
 	int i = 0, count = 0, pos_EA = 0, alternate = -1, notAlternate = 0;
 	while (test_path != NULL) {
 
 		if (i <= pos) {
 			count++;
 
-			if (inst->verbose > 100) printf("%d ", test_path->arc);
+			if (inst->verbose > 1000) printf("%d ", test_path->arc);
 
 			if (alternate == -1) {
 				pos_EA = contained_in_posix_array(inst->nnodes, copy_edges_cycles_EA_current, test_path->arc);
@@ -4217,13 +4003,15 @@ void push_list_on_list(tspinstance* inst, tour_list** head_ref, tour_list** path
 				}
 				else
 					alternate = 0;		// not contained
-			}else {
+			}
+			else {
 				if (alternate) {
 					pos_EA = contained_in_posix_array(inst->nnodes, copy_edges_cycles_EA_current, test_path->arc);
 					if (pos_EA != -1) {
 						notAlternate = 1;
 						break;
-					}else {
+					}
+					else {
 						alternate = 0;
 					}
 				}
@@ -4232,20 +4020,24 @@ void push_list_on_list(tspinstance* inst, tour_list** head_ref, tour_list** path
 					if (pos_EA != -1) {
 						alternate = 1;
 						copy_edges_cycles_EA_current[pos_EA] = -1;
-					}else {
+					}
+					else {
 						notAlternate = 1;
 						break;
 					}
 				}
 			}
 		}
+		else
+			break;
+
 		test_path = test_path->next;
 		i++;
 	}
-	if (inst->verbose > 100) printf("\n");
+	if (inst->verbose > 1000) printf("\n");
 
 	if (count % 2 != 0 || notAlternate) {							// Odd number of edges certainly not respected the alternating conditions between EA and EB
-		if (inst->verbose > 100) printf("Tour doesn't respect the alternation. Skipped!\n");
+		if (inst->verbose > 1000) printf("Tour doesn't respect the alternation. Skipped!\n");
 		free(copy_edges_cycles_EA_current);
 		return;
 	}
@@ -4269,7 +4061,7 @@ void push_list_on_list(tspinstance* inst, tour_list** head_ref, tour_list** path
 	tours->next = *head_ref;
 	(*head_ref) = tours;
 
-	if (inst->verbose > 10) {
+	if (verbose_without_inst) {
 		printf("\nTour Added:\n");
 		print_list(new_tour);
 	}
@@ -4316,7 +4108,7 @@ int patching_two_edges(tspinstance* inst, double* tour)	 {
 	if (res > 1)
 		return 1;
 	if (*ncomp == 1) {
-		printf("WARNING: solution already has 1 tour, patching has no effect.\n");
+		if (inst->verbose > 10) printf("WARNING: solution already has 1 tour, patching has no effect.\n");
 		free(succ);
 		free(comp);
 		free(ncomp);
@@ -4325,9 +4117,9 @@ int patching_two_edges(tspinstance* inst, double* tour)	 {
 
 	while (*ncomp > 1) {
 		single_patch(inst, succ, comp, ncomp);
-		if (inst->verbose > 100) {
-			print_succ(succ, inst);
+		if (inst->verbose >= 101) {
 			if (inst->verbose >= 10000) {
+				print_succ(succ, inst);
 				printf("comp:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
 				printf("\n");
 			}
@@ -4412,20 +4204,20 @@ void update_frequency_table(tspinstance* inst, int* frequencyTable, double* pA, 
 }
 double calc_L(tspinstance* inst, double** population, int nPop) {
 	double L = 0.0;
-	int* ij = (int*)calloc(2, sizeof(int));
+	int* ij= (int*)calloc(2, sizeof(int));
 	for (int k = 0; k < nPop; k++) {
 
 		double indiv_cost = 0.0;
-		int i = 0, j = 0;
 		for (int w = 0; w < inst->nedges; w++) {
 			if (population[k][w] == 1.0) {
-				ij = invers_xpos(w, inst);
+				ij = invers_xpos(ij, w, inst);
 				indiv_cost += dist(ij[0], ij[1], inst);
 			}
 		}
 		L += indiv_cost;
 
 	}
+	free(ij);
 	L = L / nPop;
 	return L;
 }
@@ -4442,7 +4234,6 @@ double calc_H(tspinstance* inst, int* frequencyTable, int nPop){
 
 void print_population(tspinstance* inst, double** population, int nPop) {
 	if (inst->verbose > 1) {
-		printf("\n**** INDIVIDUALS POPULATION ****");
 		for (int i = 0; i < nPop; i++) {
 			printf("\nIndividual %d: ", i);
 			for (int j = 0; j < inst->nedges; j++) {
@@ -4992,7 +4783,7 @@ void two_opt(tspinstance *inst) {
 	int *comp = (int*) calloc(inst->nnodes, sizeof(int));
 	int *ncomp = (int*) calloc(1, sizeof(int));
 	build_sol(inst, succ, comp, ncomp);
-	if (inst->verbose >= 100) print_succ(succ, inst);
+	if (inst->verbose >= 1000) print_succ(succ, inst);
 	if (*ncomp != 1) print_error("call two_opt with best_sol with multiple tour");
 
 	// search in 2opt if a better solution is found
@@ -5020,7 +4811,7 @@ void two_opt(tspinstance *inst) {
 				best_i = i;
 				best_j = j;
 				best_improve = cur_improve;
-				if (inst->verbose >= 100) printf("BTO best_improve: %7.1f\n", best_improve);
+				if (inst->verbose >= 100) printf("2Opt best_improve: %7.1f\n", best_improve);
 			}
 			j = succ[j];
 		}
@@ -5050,13 +4841,13 @@ void two_opt(tspinstance *inst) {
 			pre_node = succ[pre_node];
 			succ[cur_node] = suc_node;
 		}
-		if (inst->verbose >= 100) print_succ(succ, inst);
+		if (inst->verbose >= 1000) print_succ(succ, inst);
 	}
 	if (inst->verbose >= 100) printf("BTO i j: %3d %3d\n", i,j);
 	if (inst->verbose >= 100) printf("BTO Best_improve: %f\n", best_improve);
 	inst->best_lb -= best_improve;  // update best_lb
 	if (inst->verbose >= 100) printf("BTO new best_lb: %7.1f\n", inst->best_lb);
-	if (inst->verbose >= 100) print_succ(succ, inst);
+	if (inst->verbose >= 1000) print_succ(succ, inst);
 	free(succ);
 	free(comp);
 	free(ncomp);

@@ -1,0 +1,15 @@
+data_heavy\d1291.tsp
+data_heavy\d1655.tsp
+data_heavy\fl1400.tsp
+data_heavy\fl1577.tsp
+data_heavy\nrw1379.tsp
+data_heavy\pcb1173.tsp
+data_heavy\pr1002.tsp
+data_heavy\rl1304.tsp
+data_heavy\rl1323.tsp
+data_heavy\rl1889.tsp
+data_heavy\u1060.tsp
+data_heavy\u1432.tsp
+data_heavy\u1817.tsp
+data_heavy\vm1084.tsp
+data_heavy\vm1748.tsp
