@@ -2766,7 +2766,7 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 			}
 			free(ij);
 			if (inst->verbose >= 10) printf("Individual %d: %0.f\n", i, cost);
-			if (inst->verbose >= 1 && inst->verbose < 10) printf("%.1lf,%lf\n", cost, second() - inst->init_time);
+			if (inst->verbose > 1 && inst->verbose < 10) printf("%.1lf,%lf\n", cost, second() - inst->init_time);
 			if (cost < global_best_lb) {
 				updateLB = 0;
 				global_best_lb = cost;
@@ -3007,7 +3007,7 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 			if (y[j] == 1.0 && inst->verbose > 10)
 				printf("%d ", j);
 		}
-		if (inst->verbose > 101)
+		if (inst->verbose >= 101)
 			plot_single(inst, y);
 
 		if (inst->verbose > 10) {
@@ -3017,7 +3017,7 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 					printf("%d ", j);
 			}
 		}
-		if (inst->verbose > 101)
+		if (inst->verbose >= 101)
 			plot_single(inst, population[pB]);
 
 		if (inst->verbose > 10) printf("\nEdges of EA removed from y: \n");
@@ -3036,7 +3036,7 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 					printf("%d ", j);
 			}
 		}
-		if (inst->verbose > 101)
+		if (inst->verbose >= 101)
 			plot_single(inst, y);
 
 		if (inst->verbose > 10) printf("\nEdges of EB added to y: \n");
@@ -3065,7 +3065,7 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 					printf("%d(2) ", j);
 			}
 		}
-		if (inst->verbose > 101)
+		if (inst->verbose >= 101)
 			plot_single(inst, y);
 
 
@@ -4117,9 +4117,9 @@ int patching_two_edges(tspinstance* inst, double* tour)	 {
 
 	while (*ncomp > 1) {
 		single_patch(inst, succ, comp, ncomp);
-		if (inst->verbose > 101) {
-			print_succ(succ, inst);
+		if (inst->verbose >= 101) {
 			if (inst->verbose >= 10000) {
+				print_succ(succ, inst);
 				printf("comp:   "); for (int i = 0; i < inst->nnodes; i++) printf("%6d", comp[i]);
 				printf("\n");
 			}
@@ -4783,7 +4783,7 @@ void two_opt(tspinstance *inst) {
 	int *comp = (int*) calloc(inst->nnodes, sizeof(int));
 	int *ncomp = (int*) calloc(1, sizeof(int));
 	build_sol(inst, succ, comp, ncomp);
-	if (inst->verbose >= 100) print_succ(succ, inst);
+	if (inst->verbose >= 1000) print_succ(succ, inst);
 	if (*ncomp != 1) print_error("call two_opt with best_sol with multiple tour");
 
 	// search in 2opt if a better solution is found
@@ -4811,7 +4811,7 @@ void two_opt(tspinstance *inst) {
 				best_i = i;
 				best_j = j;
 				best_improve = cur_improve;
-				if (inst->verbose >= 100) printf("BTO best_improve: %7.1f\n", best_improve);
+				if (inst->verbose >= 100) printf("2Opt best_improve: %7.1f\n", best_improve);
 			}
 			j = succ[j];
 		}
@@ -4841,13 +4841,13 @@ void two_opt(tspinstance *inst) {
 			pre_node = succ[pre_node];
 			succ[cur_node] = suc_node;
 		}
-		if (inst->verbose >= 100) print_succ(succ, inst);
+		if (inst->verbose >= 1000) print_succ(succ, inst);
 	}
 	if (inst->verbose >= 100) printf("BTO i j: %3d %3d\n", i,j);
 	if (inst->verbose >= 100) printf("BTO Best_improve: %f\n", best_improve);
 	inst->best_lb -= best_improve;  // update best_lb
 	if (inst->verbose >= 100) printf("BTO new best_lb: %7.1f\n", inst->best_lb);
-	if (inst->verbose >= 100) print_succ(succ, inst);
+	if (inst->verbose >= 1000) print_succ(succ, inst);
 	free(succ);
 	free(comp);
 	free(ncomp);
