@@ -148,9 +148,9 @@ def plot_pp(models_ratio, domain='time', name='res'):
         ax.set_title('Time measure performance profile')
     elif domain == 'lb':
         ax.legend(loc='lower right', shadow=True, fontsize='x-large')
-        ax.set_title('Best_lb measure performance profile')
+        ax.set_title('Best solution performance profile')
 
-    plt.xlabel('$ k $')
+    plt.xlabel('$ Solution cost ratio $')
     plt.ylabel('$ \\% $')
     plt.savefig(name + '_' + domain + '.png')
     plt.show()
