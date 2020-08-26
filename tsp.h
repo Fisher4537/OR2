@@ -105,7 +105,7 @@ char* model_name(int i);
 char * setup_model(tspinstance* inst);
 int TSPopt(tspinstance *inst);
 int xpos(int i, int j, tspinstance *inst);
-int* invers_xpos(int pos, tspinstance* inst);
+int* invers_xpos(int* ij, int pos, tspinstance* inst);
 int asym_xpos(int i, int j, tspinstance *inst);
 int asym_upos(int i, tspinstance *inst);
 int asym_ypos(int i, int j, tspinstance* inst);

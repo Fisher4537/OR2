@@ -374,11 +374,10 @@ int xpos(int i, int j, tspinstance *inst) {
 	return i*inst->nnodes + j - ((i + 1)*(i + 2))/2; 				// default case
 }
 
-int* invers_xpos(int pos, tspinstance* inst) {
+int* invers_xpos(int* ij, int pos, tspinstance* inst) {
 	if (pos < 0) print_error(" position cannot be negative");
 	if (pos > (inst->nnodes * inst->nnodes - inst->nnodes - 2) / 2) print_error(" position exceeds max value");
 
-	int* ij = (int*)calloc(2, sizeof(int));
 	ij[0] = xpos_to_i(pos, inst->nnodes);
 	ij[1] = pos - xpos(ij[0], ij[0]+1, inst) + ij[0]+1;
 
@@ -1501,13 +1500,13 @@ int heur_insertion(CPXENVptr env, CPXLPptr lp, tspinstance* inst, int* status) {
 	}
 
 	// Copy and convert to double sol in best_sol
-	int* ij;
+	int* ij= (int*)calloc(2, sizeof(int));
 	for (int i = 0; i < inst->nnodes; i++) {
-		ij = invers_xpos(best_sol[i], inst);
+		ij = invers_xpos(ij, best_sol[i], inst);
 		inst->best_sol[best_sol[i]] = 1.0;
 		inst->best_lb += dist(ij[0], ij[1], inst);
-		free(ij);
 	}
+	free(ij);
 
 	return *status;
 }
@@ -1516,11 +1515,11 @@ int insertion_move(tspinstance* inst, int* best_sol, int count_sol, int vertex) 
 	double temp_min = INT_MAX;
 	int best_i = -1, best_j = -1, pos, replace_pos = -1;
 
-	int* ij;
+	int* ij= (int*)calloc(2, sizeof(int));
 	for (pos = 0; pos < count_sol; pos++) {
 		if (inst->verbose > 100)
 			printf("Side %d in pos %d is contained in best_sol => calculate extra_mileage...", best_sol[pos], pos);
-		ij = invers_xpos(best_sol[pos], inst);
+		ij = invers_xpos(ij, best_sol[pos], inst);
 		temp_min = dist(ij[0], vertex, inst) + dist(vertex, ij[1], inst) - dist(ij[0], ij[1], inst);
 
 		if (temp_min < extra_mileage) {
@@ -1533,8 +1532,8 @@ int insertion_move(tspinstance* inst, int* best_sol, int count_sol, int vertex) 
 		}
 		else if (inst->verbose > 100)
 			printf("\n");
-		free(ij);
 	}
+	free(ij);
 
 	if (inst->verbose > 10)
 		printf("***** Replace %d ", best_sol[replace_pos]);
@@ -2682,14 +2681,13 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 
 	init_population(inst, population, nPop);
 	// save best population LB found
-	int* ij;
+	int* ij= (int*)calloc(2, sizeof(int));
 	for (int i = 0; i < nPop; i++) {
 		double cost = 0.0;
 		for (int k = 0; k < inst->nedges; k++) {
 			if (population[i][k] != 0.0) {
-				ij = invers_xpos(k, inst);
+				ij = invers_xpos(ij, k, inst);
 				cost += dist(ij[0], ij[1], inst);
-				free(ij);
 			}
 		}
 		if (cost < global_best_lb) {
@@ -2701,6 +2699,7 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 					global_best_sol[k] = 0.0;
 		}
 	}
+	free(ij);
 	if (inst->verbose > 10) {
 		printf("\n**** INDIVIDUALS POPULATION ****");
 		print_population(inst, population, nPop);
@@ -2758,14 +2757,14 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 			// Check if this kid update the global_LB
 			updateLB++;
 			double cost = 0.0;
-			int * ij;
+			int* ij= (int*)calloc(2, sizeof(int));
 			for (int k = 0; k < inst->nedges; k++) {
 				if (population[i][k] != 0.0) {
-					ij = invers_xpos(k, inst);
+					ij = invers_xpos(ij, k, inst);
 					cost += dist(ij[0], ij[1], inst);
-					free(ij);
 				}
 			}
+			free(ij);
 			if (inst->verbose >= 10) printf("Individual %d: %0.f\n", i, cost);
 			if (inst->verbose >= 1 && inst->verbose < 10) printf("%.1lf,%lf\n", cost, second() - inst->init_time);
 			if (cost < global_best_lb) {
@@ -2787,14 +2786,13 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 			// print population LBs
 			/*
 			if (inst->verbose >= 10) printf("\nEvaluate LBs:\n");
-			int* ij;
+			int* ij= (int*)calloc(2, sizeof(int));
 			for (int i = 0; i < nPop; i++) {
 				double cost = 0.0;
 				for (int k = 0; k < inst->nedges; k++) {
 					if (population[i][k] != 0.0) {
-						ij = invers_xpos(k, inst);
+						ij = invers_xpos(ij, k, inst);
 						cost += dist(ij[0], ij[1], inst);
-						free(ij);
 					}
 				}
 				if (inst->verbose >= 10) printf("Individual %d: %0.f\n", i, cost);
@@ -2808,6 +2806,7 @@ int genetic_algorithm(CPXENVptr env, tspinstance* inst, int* status) {
 							inst->best_sol[k] = 0.0;
 				}
 			}
+			free(ij);
 			*/
 		}
 
@@ -2960,16 +2959,15 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 
 	int* idx_effective = (int*)calloc(real_nKids, sizeof(int));
 	int i_eff = 0;
-	int * ij;
+	int* ij= (int*)calloc(2, sizeof(int));
 	for (int i = 0; i < real_nKids; i++) {
 
 		int* countN = (int*)calloc(inst->nnodes, sizeof(int));
 		for (int k = 0; k < inst->nedges; k++) {
 			if (ABcycles[i][k] >= 1.0) {
-				ij = invers_xpos(k, inst);
+				ij = invers_xpos(ij, k, inst);
 				countN[ij[0]]++;
 				countN[ij[1]]++;
-				free(ij);
 			}
 		}
 		int effective = 0;
@@ -2987,6 +2985,7 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 		}
 
 	}
+	free(ij);
 
 	int avoid = 0;
 	for (int i = 0, temp_i = 0; i < i_eff; i++, temp_i++) {
@@ -3072,15 +3071,16 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 
 
 		// Patching
+		int* ij= (int*)calloc(2, sizeof(int));
 		for (int j = 0; j < inst->nedges; j++) {
 			if (y[j] != 0.0 && inst->verbose >= 1000) {
-				int *ij = invers_xpos(j, inst);
+				ij = invers_xpos(ij, j, inst);
 				printf("%d <- %d, %d\n", j, ij[0], ij[1]);
-				free(ij);
 			}
 
 			inst->best_sol[j] = y[j];
 		}
+		free(ij);
 
 		if (countN != 0) {
 			if (inst->verbose >= 1) printf("*********************** Cycle y, before patching, created uncorrecty!! (row 3003) ***********************");
@@ -3100,17 +3100,18 @@ int EAX_Single(tspinstance* inst, double** population, double** kids, int pA, in
 
 			kids[temp_i] = (double*)calloc(inst->nedges, sizeof(double));
 
+			int* ij= (int*)calloc(2, sizeof(int));
 			for (int j = 0; j < inst->nedges; j++) {
 				if (inst->best_sol[j] != 0.0 && inst->verbose >= 1000){
-					int *ij = invers_xpos(j, inst);
+					ij = invers_xpos(ij, j, inst);
 					printf("%d <- %d, %d\n", j, ij[0], ij[1]);
-					free(ij);
 				}
 				if (inst->best_sol[j] == 2.0)
 					kids[temp_i][j] = 1.0;
 				else
 					kids[temp_i][j] = inst->best_sol[j];
 			}
+			free(ij);
 
 			//plot_single(inst, kids[i]);
 		}
@@ -3317,9 +3318,9 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 				tourFound = 0;
 
 				int* countN = (int*)calloc(inst->nnodes, sizeof(int));
-				int *ij;
+				int* ij= (int*)calloc(2, sizeof(int));
 				for (int k = 0; k < inst->nedges; k++) {
-					ij = invers_xpos(k, inst);
+					ij = invers_xpos(ij, k, inst);
 					if (traced_AB[k] == 1.0) {
 						countN[ij[0]]++;
 						countN[ij[1]]++;
@@ -3327,8 +3328,8 @@ void extract_ABcycles(tspinstance* inst, double** population, int pA, int pB, do
 						countN[ij[0]] += 2;
 						countN[ij[1]] += 2;
 					}
-					free(ij);
 				}
+				free(ij);
 
 				if (inst->verbose >= 10000) {
 					printf("\ni:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", w);
@@ -3532,21 +3533,21 @@ int build_sol_ga(tspinstance* inst, const double* sol, int* succ, int* prev, int
 
 		int* i = (int*)calloc(inst->nnodes, sizeof(int));
 		int* j = (int*)calloc(inst->nnodes, sizeof(int));
-		int *ij;
+		int* ij= (int*)calloc(2, sizeof(int));
 		int t = 0;
 
 		for (int e = 0; e < inst->nedges; e++) {
 
 			if (sol[e] == 1.0) {
-				ij = invers_xpos(e, inst);
+				ij = invers_xpos(ij, e, inst);
 				i[t] = ij[0];
 				j[t] = ij[1];
 				if (inst->verbose > 1000)
 					printf("%d <- [%d, %d]\n", e, i[t], j[t]);
 				t++;
-				free(ij);
 			}
 		}
+		free(ij);
 
 		if (inst->verbose >= 10000) {
 			printf("\ni:   "); for (int w = 0; w < inst->nnodes; w++) printf("%6d", i[w]);
@@ -3625,21 +3626,20 @@ void evaluate_traced_ABcycle(tspinstance* inst, double* traced_AB, double** ABcy
 		j[k] = -1;
 		tour[k] = -1;
 	}
-	int *ij;
+	int* ij= (int*)calloc(2, sizeof(int));
 	for (int e = 0, t = 0; e < inst->nedges; e++) {
 		if (traced_AB[e] == 1.0) {
-			ij = invers_xpos(e, inst);
+			ij = invers_xpos(ij, e, inst);
 			i[t] = ij[0];
 			j[t] = ij[1];
 			if (inst->verbose > 100)
 				printf("%d <- [%d, %d]\n", e, i[t], j[t]);
 			t++;
-			free(ij);
 		}
 		else if (traced_AB[e] == 2.0) {
 
 
-			ij = invers_xpos(e, inst);
+			ij = invers_xpos(ij, e, inst);
 			i[t] = ij[0];
 			j[t] = ij[1];
 			if (inst->verbose > 100)
@@ -3651,9 +3651,9 @@ void evaluate_traced_ABcycle(tspinstance* inst, double* traced_AB, double** ABcy
 			if (inst->verbose > 100)
 				printf("%d <- [%d, %d]\n", e, i[t], j[t]);
 			t++;
-			free(ij);
 		}
 	}
+	free(ij);
 
 	if (inst->verbose > 100) {
 		printf("\ni:   "); for (int w = 0; w < inst->nnodes * 2; w++) printf("%2d ", i[w]);
@@ -4204,20 +4204,20 @@ void update_frequency_table(tspinstance* inst, int* frequencyTable, double* pA, 
 }
 double calc_L(tspinstance* inst, double** population, int nPop) {
 	double L = 0.0;
+	int* ij= (int*)calloc(2, sizeof(int));
 	for (int k = 0; k < nPop; k++) {
 
 		double indiv_cost = 0.0;
-		int* ij;
 		for (int w = 0; w < inst->nedges; w++) {
 			if (population[k][w] == 1.0) {
-				ij = invers_xpos(w, inst);
+				ij = invers_xpos(ij, w, inst);
 				indiv_cost += dist(ij[0], ij[1], inst);
-				free(ij);
 			}
 		}
 		L += indiv_cost;
 
 	}
+	free(ij);
 	L = L / nPop;
 	return L;
 }
